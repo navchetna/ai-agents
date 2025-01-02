@@ -132,7 +132,7 @@ export default function ChatArea({ conversationId, onTogglePDFViewer, isPDFViewe
         const dummyResponse: Message = {
           id: Date.now().toString(),
           role: 'assistant',
-          content: `This is a dummy response from the AI assistant in the ${selectedContext} context. In a real application, this would be replaced with an actual response from the AI model.`,
+          content: `This is a dummy response from the AI assistant in the ${selectedContext} context.`,
           references: ['Source 1: Example Document', 'Source 2: Another Reference'],
         }
         setConversations(prev => ({

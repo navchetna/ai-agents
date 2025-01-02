@@ -9,7 +9,6 @@ import RightSidebar from "@/components/RightSidebar";
 import ChatArea from "@/components/ChatArea";
 import StatusBar from "@/components/StatusBar";
 
-// Mock user data (replace with actual user data in a real application)
 const mockUser = {
   name: "John Doe",
   email: "john.doe@example.com",
@@ -45,7 +44,6 @@ export default function Home() {
       setLatency(elapsedTime * 1000); // Convert to milliseconds
 
       // This is a placeholder logic for response metrics.
-      // In a real application, you'd want to implement actual logic to determine good, bad, and ok responses.
       setResponseMetrics((prevMetrics) => ({
         good: prevMetrics.good + 1,
         bad: prevMetrics.bad,
