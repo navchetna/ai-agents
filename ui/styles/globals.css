@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 255, 255, 240;
+  --background-end-rgb: 255, 255, 224;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+  font-family: 'Aptos', sans-serif;
+}
+
+/* Ensure Aptos font is used for all text elements */
+h1, h2, h3, h4, h5, h6, p, span, div, button, input, textarea {
+  font-family: 'Aptos', sans-serif;
+}
+
