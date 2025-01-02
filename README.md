@@ -19,3 +19,6 @@ make build-ui;
 ```
 make ui;
 ```
+
+> Note
+> Please make sure to use WSL/Linux environment for running above

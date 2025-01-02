@@ -41,7 +41,7 @@ export default function Home() {
       const elapsedTime = (currentTime - startTime) / 1000; // Convert to seconds
 
       setTokensPerSecond(tokenCount / elapsedTime);
-      setLatency(elapsedTime * 1000); // Convert to milliseconds
+      setLatency(elapsedTime * 1000); // Convert to ms
 
       // This is a placeholder logic for response metrics.
       setResponseMetrics((prevMetrics) => ({
