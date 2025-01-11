@@ -1,0 +1,235 @@
+{
+  "table_of_contents": [
+    {
+      "title": "UniMERNet: A Universal Network for\nReal-World Mathematical Expression Recognition",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          151.84167623519897,
+          97.873046875
+        ],
+        [
+          460.14453125,
+          97.873046875
+        ],
+        [
+          460.14453125,
+          128.16021728515625
+        ],
+        [
+          150.64636373519897,
+          128.16021728515625
+        ]
+      ]
+    },
+    {
+      "title": "Abstract",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          154.7150421142578,
+          218.31646728515625
+        ],
+        [
+          191.78587341308594,
+          218.31646728515625
+        ],
+        [
+          191.78587341308594,
+          228.279052734375
+        ],
+        [
+          154.7150421142578,
+          228.279052734375
+        ]
+      ]
+    },
+    {
+      "title": "Introduction",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          140.32063364982605,
+          494.45233154296875
+        ],
+        [
+          205.69093322753906,
+          494.45233154296875
+        ],
+        [
+          205.69093322753906,
+          506.40753173828125
+        ],
+        [
+          140.32063364982605,
+          506.40753173828125
+        ]
+      ]
+    },
+    {
+      "title": "Related Work",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          137.6719970703125,
+          623.2966156005859
+        ],
+        [
+          208.97333121299744,
+          623.2966156005859
+        ],
+        [
+          208.97333121299744,
+          635.2518157958984
+        ],
+        [
+          137.6719970703125,
+          635.2518157958984
+        ]
+      ]
+    },
+    {
+      "title": "Traditional Machine Learning Methods in MER",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          54.0,
+          638.9705200195312
+        ],
+        [
+          279.2303330898285,
+          638.9327344894409
+        ],
+        [
+          279.2303330898285,
+          649.8796081542969
+        ],
+        [
+          54.0,
+          649.9255170822144
+        ]
+      ]
+    },
+    {
+      "title": "Deep Learning and Transformer Methods in MER",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          318.1625089645386,
+          186.2689208984375
+        ],
+        [
+          554.6129150390625,
+          186.2689208984375
+        ],
+        [
+          554.6129150390625,
+          197.177978515625
+        ],
+        [
+          318.1625089645386,
+          197.1940015554428
+        ]
+      ]
+    }
+  ],
+  "page_stats": [
+    {
+      "page_id": 0,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          198
+        ],
+        [
+          "Line",
+          85
+        ],
+        [
+          "Text",
+          7
+        ],
+        [
+          "SectionHeader",
+          3
+        ],
+        [
+          "Footnote",
+          2
+        ],
+        [
+          "Figure",
+          1
+        ],
+        [
+          "Caption",
+          1
+        ],
+        [
+          "PageHeader",
+          1
+        ],
+        [
+          "FigureGroup",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 1,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          308
+        ],
+        [
+          "Line",
+          116
+        ],
+        [
+          "Text",
+          7
+        ],
+        [
+          "ListItem",
+          3
+        ],
+        [
+          "SectionHeader",
+          3
+        ],
+        [
+          "Footnote",
+          1
+        ],
+        [
+          "TextInlineMath",
+          1
+        ],
+        [
+          "ListGroup",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    }
+  ],
+  "debug_data_path": "debug_data/UniMERNet-1-2"
+}

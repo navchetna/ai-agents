@@ -1,0 +1,301 @@
+{
+  "table_of_contents": [
+    {
+      "title": "Denoising Diffusion Probabilistic Models",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          155.74598693847656,
+          99.8338623046875
+        ],
+        [
+          457.0588574409485,
+          99.8338623046875
+        ],
+        [
+          456.258056640625,
+          117.04925537109375
+        ],
+        [
+          155.74598693847656,
+          117.04925537109375
+        ]
+      ]
+    },
+    {
+      "title": "Abstract",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          283.6210491657257,
+          222.63116455078125
+        ],
+        [
+          328.2432861328125,
+          222.63116455078125
+        ],
+        [
+          328.2432861328125,
+          234.58636474609375
+        ],
+        [
+          283.6210491657257,
+          234.58636474609375
+        ]
+      ]
+    },
+    {
+      "title": "1 Introduction",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          107.85596001148224,
+          379.0721435546875
+        ],
+        [
+          191.39888513088226,
+          379.0721435546875
+        ],
+        [
+          191.39888513088226,
+          391.02734375
+        ],
+        [
+          107.85596001148224,
+          391.02734375
+        ]
+      ]
+    },
+    {
+      "title": "2 Background",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          107.58450865745544,
+          419.6181640625
+        ],
+        [
+          189.69100141525269,
+          419.6181640625
+        ],
+        [
+          189.69100141525269,
+          431.5733642578125
+        ],
+        [
+          107.58450865745544,
+          431.5733642578125
+        ]
+      ]
+    },
+    {
+      "title": "3 Diffusion models and denoising autoencoders",
+      "heading_level": null,
+      "page_id": 2,
+      "polygon": [
+        [
+          106.8927755355835,
+          266.5301513671875
+        ],
+        [
+          356.4290771484375,
+          266.5301513671875
+        ],
+        [
+          356.4290771484375,
+          278.4853515625
+        ],
+        [
+          106.8927755355835,
+          278.4853515625
+        ]
+      ]
+    },
+    {
+      "title": "3.1 Forward process and LT",
+      "heading_level": null,
+      "page_id": 2,
+      "polygon": [
+        [
+          107.00814646482468,
+          380.28851318359375
+        ],
+        [
+          236.2062327861786,
+          380.28851318359375
+        ],
+        [
+          236.2062327861786,
+          391.17242431640625
+        ],
+        [
+          107.00814646482468,
+          391.17242431640625
+        ]
+      ]
+    },
+    {
+      "title": "3.2 Reverse process and L1:T \u22121",
+      "heading_level": null,
+      "page_id": 2,
+      "polygon": [
+        [
+          106.90025353431702,
+          446.1404724121094
+        ],
+        [
+          247.7830810546875,
+          446.1404724121094
+        ],
+        [
+          247.7830810546875,
+          459.1089172363281
+        ],
+        [
+          106.90025353431702,
+          459.1089172363281
+        ]
+      ]
+    }
+  ],
+  "page_stats": [
+    {
+      "page_id": 0,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          92
+        ],
+        [
+          "Line",
+          30
+        ],
+        [
+          "Text",
+          6
+        ],
+        [
+          "SectionHeader",
+          3
+        ],
+        [
+          "Picture",
+          1
+        ],
+        [
+          "Caption",
+          1
+        ],
+        [
+          "PageHeader",
+          1
+        ],
+        [
+          "PictureGroup",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 1,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          584
+        ],
+        [
+          "Line",
+          80
+        ],
+        [
+          "Text",
+          4
+        ],
+        [
+          "Equation",
+          4
+        ],
+        [
+          "TextInlineMath",
+          3
+        ],
+        [
+          "Figure",
+          1
+        ],
+        [
+          "Caption",
+          1
+        ],
+        [
+          "SectionHeader",
+          1
+        ],
+        [
+          "PageFooter",
+          1
+        ],
+        [
+          "FigureGroup",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 2,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          881
+        ],
+        [
+          "Line",
+          158
+        ],
+        [
+          "Equation",
+          6
+        ],
+        [
+          "Text",
+          4
+        ],
+        [
+          "TextInlineMath",
+          4
+        ],
+        [
+          "SectionHeader",
+          3
+        ],
+        [
+          "PageFooter",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    }
+  ],
+  "debug_data_path": "debug_data/DDPM-1-3"
+}
