@@ -1,6 +1,6 @@
 # Approach
 
-1. Use the library `pdf2markdown` to convert the PDF file into a Markdown file.
+1. Use the package `marker-pdf` to convert the PDF file into a Markdown file.
 
 2. Use the library `pdfminer` to create a Table of Contents.
 
