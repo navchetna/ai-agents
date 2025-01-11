@@ -13,7 +13,7 @@
      - If the line is not a heading:
        - Append the line to the contents of the current node.
 
-5. The output of the program is a dictionary of the format:
+5. The output of the program is stored in `output.txt` and is a dictionary of the format:
 ```python
 {
     'node heading': {
