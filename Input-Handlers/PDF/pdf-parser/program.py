@@ -7,7 +7,7 @@ if len(sys.argv) != 2:
 
 file = "PDFs/" + sys.argv[1]
 
-tree_parser = TreeParser("PDFs/DDPM-1-3.pdf")
+tree_parser = TreeParser(file)
 tree_parser.generate_tree()
 tree_parser.generate_output_json()
 tree_parser.generate_output_text()
