@@ -18,8 +18,9 @@ from langchain_text_splitters import HTMLHeaderTextSplitter
 from redis.commands.search.field import TextField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 
-from comps import CustomLogger, DocPath, opea_microservices, register_microservice
-from comps.dataprep.src.utils import (
+from logger import CustomLogger
+from utils import DocPath, opea_microservices
+from utils import (
     create_upload_folder,
     document_loader,
     encode_filename,
@@ -29,6 +30,7 @@ from comps.dataprep.src.utils import (
     parse_html_new,
     remove_folder_with_ignore,
     save_content_to_local_disk,
+    register_microservice
 )
 
 logger = CustomLogger("prepare_doc_redis")
@@ -220,7 +222,7 @@ def ingest_data_to_redis(doc_path: DocPath):
     return ingest_chunks_to_redis(file_name, chunks)
 
 
-@register_microservice(name="opea_service@prepare_doc_redis", endpoint="/v1/dataprep", host="0.0.0.0", port=6007)
+@register_microservice(name="opea_service@prepare_doc_redis", endpoint="/v1/dataprep", host="0.0.0.0", port=5007)
 async def ingest_documents(
     files: Optional[Union[UploadFile, List[UploadFile]]] = File(None),
     link_list: Optional[str] = Form(None),
@@ -344,7 +346,7 @@ async def ingest_documents(
 
 
 @register_microservice(
-    name="opea_service@prepare_doc_redis", endpoint="/v1/dataprep/get_file", host="0.0.0.0", port=6007
+    name="opea_service@prepare_doc_redis", endpoint="/v1/dataprep/get_file", host="0.0.0.0", port=5007
 )
 async def rag_get_file_structure():
     if logflag:
@@ -378,7 +380,7 @@ async def rag_get_file_structure():
 
 
 @register_microservice(
-    name="opea_service@prepare_doc_redis", endpoint="/v1/dataprep/delete_file", host="0.0.0.0", port=6007
+    name="opea_service@prepare_doc_redis", endpoint="/v1/dataprep/delete_file", host="0.0.0.0", port=5007
 )
 async def delete_single_file(file_path: str = Body(..., embed=True)):
     """Delete file according to `file_path`.
