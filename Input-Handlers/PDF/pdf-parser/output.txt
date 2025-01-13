@@ -1,83 +1,47 @@
 root
 Jonathan Ho UC Berkeley jonathanho@berkeley.edu
-
 Ajay Jain UC Berkeley ajayj@berkeley.edu
-
 Pieter Abbeel UC Berkeley pabbeel@cs.berkeley.edu
-
-
 We present high quality image synthesis results using diffusion probabilistic models, a class of latent variable models inspired by considerations from nonequilibrium thermodynamics. Our best results are obtained by training on a weighted variational bound designed according to a novel connection between diffusion probabilistic models and denoising score matching with Langevin dynamics, and our models naturally admit a progressive lossy decompression scheme that can be interpreted as a generalization of autoregressive decoding. On the unconditional CIFAR10 dataset, we obtain an Inception score of 9.46 and a state-of-the-art FID score of 3.17. On 256x256 LSUN, we obtain sample quality similar to ProgressiveGAN. Our implementation is available at https://github.com/hojonathanho/diffusion.
-
 
 1 Introduction
 Deep generative models of all kinds have recently exhibited high quality samples in a wide variety of data modalities. Generative adversarial networks (GANs), autoregressive models, flows, and variational autoencoders (VAEs) have synthesized striking image and audio samples [14, 27, 3, 58, 38, 25, 10, 32, 44, 57, 26, 33, 45], and there have been remarkable advances in energy-based modeling and score matching that have produced images comparable to those of GANs [11, 55].
-
 ![](_page_0_Picture_8.jpeg)
-
 Figure 1: Generated samples on CelebA-HQ 256 × 256 (left) and unconditional CIFAR10 (right)
-
 34th Conference on Neural Information Processing Systems (NeurIPS 2020), Vancouver, Canada.
-
 ![](_page_1_Figure_0.jpeg)
-
 Figure 2: The directed graphical model considered in this work.
-
 This paper presents progress in diffusion probabilistic models [53]. A diffusion probabilistic model (which we will call a "diffusion model" for brevity) is a parameterized Markov chain trained using variational inference to produce samples matching the data after finite time. Transitions of this chain are learned to reverse a diffusion process, which is a Markov chain that gradually adds noise to the data in the opposite direction of sampling until signal is destroyed. When the diffusion consists of small amounts of Gaussian noise, it is sufficient to set the sampling chain transitions to conditional Gaussians too, allowing for a particularly simple neural network parameterization.
-
 Diffusion models are straightforward to define and efficient to train, but to the best of our knowledge, there has been no demonstration that they are capable of generating high quality samples. We show that diffusion models actually are capable of generating high quality samples, sometimes better than the published results on other types of generative models (Section 4). In addition, we show that a certain parameterization of diffusion models reveals an equivalence with denoising score matching over multiple noise levels during training and with annealed Langevin dynamics during sampling (Section 3.2) [55, 61]. We obtained our best sample quality results using this parameterization (Section 4.2), so we consider this equivalence to be one of our primary contributions.
-
 Despite their sample quality, our models do not have competitive log likelihoods compared to other likelihood-based models (our models do, however, have log likelihoods better than the large estimates annealed importance sampling has been reported to produce for energy based models and score matching [11, 55]). We find that the majority of our models' lossless codelengths are consumed to describe imperceptible image details (Section 4.3). We present a more refined analysis of this phenomenon in the language of lossy compression, and we show that the sampling procedure of diffusion models is a type of progressive decoding that resembles autoregressive decoding along a bit ordering that vastly generalizes what is normally possible with autoregressive models.
-
 
 2 Background
 Diffusion models [53] are latent variable models of the form pθ(x0) := R pθ(x0:T ) dx1:T , where x1, . . . , xT are latents of the same dimensionality as the data x0 ∼ q(x0). The joint distribution pθ(x0:T ) is called the *reverse process*, and it is defined as a Markov chain with learned Gaussian transitions starting at p(xT ) = N (xT ; 0, I):
-
 $$p_{\theta}(\mathbf{x}_{0:T}):=p(\mathbf{x}_{T})\prod_{t=1}^{T}p_{\theta}(\mathbf{x}_{t-1}|\mathbf{x}_{t}),\qquad p_{\theta}(\mathbf{x}_{t-1}|\mathbf{x}_{t}):=\mathcal{N}(\mathbf{x}_{t-1};\boldsymbol{\mu}_{\theta}(\mathbf{x}_{t},t),\boldsymbol{\Sigma}_{\theta}(\mathbf{x}_{t},t))\tag{1}$$
-
 What distinguishes diffusion models from other types of latent variable models is that the approximate posterior q(x1:T |x0), called the *forward process* or *diffusion process*, is fixed to a Markov chain that gradually adds Gaussian noise to the data according to a variance schedule β1, . . . , βT :
-
 $$q(\mathbf{x}_{1:T}|\mathbf{x}_{0}):=\prod_{t=1}^{T}q(\mathbf{x}_{t}|\mathbf{x}_{t-1}),\qquad q(\mathbf{x}_{t}|\mathbf{x}_{t-1}):=\mathcal{N}(\mathbf{x}_{t};\sqrt{1-\beta_{t}}\mathbf{x}_{t-1},\beta_{t}\mathbf{I})\tag{2}$$
-
 Training is performed by optimizing the usual variational bound on negative log likelihood:
-
 $$\mathbb{E}\left[-\log p_{\theta}(\mathbf{x}_{0})\right]\leq\mathbb{E}_{q}\left[-\log\frac{p_{\theta}(\mathbf{x}_{0:T})}{q(\mathbf{x}_{1:T}|\mathbf{x}_{0})}\right]=\mathbb{E}_{q}\left[-\log p(\mathbf{x}_{T})-\sum_{t\geq1}\log\frac{p_{\theta}(\mathbf{x}_{t-1}|\mathbf{x}_{t})}{q(\mathbf{x}_{t}|\mathbf{x}_{t-1})}\right]=:L\tag{3}$$
-
 The forward process variances βt can be learned by reparameterization [33] or held constant as hyperparameters, and expressiveness of the reverse process is ensured in part by the choice of Gaussian conditionals in pθ(xt−1|xt), because both processes have the same functional form when βt are small [53]. A notable property of the forward process is that it admits sampling xt at an arbitrary timestep t in closed form: using the notation αt := 1 − βt and α¯t := Qt s=1 αs, we have
-
 $$q({\bf x}_{t}|{\bf x}_{0})={\cal N}({\bf x}_{t};\sqrt{\alpha_{t}}{\bf x}_{0},(1-\bar{\alpha}_{t}){\bf I})\tag{4}$$
-
 Efficient training is therefore possible by optimizing random terms of L with stochastic gradient descent. Further improvements come from variance reduction by rewriting L (3) as:
-
 $$\mathbb{E}_{q}\left[\underbrace{D_{\text{KL}}(q(\mathbf{x}_{T}|\mathbf{x}_{0})\parallel p(\mathbf{x}_{T}))}_{L_{T}}+\sum_{t>1}D_{\text{KL}}(q(\mathbf{x}_{t-1}|\mathbf{x}_{t},\mathbf{x}_{0})\parallel p_{\theta}(\mathbf{x}_{t-1}|\mathbf{x}_{t}))\underbrace{-\log p_{\theta}(\mathbf{x}_{0}|\mathbf{x}_{1})}_{L_{t-1}}\right]\tag{5}$$
-
 (See Appendix A for details. The labels on the terms are used in Section 3.) Equation (5) uses KL divergence to directly compare pθ(xt−1|xt) against forward process posteriors, which are tractable when conditioned on x0:
-
 $$q({\bf x}_{t-1}|{\bf x}_{t},{\bf x}_{0})={\cal N}({\bf x}_{t-1};\,\tilde{\mu}_{t}({\bf x}_{t},{\bf x}_{0}),\tilde{\beta}_{t}{\bf I}),\tag{6}$$
-
 where $\tilde{\mu}_{t}(\mathbf{x}_{t},\mathbf{x}_{0}):=\frac{\sqrt{\alpha_{t-1}}\beta_{t}}{1-\tilde{\alpha}_{t}}\mathbf{x}_{0}+\frac{\sqrt{\alpha_{t}}(1-\tilde{\alpha}_{t-1})}{1-\tilde{\alpha}_{t}}\mathbf{x}_{t}\quad\text{and}\quad\tilde{\beta}_{t}:=\frac{1-\tilde{\alpha}_{t-1}}{1-\tilde{\alpha}_{t}}\beta_{t}$ (7)
-
 Consequently, all KL divergences in Eq. (5) are comparisons between Gaussians, so they can be calculated in a Rao-Blackwellized fashion with closed form expressions instead of high variance Monte Carlo estimates.
-
 
 3 Diffusion models and denoising autoencoders
 Diffusion models might appear to be a restricted class of latent variable models, but they allow a large number of degrees of freedom in implementation. One must choose the variances βt of the forward process and the model architecture and Gaussian distribution parameterization of the reverse process. To guide our choices, we establish a new explicit connection between diffusion models and denoising score matching (Section 3.2) that leads to a simplified, weighted variational bound objective for diffusion models (Section 3.4). Ultimately, our model design is justified by simplicity and empirical results (Section 4). Our discussion is categorized by the terms of Eq. (5).
 
-
 3.1 Forward process and LT
 We ignore the fact that the forward process variances βt are learnable by reparameterization and instead fix them to constants (see Section 4 for details). Thus, in our implementation, the approximate posterior q has no learnable parameters, so LT is a constant during training and can be ignored.
 
-
 3.2 Reverse process and L1:T −1
 Now we discuss our choices in pθ(xt−1|xt) = N (xt−1; µθ (xt, t), Σθ(xt, t)) for 1 < t ≤ T. First, we set Σθ(xt, t) = σ 2 t I to untrained time dependent constants. Experimentally, both σ 2 t = βt and σ 2 t = β˜ t = 1−α¯t−1 1−α¯t βt had similar results. The first choice is optimal for x0 ∼ N (0, I), and the second is optimal for x0 deterministically set to one point. These are the two extreme choices corresponding to upper and lower bounds on reverse process entropy for data with coordinatewise unit variance [53].
-
 Second, to represent the mean µθ (xt, t), we propose a specific parameterization motivated by the following analysis of Lt. With pθ(xt−1|xt) = N (xt−1; µθ (xt, t), σ2 t I), we can write:
-
 $$L_{t-1}=\mathbb{E}_{q}\left[\frac{1}{2\sigma_{t}^{2}}\|\hat{\mathbf{\mu}}_{t}(\mathbf{x}_{t},\mathbf{x}_{0})-\mathbf{\mu}_{\theta}(\mathbf{x}_{t},t)\|^{2}\right]+C\tag{8}$$
-
 where C is a constant that does not depend on θ. So, we see that the most straightforward parameterization of µθ is a model that predicts µ˜t , the forward process posterior mean. However, we can expand Eq. (8) further by reparameterizing Eq. (4) as xt(x0, ) = √ α¯tx0 + √ 1 − α¯t for ∼ N (0, I) and applying the forward process posterior formula (7):
-
 $$L_{t-1}-C=\mathbb{E}_{\alpha_{0},\epsilon}\left[\frac{1}{2\sigma_{t}^{2}}\left\|\hat{\mu}_{t}\bigg{(}\mathbf{x}_{t}(\mathbf{x}_{0},\epsilon),\frac{1}{\sqrt{\alpha_{t}}}(\mathbf{x}_{t}(\mathbf{x}_{0},\epsilon)-\sqrt{1-\alpha_{t}}\epsilon)\bigg{)}-\mu_{g}(\mathbf{x}_{t}(\mathbf{x}_{0},\epsilon),t)\right\|^{2}\right]\tag{9}$$
-
 $$=\mathbb{E}_{\mathbf{x}_{0},\epsilon}\left[\frac{1}{2\sigma_{t}^{2}}\left\|\frac{1}{\sqrt{\alpha_{t}}}\left(\mathbf{x}_{t}(\mathbf{x}_{0},\epsilon)-\frac{\beta_{t}}{\sqrt{1-\alpha_{t}}}\epsilon\right)-\boldsymbol{\mu}_{\theta}(\mathbf{x}_{t}(\mathbf{x}_{0},\epsilon),t)\right\|^{2}\right]\tag{10}$$
-
 

@@ -43,7 +43,7 @@ class Node:
     
     def output_node_info(self):
         with open("output.txt", "a") as f:
-            f.write(self.__heading)
+            f.write(self.__heading + "\n")
             for line in self.__content:
                 f.write(line)
             f.write("\n")
@@ -95,6 +95,8 @@ class TreeParser:
 
         with open('outputs/' + self.__filename + "/" + self.__filename + '.md', 'r') as markdown_file:
             for line in markdown_file:
+                if line == "\n":
+                    continue
                 if bool(re.match(r'^#+', line)):
                     _, heading = line.split(" ", 1)
                     level, heading_toc, _, _, _ = toc_line.split(";")
