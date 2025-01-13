@@ -60,8 +60,14 @@ pip install -r requirements.txt
 
 ## Run the program
 ```bash
-python3 program.py
+python3 program.py filename.pdf
 ```
+---
+**NOTE**
 
-> Note:
-> Please make sure to use WSL/Linux environment for running above
+1. `filename.pdf` should be present in `PDFs` folder
+
+2. Please make sure to use WSL/Linux environment for running above
+
+---
+
