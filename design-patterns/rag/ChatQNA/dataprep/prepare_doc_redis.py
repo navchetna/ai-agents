@@ -197,6 +197,7 @@ def ingest_data_to_redis(doc_path: DocPath):
         logger.info("[ ingest data ] file content loaded")
 
     ## TODO: call our custom pdf parser
+    ## content
 
     structured_types = [".xlsx", ".csv", ".json", "jsonl"]
     _, ext = os.path.splitext(path)
@@ -215,6 +216,7 @@ def ingest_data_to_redis(doc_path: DocPath):
         logger.info(f"[ ingest data ] Done preprocessing. Created {len(chunks)} chunks of the given file.")
 
     file_name = doc_path.path.split("/")[-1]
+    print(chunks)
     return ingest_chunks_to_redis(file_name, chunks)
 
 
