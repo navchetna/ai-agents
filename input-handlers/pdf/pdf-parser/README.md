@@ -65,7 +65,7 @@ python3 program.py filename.pdf
 ---
 **NOTE**
 
-1. `filename.pdf` should be present in `PDFs` folder
+1. `filename.pdf` should be present in `pdfs` folder
 
 2. Please make sure to use WSL/Linux environment for running above
 
