@@ -5,7 +5,7 @@ if len(sys.argv) != 2:
     print("Please enter PDF name")
     sys.exit()
 
-file = "PDFs/" + sys.argv[1]
+file = "pdfs/" + sys.argv[1]
 
 tree_parser = TreeParser(file)
 tree_parser.generate_tree()
