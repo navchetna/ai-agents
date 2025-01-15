@@ -53,7 +53,7 @@ class TreeParser:
         self.__rootNode = None
         self.__recentNodeDict = SortedDict()
         self.__file = file
-        self.__filename = file.split(".")[0].split("/")[1]
+        self.__filename = os.path.splitext(os.path.basename(file))[0]
         self.__data = {}
 
     def generate_markdown(self):
@@ -99,10 +99,12 @@ class TreeParser:
                     continue
                 if bool(re.match(r'^#+', line)):
                     _, heading = line.split(" ", 1)
+                    if not toc_line:
+                        continue
                     level, heading_toc, _, _, _ = toc_line.split(";")
                     heading = heading.strip()
 
-                    if heading_toc in heading:
+                    if heading_toc.lower() in heading.lower():
                         node = Node(level, heading)
                         if level > currNode.get_level():
                             currNode.append_child(node)
