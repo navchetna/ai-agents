@@ -4,6 +4,7 @@ from marker.output import output_exists, save_output
 from sortedcontainers import SortedDict
 from pdfminer.pdfparser import PDFParser, PDFSyntaxError
 from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
+from difflib import SequenceMatcher
 import sys
 import re
 import json 
