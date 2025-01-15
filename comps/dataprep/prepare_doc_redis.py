@@ -18,6 +18,9 @@ from langchain_text_splitters import HTMLHeaderTextSplitter
 from redis.commands.search.field import TextField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 
+import sys
+import os
+
 from logger import CustomLogger
 from utils import DocPath, opea_microservices
 from utils import (
@@ -32,6 +35,9 @@ from utils import (
     save_content_to_local_disk,
     register_microservice
 )
+
+from comps import TreeParser
+
 
 logger = CustomLogger("prepare_doc_redis")
 logflag = os.getenv("LOGFLAG", False)
@@ -200,6 +206,12 @@ def ingest_data_to_redis(doc_path: DocPath):
 
     ## TODO: call our custom pdf parser
     ## content
+
+    tree_parser = TreeParser(path)
+    tree_parser.generate_tree()
+    tree_parser.generate_output_json()
+    tree_parser.generate_output_text()
+    
 
     structured_types = [".xlsx", ".csv", ".json", "jsonl"]
     _, ext = os.path.splitext(path)
