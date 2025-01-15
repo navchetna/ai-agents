@@ -60,3 +60,43 @@ class SearchedDoc(BaseDoc):
 
 class SearchedMultimodalDoc(SearchedDoc):
     metadata: List[Dict[str, Any]]
+
+
+class LLMParams(BaseDoc):
+    model: Optional[str] = None
+    max_tokens: int = 1024
+    max_new_tokens: int = 1024
+    top_k: int = 10
+    top_p: float = 0.95
+    typical_p: float = 0.95
+    temperature: float = 0.01
+    frequency_penalty: float = 0.0
+    presence_penalty: float = 0.0
+    repetition_penalty: float = 1.03
+    stream: bool = True
+    language: str = "auto"  # can be "en", "zh"
+
+    chat_template: Optional[str] = Field(
+        default=None,
+        description=(
+            "A template to use for this conversion. "
+            "If this is not passed, the model's default chat template will be "
+            "used instead. We recommend that the template contains {context} and {question} for rag,"
+            "or only contains {question} for chat completion without rag."
+        ),
+    )
+
+class RerankerParms(BaseDoc):
+    top_n: int = 1
+
+
+class RetrieverParms(BaseDoc):
+    search_type: str = "similarity"
+    k: int = 4
+    distance_threshold: Optional[float] = None
+    fetch_k: int = 20
+    lambda_mult: float = 0.5
+    score_threshold: float = 0.2
+
+
+

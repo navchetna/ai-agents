@@ -39,3 +39,73 @@ def check_ports_availability(host: Union[str, List[str]], port: Union[int, List[
     ports = [port] if isinstance(port, int) else port
 
     return all(is_port_free(h, p) for h in hosts for p in ports)
+
+def handle_message(messages):
+    images = []
+    if isinstance(messages, str):
+        prompt = messages
+    else:
+        messages_dict = {}
+        system_prompt = ""
+        prompt = ""
+        for message in messages:
+            msg_role = message["role"]
+            if msg_role == "system":
+                system_prompt = message["content"]
+            elif msg_role == "user":
+                if type(message["content"]) == list:
+                    text = ""
+                    text_list = [item["text"] for item in message["content"] if item["type"] == "text"]
+                    text += "\n".join(text_list)
+                    image_list = [
+                        item["image_url"]["url"] for item in message["content"] if item["type"] == "image_url"
+                    ]
+                    if image_list:
+                        messages_dict[msg_role] = (text, image_list)
+                    else:
+                        messages_dict[msg_role] = text
+                else:
+                    messages_dict[msg_role] = message["content"]
+            elif msg_role == "assistant":
+                messages_dict[msg_role] = message["content"]
+            else:
+                raise ValueError(f"Unknown role: {msg_role}")
+
+        if system_prompt:
+            prompt = system_prompt + "\n"
+        for role, message in messages_dict.items():
+            if isinstance(message, tuple):
+                text, image_list = message
+                if text:
+                    prompt += role + ": " + text + "\n"
+                else:
+                    prompt += role + ":"
+                for img in image_list:
+                    # URL
+                    if img.startswith("http://") or img.startswith("https://"):
+                        response = requests.get(img)
+                        image = Image.open(BytesIO(response.content)).convert("RGBA")
+                        image_bytes = BytesIO()
+                        image.save(image_bytes, format="PNG")
+                        img_b64_str = base64.b64encode(image_bytes.getvalue()).decode()
+                    # Local Path
+                    elif os.path.exists(img):
+                        image = Image.open(img).convert("RGBA")
+                        image_bytes = BytesIO()
+                        image.save(image_bytes, format="PNG")
+                        img_b64_str = base64.b64encode(image_bytes.getvalue()).decode()
+                    # Bytes
+                    else:
+                        img_b64_str = img
+
+                    images.append(img_b64_str)
+            else:
+                if message:
+                    prompt += role + ": " + message + "\n"
+                else:
+                    prompt += role + ":"
+    if images:
+        return prompt, images
+    else:
+        return prompt
+
