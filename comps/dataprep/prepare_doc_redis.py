@@ -33,7 +33,8 @@ from utils import (
     save_content_to_local_disk,
 )
 
-from comps import TreeParser, CustomLogger, DocPath, opea_microservices, register_microservice
+from comps import CustomLogger, DocPath, opea_microservices, register_microservice
+from comps.parsers.treeparser import TreeParser
 
 
 logger = CustomLogger("prepare_doc_redis")
