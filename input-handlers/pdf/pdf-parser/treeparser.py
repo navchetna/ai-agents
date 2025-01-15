@@ -4,6 +4,7 @@ from marker.output import output_exists, save_output
 from sortedcontainers import SortedDict
 from pdfminer.pdfparser import PDFParser, PDFSyntaxError
 from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
+from difflib import SequenceMatcher
 import sys
 import re
 import json 
@@ -57,6 +58,8 @@ class TreeParser:
         self.__data = {}
 
     def generate_markdown(self):
+        if not os.path.isdir('outputs'):
+            os.mkdir("outputs")
         if not output_exists("outputs/" + self.__filename, self.__filename):
             converter = PdfConverter(
                 artifact_dict=create_model_dict(),
@@ -104,7 +107,7 @@ class TreeParser:
                     level, heading_toc, _, _, _ = toc_line.split(";")
                     heading = heading.strip()
 
-                    if heading_toc.lower() in heading.lower():
+                    if SequenceMatcher(None, heading, heading_toc).ratio() > 0.7:
                         node = Node(level, heading)
                         if level > currNode.get_level():
                             currNode.append_child(node)
