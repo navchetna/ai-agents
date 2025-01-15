@@ -5,10 +5,12 @@ import abc
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Dict, Optional
 
-from logger import CustomLogger
+from .logger import CustomLogger
 
 __all__ = ["BaseService"]
 
+# name => statistic dict
+statistics_dict = {}
 
 class BaseService:
     """BaseService creates an HTTP/gRPC server as a microservice."""
@@ -132,3 +134,23 @@ class BaseService:
         else:
             raise ValueError(f"Unsupported protocol: {protocol}")
         return res
+
+def register_statistics(
+    names,
+):
+    def decorator(func):
+        for name in names:
+            statistics_dict[name] = BaseStatistics()
+        return func
+
+    return decorator
+
+
+def collect_all_statistics():
+    results = {}
+    if statistics_dict:
+        for name, statistic in statistics_dict.items():
+            tmp_dict = statistic.calculate_statistics()
+            tmp_dict.update(statistic.calculate_first_token_statistics())
+            results.update({name: tmp_dict})
+    return results
