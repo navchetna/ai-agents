@@ -18,8 +18,9 @@ from langchain_text_splitters import HTMLHeaderTextSplitter
 from redis.commands.search.field import TextField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 
-from logger import CustomLogger
-from utils import DocPath, opea_microservices
+import sys
+import os
+
 from utils import (
     create_upload_folder,
     document_loader,
@@ -30,8 +31,11 @@ from utils import (
     parse_html_new,
     remove_folder_with_ignore,
     save_content_to_local_disk,
-    register_microservice
 )
+
+from comps import CustomLogger, DocPath, opea_microservices, register_microservice
+from comps.parsers.treeparser import TreeParser
+
 
 logger = CustomLogger("prepare_doc_redis")
 logflag = os.getenv("LOGFLAG", False)
@@ -194,15 +198,24 @@ def ingest_data_to_redis(doc_path: DocPath):
             separators=get_separators(),
         )
 
-    content = document_loader(path)
-    if logflag:
-        logger.info("[ ingest data ] file content loaded")
+
 
     ## TODO: call our custom pdf parser
     ## content
 
+    tree_parser = TreeParser(path)
+    tree_parser.generate_tree()
+    tree_parser.generate_output_text()
+
+    output_path = tree_parser.get_output_path()
+
+    content = document_loader(output_path)
+    if logflag:
+        logger.info("[ ingest data ] file content loaded")
+    
+
     structured_types = [".xlsx", ".csv", ".json", "jsonl"]
-    _, ext = os.path.splitext(path)
+    _, ext = os.path.splitext(output_path)
 
     if ext in structured_types:
         chunks = content
@@ -211,14 +224,14 @@ def ingest_data_to_redis(doc_path: DocPath):
 
     ### Specially processing for the table content in PDFs
     ## TODO: use our custom table parser
-    if doc_path.process_table and path.endswith(".pdf"):
-        table_chunks = get_tables_result(path, doc_path.table_strategy)
-        chunks = chunks + table_chunks
-    if logflag:
-        logger.info(f"[ ingest data ] Done preprocessing. Created {len(chunks)} chunks of the given file.")
+    # if doc_path.process_table and path.endswith(".pdf"):
+    #     table_chunks = get_tables_result(path, doc_path.table_strategy)
+    #     chunks = chunks + table_chunks
+    # if logflag:
+    #     logger.info(f"[ ingest data ] Done preprocessing. Created {len(chunks)} chunks of the given file.")
 
     file_name = doc_path.path.split("/")[-1]
-    print(chunks)
+    # print(chunks)
     return ingest_chunks_to_redis(file_name, chunks)
 
 

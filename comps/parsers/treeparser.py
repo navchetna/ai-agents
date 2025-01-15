@@ -9,45 +9,10 @@ import sys
 import re
 import json 
 import os
+from comps.parsers.node import Node
+from comps.core.utils import mkdirIfNotExists
 
-class Node:
-    def __init__(self, level, heading):
-        self.__level = level
-        self.__heading = heading
-        self.__parent = None
-        self.__content = []
-        self.__children = []
-
-    def get_level(self):
-        return self.__level
-    
-    def get_heading(self):
-        return self.__heading
-    
-    def get_content(self):
-        return self.__content
-    
-    def set_parent(self, node):
-        self.__parent = node
-
-    def append_child(self, node):
-        self.__children.append(node)
-
-    def append_content(self, line):
-        self.__content.append(line)
-
-    def get_length_children(self):
-        return len(self.__children)
-    
-    def get_child(self, pos):
-        return self.__children[pos]
-    
-    def output_node_info(self):
-        with open("output.txt", "a") as f:
-            f.write(self.__heading + "\n")
-            for line in self.__content:
-                f.write(line)
-            f.write("\n")
+OUTPUT_DIR = "out"
 
 class TreeParser:
     def __init__(self, file):
@@ -56,22 +21,21 @@ class TreeParser:
         self.__file = file
         self.__filename = os.path.splitext(os.path.basename(file))[0]
         self.__data = {}
+        mkdirIfNotExists(OUTPUT_DIR)
 
     def generate_markdown(self):
-        if not os.path.isdir('outputs'):
-            os.mkdir("outputs")
-        if not output_exists("outputs/" + self.__filename, self.__filename):
+        if not output_exists(os.path.join(OUTPUT_DIR, self.__filename), self.__filename):
             converter = PdfConverter(
                 artifact_dict=create_model_dict(),
             )
             rendered = converter(self.__file)
-            os.mkdir("outputs/" + self.__filename)
-            save_output(rendered, "outputs/" + self.__filename, self.__filename)
-            print("Output generated")
+            os.mkdir(os.path.join(OUTPUT_DIR, self.__filename))
+            save_output(rendered, os.path.join(OUTPUT_DIR, self.__filename), self.__filename)
+            print("Output generated") # TODO: please use logger
 
     def generate_toc(self):
 
-        file = open('toc.txt', 'w')
+        file = open(os.path.join(OUTPUT_DIR, self.__filename, 'toc.txt'), 'w')
         sys.stdout = file
 
         with open(self.__file, "rb") as fp:
@@ -82,21 +46,21 @@ class TreeParser:
                 for (level, title, dest, a, se) in outlines:
                     print(level, title, dest, a, se, sep=';')
             except PDFNoOutlines:
-                print("No outlines found.")
+                print("No outlines found.")  # TODO: please use logger
             except PDFSyntaxError:
-                print("Corrupted PDF or non-PDF file.")
+                print("Corrupted PDF or non-PDF file.")  # TODO: please use logger
             finally:
                 parser.close()
 
         file.close()
 
     def parse_markdown(self):
-        toc_file = open("toc.txt", "r")
+        toc_file = open(os.path.join(OUTPUT_DIR, self.__filename, "toc.txt"), "r")
         toc_line = toc_file.readline()
                 
         currNode = self.__rootNode
 
-        with open('outputs/' + self.__filename + "/" + self.__filename + '.md', 'r') as markdown_file:
+        with open(os.path.join(OUTPUT_DIR, self.__filename, self.__filename + ".md"), 'r') as markdown_file:
             for line in markdown_file:
                 if line == "\n":
                     continue
@@ -107,8 +71,8 @@ class TreeParser:
                     level, heading_toc, _, _, _ = toc_line.split(";")
                     heading = heading.strip()
 
-                    if SequenceMatcher(None, heading, heading_toc).ratio() > 0.7:
-                        node = Node(level, heading)
+                    if heading_toc.lower() in heading.lower():
+                        node = Node(level, heading, os.path.join(OUTPUT_DIR, self.__filename))
                         if level > currNode.get_level():
                             currNode.append_child(node)
                             node.set_parent(currNode)
@@ -139,7 +103,7 @@ class TreeParser:
 
         
     def generate_output_text(self):
-        with open("output.txt", "w") as f:
+        with open(os.path.join(OUTPUT_DIR, self.__filename, "output.txt"), "w") as f:
             f.write("")
         self.traverse_tree_text(self.__rootNode)
 
@@ -167,14 +131,17 @@ class TreeParser:
         if not self.__data:
             self.__data = self.traverse_tree_json(self.__rootNode)
 
-        with open("output.json", "w") as outfile: 
+        with open(os.path.join(OUTPUT_DIR, self.__filename, "output.json"), "w") as outfile: 
             json.dump(self.__data, outfile)
 
     def generate_tree(self):
         self.generate_markdown()
         self.generate_toc()
 
-        self.__rootNode = Node('0', "root")
+        self.__rootNode = Node('0', "root", os.path.join(OUTPUT_DIR, self.__filename))
         self.__recentNodeDict['0'] = self.__rootNode
 
         self.parse_markdown()
+    
+    def get_output_path(self):
+        return os.path.join(OUTPUT_DIR, self.__filename, "output.txt")

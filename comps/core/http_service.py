@@ -11,8 +11,8 @@ from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 from uvicorn import Config, Server
 
-from base_service import BaseService
-from base_statistics import collect_all_statistics
+from .base_service import BaseService
+from .base_statistics import collect_all_statistics
 
 
 class HTTPService(BaseService):
