@@ -9,10 +9,14 @@ import sys
 import re
 import json 
 import os
+from comps import CustomLogger
 from comps.parsers.node import Node
 from comps.core.utils import mkdirIfNotExists
 
 OUTPUT_DIR = "out"
+
+logger = CustomLogger("treeparser")
+logflag = os.getenv("LOGFLAG", False)
 
 class TreeParser:
     def __init__(self, file):
@@ -31,8 +35,82 @@ class TreeParser:
             rendered = converter(self.__file)
             os.mkdir(os.path.join(OUTPUT_DIR, self.__filename))
             save_output(rendered, os.path.join(OUTPUT_DIR, self.__filename), self.__filename)
-            print("Output generated") # TODO: please use logger
+            if logflag:
+                logger.info("Output generated")
 
+    def detect_level(self, headings):
+        level_pattern = re.compile(r'^\d+(\.\d+)*\.?\s')
+        for heading in headings:
+            if level_pattern.match(heading['title']):
+                return True
+        return False
+    
+    def generate_toc_using_level(self, headings):
+
+        file = open(os.path.join(OUTPUT_DIR, self.__filename, 'toc.txt'), 'w')
+        sys.stdout = file
+
+        level_pattern = re.compile(r'^\d+(\.\d+)*\.?\s')
+
+        for heading in headings:
+            if level_pattern.match(heading['title']):
+                heading_number, title = heading['title'].split(" ", 1)
+                level = heading_number.count(".") + 1
+                print(level, heading['title'], None, None, None, sep=';')
+
+        file.close()
+
+    def generate_toc_using_size(self, headings):
+
+        file = open(os.path.join(OUTPUT_DIR, self.__filename, 'toc.txt'), 'w')
+        sys.stdout = file
+
+        dictLevel = SortedDict()
+        list_headings = []
+
+        for heading in headings:
+            size = round(heading['polygon'][2][1] - heading['polygon'][0][1])
+            heading['title'] = heading['title'].replace("\n", " ")
+            idx = -1
+            prevLevel = 0
+            sizeLesserFound = False
+            for key in reversed(dictLevel):
+                if size == key or size - 1 == key:
+                    idx = key
+                    break
+                if size - 1 > key:
+                    prevLevel = dictLevel[key] - 1
+                    sizeLesserFound = True
+                    break
+                prevLevel = dictLevel[key]
+            if sizeLesserFound:
+                for key in reversed(dictLevel):
+                    if size - 1 > key:
+                        dictLevel[key] += 1
+                for i in list_headings:
+                    if size - 1 > i[0]:
+                        i[1] += 1
+            if idx == -1:
+                idx = size
+                dictLevel[size] = prevLevel + 1
+            lis = [idx, dictLevel[idx], heading['title']]
+            list_headings.append(lis)
+
+        for i in list_headings:
+            print(i[1], i[2], None, None, None, sep=';')
+
+        file.close()
+
+    def generate_toc_no_outline(self):
+        with open(os.path.join(OUTPUT_DIR, self.__filename, self.__filename + "_meta.json"), 'r') as file:
+            data = json.load(file)
+
+        headings = data['table_of_contents']
+        if self.detect_level(headings):
+            self.generate_toc_using_level(headings)
+        else:
+            self.generate_toc_using_size(headings)        
+    
     def generate_toc(self):
 
         file = open(os.path.join(OUTPUT_DIR, self.__filename, 'toc.txt'), 'w')
@@ -46,9 +124,10 @@ class TreeParser:
                 for (level, title, dest, a, se) in outlines:
                     print(level, title, dest, a, se, sep=';')
             except PDFNoOutlines:
-                print("No outlines found.")  # TODO: please use logger
+                self.generate_toc_no_outline()
             except PDFSyntaxError:
-                print("Corrupted PDF or non-PDF file.")  # TODO: please use logger
+                if logflag:
+                    logger.info("Corrupted PDF or non-PDF file.")
             finally:
                 parser.close()
 
@@ -100,7 +179,6 @@ class TreeParser:
 
         for i in range(total):
             self.traverse_tree_text(node.get_child(i))
-
         
     def generate_output_text(self):
         with open(os.path.join(OUTPUT_DIR, self.__filename, "output.txt"), "w") as f:
