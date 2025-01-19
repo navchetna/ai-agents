@@ -167,8 +167,29 @@ def align_outputs(self, data, cur_node, inputs, runtime_graph, llm_parameters_di
 
 
 def align_generator(self, gen, **kwargs):
-    # openai reaponse format
-    # b'data:{"id":"","object":"text_completion","created":1725530204,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.1-native","choices":[{"index":0,"delta":{"role":"assistant","content":"?"},"logprobs":null,"finish_reason":null}]}\n\n'
+    # store words in a buffer and concat them
+    buffer = ""
+    in_word = False
+    
+    def is_word_boundary(curr_char, next_char=None):
+        if curr_char == '.':
+            if (buffer and buffer[-1].isdigit() and 
+                next_char and next_char.isdigit()):
+                return False, True
+            if (buffer and buffer[-1].isupper() and 
+                next_char and next_char.isupper()):
+                return False, True
+                
+        if curr_char == '-':
+            if (buffer and buffer[-1].isalnum() and 
+                next_char and next_char.isalnum()):
+                return False, True
+                
+        if curr_char in ' \t\n.,!?;:()[]{}':
+            return True, False
+            
+        return False, True
+
     for line in gen:
         line = line.decode("utf-8")
         start = line.find("{")
@@ -176,15 +197,37 @@ def align_generator(self, gen, **kwargs):
 
         json_str = line[start:end]
         try:
-            # sometimes yield empty chunk, do a fallback here
             json_data = json.loads(json_str)
             if (
                 json_data["choices"][0]["finish_reason"] != "eos_token"
                 and "content" in json_data["choices"][0]["delta"]
             ):
-                yield f"data: {repr(json_data['choices'][0]['delta']['content'].encode('utf-8'))}\n\n"
+                new_content = json_data["choices"][0]["delta"]["content"]
+                
+                for i, char in enumerate(new_content):
+                    next_char = new_content[i + 1] if i + 1 < len(new_content) else None
+                    is_boundary, include_char = is_word_boundary(char, next_char)
+                    
+                    if include_char:
+                        buffer += char
+                        in_word = True
+                    
+                    if is_boundary and in_word:
+                        if buffer.strip():
+                            yield f"data: {repr((buffer + char).encode('utf-8'))}\n\n"
+                            buffer = ""
+                            in_word = False
+                    elif is_boundary:
+                        yield f"data: {repr(char.encode('utf-8'))}\n\n"
+                        
         except Exception as e:
+            if buffer:
+                yield f"data: {repr(buffer.encode('utf-8'))}\n\n"
+                buffer = ""
             yield f"data: {repr(json_str.encode('utf-8'))}\n\n"
+    
+    if buffer.strip():
+        yield f"data: {repr(buffer.encode('utf-8'))}\n\n"
     yield "data: [DONE]\n\n"
 
 
