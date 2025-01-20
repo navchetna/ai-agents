@@ -43,7 +43,7 @@ logflag = os.getenv("LOGFLAG", False)
 tei_embedding_endpoint = os.getenv("TEI_ENDPOINT")
 upload_folder = "./uploaded_files/"
 redis_pool = redis.ConnectionPool.from_url(REDIS_URL)
-
+tree_parser = TreeParser()
 
 def check_index_existance(client):
     if logflag:
@@ -202,9 +202,7 @@ def ingest_data_to_redis(doc_path: DocPath):
 
     ## TODO: call our custom pdf parser
     ## content
-
-    tree_parser = TreeParser(path)
-    tree_parser.generate_tree()
+    tree_parser.generate_tree(path)
     tree_parser.generate_output_text()
 
     output_path = tree_parser.get_output_path()
