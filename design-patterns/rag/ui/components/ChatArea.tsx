@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { TextField, IconButton, Paper, Typography, Tooltip, CircularProgress, ToggleButtonGroup, ToggleButton, Collapse, Select, MenuItem, FormControl, InputLabel, Box } from '@mui/material'
+import { SelectChangeEvent } from '@mui/material/Select'
 import SendIcon from '@mui/icons-material/Send'
 import ThumbUpIcon from '@mui/icons-material/ThumbUp'
 import ThumbDownIcon from '@mui/icons-material/ThumbDown'
@@ -55,30 +56,106 @@ export default function ChatArea({ conversationId, onTogglePDFViewer, isPDFViewe
     { name: 'Sample Document', url: 'https://example.com/sample.pdf' },
     { name: 'Another Document', url: 'https://example.com/another.pdf' },
   ])
+  const currentMessageId = useRef<string>('')
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value)
   }
 
-  const handleContextChange = (event: React.ChangeEvent<{ value: string }>) => {
-    setSelectedContext(event.target.value as string)
+  const handleContextChange = (event: SelectChangeEvent<string>) => {
+    setSelectedContext(event.target.value)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (input.trim()) {
-      const newMessage: Message = {
-        id: Date.now().toString(),
-        role: 'user',
-        content: input.trim(),
-        isPinned: false,
+  const processStream = async (reader: ReadableStreamDefaultReader<Uint8Array>) => {
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const text = new TextDecoder().decode(value)
+        const lines = text.split('\n')
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const content = line.slice(6).trim()
+            if (content === '[DONE]') continue
+
+            try {
+              const cleanContent = content.replace(/^b'|'$/g, '').replace(/\\'/g, "'")
+              
+              setConversations(prev => {
+                const currentConversation = prev[selectedContext] || []
+                const lastMessage = currentConversation[currentConversation.length - 1]
+
+                if (lastMessage && lastMessage.id === currentMessageId.current) {
+                  const updatedMessages = currentConversation.map(msg =>
+                    msg.id === currentMessageId.current
+                      ? { ...msg, content: msg.content + cleanContent }
+                      : msg
+                  )
+                  return { ...prev, [selectedContext]: updatedMessages }
+                } else {
+                  const newMessage: Message = {
+                    id: currentMessageId.current,
+                    role: 'assistant',
+                    content: cleanContent,
+                  }
+                  return {
+                    ...prev,
+                    [selectedContext]: [...currentConversation, newMessage]
+                  }
+                }
+              })
+            }
+            catch (e) {
+              console.error('Error processing stream chunk:', e)
+            }
+          }
+        }
       }
-      setConversations(prev => ({
-        ...prev,
-        [selectedContext]: [...(prev[selectedContext] || []), newMessage],
-      }))
-      setInput('')
-      setIsLoading(true)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!input.trim()) return
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: input.trim(),
+      isPinned: false,
+    }
+
+    setConversations(prev => ({
+      ...prev,
+      [selectedContext]: [...(prev[selectedContext] || []), userMessage],
+    }))
+    setInput('')
+    setIsLoading(true)
+
+    currentMessageId.current = (Date.now() + 1).toString()
+
+    try {
+      const response = await fetch('http://localhost:5008/v1/chatqna', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: input.trim()
+        })
+      })
+
+      if (!response.body) throw new Error('No response body')
+
+      const reader = response.body.getReader()
+      await processStream(reader)
+    } catch (error) {
+      console.error('Error:', error)
+      setIsLoading(false)
     }
   }
 
@@ -126,26 +203,6 @@ export default function ChatArea({ conversationId, onTogglePDFViewer, isPDFViewe
     setMessages(conversations[selectedContext] || [])
   }, [selectedContext, conversations])
 
-  useEffect(() => {
-    if (isLoading) {
-      const timer = setTimeout(() => {
-        const dummyResponse: Message = {
-          id: Date.now().toString(),
-          role: 'assistant',
-          content: `This is a dummy response from the AI assistant in the ${selectedContext} context.`,
-          references: ['Source 1: Example Document', 'Source 2: Another Reference'],
-        }
-        setConversations(prev => ({
-          ...prev,
-          [selectedContext]: [...(prev[selectedContext] || []), dummyResponse],
-        }))
-        setIsLoading(false)
-      }, 1500)
-
-      return () => clearTimeout(timer)
-    }
-  }, [isLoading, selectedContext])
-
   return (
     <Box sx={{ display: 'flex', height: '100%', width: '100%' }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', p: 2 }}>
@@ -156,7 +213,7 @@ export default function ChatArea({ conversationId, onTogglePDFViewer, isPDFViewe
               labelId="context-select-label"
               id="context-select"
               value={selectedContext}
-              onChange={(e: React.ChangeEvent<{ value: string }>) => handleContextChange(e)}
+              onChange={handleContextChange}
               label="Conversation Context"
               sx={{
                 fontSize: '0.875rem',
@@ -335,4 +392,3 @@ export default function ChatArea({ conversationId, onTogglePDFViewer, isPDFViewe
     </Box>
   )
 }
-
