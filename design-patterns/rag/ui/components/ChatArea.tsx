@@ -106,7 +106,8 @@ export default function ChatArea({ conversationId, onTogglePDFViewer, isPDFViewe
                   }
                 }
               })
-            } catch (e) {
+            }
+            catch (e) {
               console.error('Error processing stream chunk:', e)
             }
           }
