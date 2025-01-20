@@ -41,6 +41,14 @@ services:
       LOGFLAG: ${LOGFLAG}
       HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
     restart: unless-stopped
+  mongodb:
+    image: mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: agents
+      MONGO_INITDB_ROOT_PASSWORD: agents
+    ports:
+      - "27017:27017"
 
 networks:
   default:
