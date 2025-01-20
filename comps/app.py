@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import re
+from dotenv import load_dotenv
 
 from comps import MegaServiceEndpoint, MicroService, ServiceOrchestrator, ServiceRoleType, ServiceType
 from comps.core.utils import handle_message
@@ -19,6 +20,14 @@ from comps.proto.docarray import LLMParams, RerankerParms, RetrieverParms
 from fastapi import Request
 from fastapi.responses import StreamingResponse
 from langchain_core.prompts import PromptTemplate
+
+BASE_DIR = os.path.dirname(__file__)
+dotenv_path = os.path.join(BASE_DIR, ".env")
+if (os.path.exists(dotenv_path)):
+    load_dotenv(dotenv_path)
+    print("Loading env from .env file")
+else:
+    print("Loading env from k8s env") 
 
 
 class ChatTemplate:

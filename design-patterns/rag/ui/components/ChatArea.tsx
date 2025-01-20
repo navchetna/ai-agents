@@ -12,6 +12,7 @@ import PushPinIcon from '@mui/icons-material/PushPin'
 import DescriptionIcon from '@mui/icons-material/Description'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import PDFViewer from './PDFViewer'
+import { CHAT_QNA_URL } from '@/lib/constants';
 
 interface Message {
   id: string
@@ -139,7 +140,7 @@ export default function ChatArea({ conversationId, onTogglePDFViewer, isPDFViewe
     currentMessageId.current = (Date.now() + 1).toString()
 
     try {
-      const response = await fetch('http://localhost:5008/v1/chatqna', {
+      const response = await fetch(`${CHAT_QNA_URL}/v1/chatqna`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
