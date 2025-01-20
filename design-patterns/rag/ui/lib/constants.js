@@ -1,1 +1,1 @@
-export const CHAT_QNA_URL = process.env.NODE_ENV === "production" ? "" : "http://localhost:5008";
+export const CHAT_QNA_URL = process.env.NODE_ENV === "production" ? "http://10.235.124.11:5008" : "http://localhost:5008";
