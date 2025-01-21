@@ -11,11 +11,31 @@ https://github.com/navchetna/ai-agents
 ```
 cd ai-agents;
 ```
-3. Install dependencies
+
+### Docker setup
+
+#### Build image
+
+```
+export SERVER_HOST=<host>
+docker buildx build --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy --build-arg SERVER_URL=${SERVER_HOST} -t ai-agents/rag/ui:latest -f install/docker/Dockerfile .;   
+```
+
+> Note: host would be localhost for local dev or server hostname for remote server
+
+#### Run container
+
+```
+docker run -p 5009:3000 -e http_proxy=$http_proxy -e https_proxy=$https_proxy ai-agents/rag/ui:latest
+```
+
+### Local Setup
+
+1. Install dependencies
 ```
 make build-ui;
 ```
-4. Start UI server
+2. Start UI server
 ```
 make ui;
 ```

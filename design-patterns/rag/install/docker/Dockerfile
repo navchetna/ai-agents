@@ -1,4 +1,5 @@
 FROM node:latest
+ARG SERVER_URL
 
 # Set the working directory in the container
 WORKDIR /usr/src/app
@@ -13,6 +14,7 @@ RUN npm install
 # Bundle app source
 COPY ui/ .
 
+ENV NEXT_PUBLIC_SERVER_URL=$SERVER_URL
 # Build your Next.js app for production
 RUN npm run build
 
