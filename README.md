@@ -26,7 +26,7 @@ export RERANK_SERVER_HOST_IP=tei-reranking-service
 export RERANK_SERVER_PORT=8808 
 export LLM_SERVER_HOST_IP=vllm-service
 export LLM_SERVER_PORT=9009
-docker compose -f ai-agents/install/docker/docker-compose.yaml up
+docker compose -f install/docker/docker-compose.yaml up
 ```
 
 > Note: host would be localhost for local dev or server hostname for remote server
