@@ -25,7 +25,7 @@ COPY comps $HOME/comps
 
 WORKDIR $HOME
 
-ENV PYTHONPATH=$HOME/comps
+ENV PYTHONPATH=$PYTHONPATH:$HOME/user/comps
 
 USER user
 
