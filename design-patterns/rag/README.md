@@ -9,7 +9,7 @@ https://github.com/navchetna/ai-agents
 ```
 2. Move to project repo
 ```
-cd ai-agents;
+cd ai-agents/design-patterns/rag;
 ```
 
 ### Docker setup
