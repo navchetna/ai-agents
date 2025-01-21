@@ -48,7 +48,7 @@ services:
       HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
     restart: unless-stopped
   vllm-service:
-    image: 
+    image: ${REGISTRY:-opea}/vllm:${TAG:-latest}
     container_name: vllm-service
     ports:
       - "9009:80"
