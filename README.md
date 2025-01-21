@@ -26,6 +26,8 @@ export RERANK_SERVER_HOST_IP=tei-reranking-service
 export RERANK_SERVER_PORT=8808 
 export LLM_SERVER_HOST_IP=vllm-service
 export LLM_SERVER_PORT=9009
+export GROQ_MODEL=llama-3.3-70b-versatile
+export GROQ_API_KEY=${your_groq_api_token}
 docker compose -f install/docker/docker-compose.yaml up
 ```
 
