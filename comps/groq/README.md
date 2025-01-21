@@ -13,6 +13,6 @@ docker buildx build --build-arg https_proxy=$https_proxy --build-arg http_proxy=
 ### Run container
 
 ```
-docker run -p 5099:8000 -e GROQ_API_KEY=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 -e http_proxy=$http_proxy -e https_proxy=$https_proxy ai-agents/groq:latest
+docker run -p 5099:8000 -e GROQ_API_KEY=$your_groq_api_key -e http_proxy=$http_proxy -e https_proxy=$https_proxy ai-agents/groq:latest
 ```
 
