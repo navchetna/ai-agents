@@ -127,7 +127,7 @@ services:
     ipc: host
     restart: always
   ui:
-    image: ai-agetns/rag/ui:latest
+    image: ai-agents/rag/ui:latest
     depends_on:
       - backend
     ports:
