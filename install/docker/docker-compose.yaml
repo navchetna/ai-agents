@@ -61,6 +61,7 @@ services:
       https_proxy: ${https_proxy}
       HF_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
       LLM_MODEL_ID: ${LLM_MODEL_ID}
+      VLLM_CPU_KVCACHE_SPACE: 4
       VLLM_TORCH_PROFILER_DIR: "/mnt"
     command: --model $LLM_MODEL_ID --host 0.0.0.0 --port 80
   tei-reranking-service:
