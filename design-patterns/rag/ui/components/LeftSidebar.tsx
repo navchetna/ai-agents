@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Box, List, ListItem, ListItemText, TextField, IconButton, Paper, Tooltip } from '@mui/material'
+import React, { useState } from 'react'
+import { Box, List, ListItemButton, ListItemText, TextField, IconButton, Paper, Tooltip } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
@@ -88,7 +88,7 @@ export default function LeftSidebar({ onSelectConversation, selectedConversation
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <TextField
               value={newConversation}
-              onChange={(e) => setNewConversation(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewConversation(e.target.value)}
               placeholder="New conversation"
               variant="outlined"
               size="small"
@@ -152,10 +152,9 @@ export default function LeftSidebar({ onSelectConversation, selectedConversation
           </Box>
         </Box>
         <List sx={{ overflow: 'auto', flexGrow: 1 }}>
-          {conversations.map((conv, index) => (
-            <ListItem
-              key={index}
-              button
+          {conversations.map((conv: string, idx: number)  => (
+            <ListItemButton
+              key={idx}
               selected={selectedConversation === conv}
               onClick={() => onSelectConversation(conv)}
             >
@@ -171,7 +170,7 @@ export default function LeftSidebar({ onSelectConversation, selectedConversation
                   } 
                 }}
               />
-            </ListItem>
+            </ListItemButton>
           ))}
         </List>
       </Box>
