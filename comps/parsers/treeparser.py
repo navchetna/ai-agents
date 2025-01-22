@@ -4,8 +4,9 @@ from marker.output import output_exists, save_output
 from sortedcontainers import SortedDict
 from pdfminer.pdfparser import PDFParser, PDFSyntaxError
 from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
+from gmft.auto import CroppedTable, AutoTableDetector, AutoTableFormatter
+from gmft.pdf_bindings import PyPDFium2Document
 from difflib import SequenceMatcher
-import sys
 import re
 import json 
 import os
@@ -16,29 +17,23 @@ from comps.core.utils import mkdirIfNotExists
 OUTPUT_DIR = "out"
 
 logger = CustomLogger("treeparser")
-logflag = os.getenv("LOGFLAG", False)
 
 class TreeParser:
     def __init__(self):
-        self.__rootNode = None
-        self.__recentNodeDict = SortedDict()
-        self.__file = None
-        self.__filename = None
-        # self.__file = file
-        # self.__filename = os.path.splitext(os.path.basename(file))[0]
-        self.__data = {}
         mkdirIfNotExists(OUTPUT_DIR)
 
-    def generate_markdown(self):
-        if not output_exists(os.path.join(OUTPUT_DIR, self.__filename), self.__filename):
+    def get_filename(self, file):
+        return os.path.splitext(os.path.basename(file))[0]
+
+    def generate_markdown(self, file, filename):
+        if not output_exists(os.path.join(OUTPUT_DIR, filename), filename):
             converter = PdfConverter(
                 artifact_dict=create_model_dict(),
             )
-            rendered = converter(self.__file)
-            os.mkdir(os.path.join(OUTPUT_DIR, self.__filename))
-            save_output(rendered, os.path.join(OUTPUT_DIR, self.__filename), self.__filename)
-            if logflag:
-                logger.info("Output generated")
+            rendered = converter(file)
+            os.mkdir(os.path.join(OUTPUT_DIR, filename))
+            save_output(rendered, os.path.join(OUTPUT_DIR, filename), filename)
+            logger.info("Output generated")
 
     def detect_level(self, headings):
         level_pattern = re.compile(r'^\d+(\.\d+)*\.?\s')
@@ -47,9 +42,9 @@ class TreeParser:
                 return True
         return False
     
-    def generate_toc_using_level(self, headings):
+    def generate_toc_using_level(self, filename, headings):
 
-        with open(os.path.join(OUTPUT_DIR, self.__filename, 'toc.txt'), 'w') as file:
+        with open(os.path.join(OUTPUT_DIR, filename, 'toc.txt'), 'w') as file_toc:
 
             level_pattern = re.compile(r'^\d+(\.\d+)*\.?\s')
 
@@ -57,11 +52,11 @@ class TreeParser:
                 if level_pattern.match(heading['title']):
                     heading_number, title = heading['title'].split(" ", 1)
                     level = heading_number.count(".") + 1
-                    file.write(f"{level};{heading['title']};;;\n")
+                    file_toc.write(f"{level};{heading['title']};;;\n")
 
-    def generate_toc_using_size(self, headings):
+    def generate_toc_using_size(self, filename, headings):
 
-        with open(os.path.join(OUTPUT_DIR, self.__filename, 'toc.txt'), 'w') as file:
+        with open(os.path.join(OUTPUT_DIR, filename, 'toc.txt'), 'w') as file:
 
             dictLevel = SortedDict()
             list_headings = []
@@ -97,68 +92,100 @@ class TreeParser:
             for i in list_headings:
                 file.write(f"{i[1]};{i[2]};;;\n")
 
-    def generate_toc_no_outline(self):
-        with open(os.path.join(OUTPUT_DIR, self.__filename, self.__filename + "_meta.json"), 'r') as file:
-            data = json.load(file)
+    def generate_toc_no_outline(self, filename):
+        with open(os.path.join(OUTPUT_DIR, filename, filename + "_meta.json"), 'r') as file_meta:
+            data = json.load(file_meta)
 
         headings = data['table_of_contents']
         if self.detect_level(headings):
-            self.generate_toc_using_level(headings)
+            self.generate_toc_using_level(filename, headings)
         else:
-            self.generate_toc_using_size(headings)        
+            self.generate_toc_using_size(filename, headings)        
     
-    def generate_toc(self):
-        with open(os.path.join(OUTPUT_DIR, self.__filename, 'toc.txt'), 'w') as file:
-            with open(self.__file, "rb") as fp:
+    def generate_toc(self, file, filename):
+        with open(os.path.join(OUTPUT_DIR, filename, 'toc.txt'), 'w') as file_toc:
+            with open(file, "rb") as fp:
                 try:
                     parser = PDFParser(fp)
                     document = PDFDocument(parser)
                     outlines = document.get_outlines()
                     for (level, title, dest, a, se) in outlines:
-                        file.write(f"{level};{title};{dest};{a};{se}\n")
+                        file_toc.write(f"{level};{title};{dest};{a};{se}\n")
                 except PDFNoOutlines:
-                    self.generate_toc_no_outline()
+                    self.generate_toc_no_outline(filename)
                 except PDFSyntaxError:
-                    if logflag:
-                        logger.info("Corrupted PDF or non-PDF file.")
+                    logger.info("Corrupted PDF or non-PDF file.")
                 finally:
                     parser.close()
 
-    def parse_markdown(self):
-        toc_file = open(os.path.join(OUTPUT_DIR, self.__filename, "toc.txt"), "r")
+    def peek_line(self, f):
+        pos = f.tell()
+        line = f.readline()
+        f.seek(pos)
+        return line
+
+    def parse_markdown(self, filename, rootNode, recentNodeDict):
+        toc_file = open(os.path.join(OUTPUT_DIR, filename, "toc.txt"), "r")
         toc_line = toc_file.readline()
                 
-        currNode = self.__rootNode
+        currNode = rootNode
 
-        with open(os.path.join(OUTPUT_DIR, self.__filename, self.__filename + ".md"), 'r') as markdown_file:
-            for line in markdown_file:
+        tables = []
+
+        with open(os.path.join(OUTPUT_DIR, filename, filename + ".md"), 'r') as markdown_file:
+            line = markdown_file.readline()
+            while line:
                 if line == "\n":
+                    line = markdown_file.readline()
                     continue
                 if bool(re.match(r'^#+', line)):
                     _, heading = line.split(" ", 1)
                     if not toc_line:
+                        line = markdown_file.readline()
                         continue
                     level, heading_toc, _, _, _ = toc_line.split(";")
                     heading = heading.strip()
-
-                    if heading_toc.lower() in heading.lower():
-                        node = Node(level, heading, os.path.join(OUTPUT_DIR, self.__filename))
+                    if (SequenceMatcher(None, "contents", heading_toc.lower())).ratio() > 0.6:
+                        toc_line = toc_file.readline()
+                        level, heading_toc, _, _, _ = toc_line.split(";")
+                    elif SequenceMatcher(None, heading.lower(), heading_toc.lower()).ratio() > 0.6:
+                        node = Node(level, heading, os.path.join(OUTPUT_DIR, filename))
                         if level > currNode.get_level():
                             currNode.append_child(node)
                             node.set_parent(currNode)
                         else:
                             parent_key = -1
-                            for key in reversed(self.__recentNodeDict):
+                            for key in reversed(recentNodeDict):
                                 if key < node.get_level():
                                     parent_key = key
                                     break
-                            self.__recentNodeDict[parent_key].append_child(node)
-                            node.set_parent(self.__recentNodeDict[parent_key])
-                            self.__recentNodeDict[node.get_level()] = node
+                            recentNodeDict[parent_key].append_child(node)
+                            node.set_parent(recentNodeDict[parent_key])
+                            recentNodeDict[node.get_level()] = node
+                        for table in tables:
+                            currNode.append_content(table)
+                        tables.clear()
                         currNode = node
-                        toc_line = toc_file.readline()       
+                        toc_line = toc_file.readline()  
+                    else:
+                        currNode.append_content(line)    
+                elif line[0] == '|':
+                    table_list = []
+                    table_list.append(line)
+                    while self.peek_line(markdown_file)[0] == '|':
+                        line = markdown_file.readline()
+                        table_list.append(line)
+                    table_str = "".join(table_list)
+                    tables.append(table_str)
                 else:
-                    currNode.append_content(line)
+                    pattern = re.compile(r'^Table\s+(\d+)', re.IGNORECASE)
+                    match = pattern.search(line)
+                    if not match:
+                        currNode.append_content(line)
+                line = markdown_file.readline()
+
+        if toc_file.readline():
+            logger.warning("PDF not parsed accurately")
 
     def traverse_tree_text(self, node):
         if node == None:
@@ -171,10 +198,11 @@ class TreeParser:
         for i in range(total):
             self.traverse_tree_text(node.get_child(i))
         
-    def generate_output_text(self):
-        with open(os.path.join(OUTPUT_DIR, self.__filename, "output.txt"), "w") as f:
+    def generate_output_text(self, tree):
+        filename = self.get_filename(tree.file)
+        with open(os.path.join(OUTPUT_DIR, filename, "output.txt"), "w") as f:
             f.write("")
-        self.traverse_tree_text(self.__rootNode)
+        self.traverse_tree_text(tree.rootNode)
 
     def traverse_tree_json(self, node):
         if node == None:
@@ -196,23 +224,25 @@ class TreeParser:
         
         return data
 
-    def generate_output_json(self):
-        if not self.__data:
-            self.__data = self.traverse_tree_json(self.__rootNode)
+    def generate_output_json(self, tree):
+        data = self.traverse_tree_json(tree.rootNode)
+        filename = self.get_filename(tree.file)
 
-        with open(os.path.join(OUTPUT_DIR, self.__filename, "output.json"), "w") as outfile: 
-            json.dump(self.__data, outfile)
+        with open(os.path.join(OUTPUT_DIR, filename, "output.json"), "w") as outfile: 
+            json.dump(data, outfile)
 
-    def generate_tree(self, file):
-        self.__file = file
-        self.__filename = os.path.splitext(os.path.basename(file))[0]
-        self.generate_markdown()
-        self.generate_toc()
+    def populate_tree(self, tree):
+        rootNode = tree.rootNode
+        file = tree.file
+        filename = self.get_filename(file)
+        self.generate_markdown(file, filename)
+        self.generate_toc(file, filename)
 
-        self.__rootNode = Node('0', "root", os.path.join(OUTPUT_DIR, self.__filename))
-        self.__recentNodeDict['0'] = self.__rootNode
+        recentNodeDict = {}
+        recentNodeDict['0'] = rootNode
 
-        self.parse_markdown()
+        self.parse_markdown(filename, rootNode, recentNodeDict)
     
-    def get_output_path(self):
-        return os.path.join(OUTPUT_DIR, self.__filename, "output.txt")
+    def get_output_path(self, tree):
+        filename = self.get_filename(tree.file)
+        return os.path.join(OUTPUT_DIR, filename, "output.txt")
