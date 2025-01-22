@@ -1,0 +1,6 @@
+Factors that Impact Blockchain Scalability (Unknown)
+How blockchain impacts cloud-based system performance: a case study for a groupware communication application (Unknown)
+A Byzantine Fault-Tolerant Ordering Service for the Hyperledger Fabric
+  Blockchain Platform (Unknown)
+Integrating Blockchain in safety-critical systems: an application to the nuclear industry (Unknown)
+Decentralised Autonomous Organisations in Organisational Design Theory (Unknown)
