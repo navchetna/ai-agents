@@ -34,6 +34,8 @@ USER root
 RUN mkdir -p /home/user/comps/dataprep/uploaded_files && chown -R user /home/user/comps/dataprep/uploaded_files
 RUN mkdir -p /home/user/comps/dataprep/out && chown -R user /home/user/comps/dataprep/out
 
+ENV PYTHONPATH=/home/user
+
 USER user
 
 WORKDIR /home/user/comps/dataprep
