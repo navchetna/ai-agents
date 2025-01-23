@@ -5,7 +5,7 @@
 ### Run all services
 
 1. [Build dataprep component](./comps/dataprep/README.md)
-2. [Build reteriver component](./comps/retriever/README.md)
+2. [Build retriever component](./comps/retriever/README.md)
 3. [Build backend component](./comps/README.md)
 4. [Build ui component](./design-patterns/rag/README.md)
 
