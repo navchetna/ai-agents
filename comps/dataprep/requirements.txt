@@ -32,3 +32,4 @@ uvicorn
 marker-pdf
 pdfminer
 sortedcontainers
+gmft

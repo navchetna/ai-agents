@@ -35,6 +35,7 @@ from utils import (
 
 from comps import CustomLogger, DocPath, opea_microservices, register_microservice
 from comps.parsers.treeparser import TreeParser
+from comps.parsers.tree import Tree
 
 
 logger = CustomLogger("prepare_doc_redis")
@@ -202,10 +203,12 @@ def ingest_data_to_redis(doc_path: DocPath):
 
     ## TODO: call our custom pdf parser
     ## content
-    tree_parser.generate_tree(path)
-    tree_parser.generate_output_text()
+    tree = Tree(path)
+    tree_parser = TreeParser()
+    tree_parser.populate_tree(tree)
+    tree_parser.generate_output_text(tree)
 
-    output_path = tree_parser.get_output_path()
+    output_path = tree_parser.get_output_path(tree)
 
     content = document_loader(output_path)
     if logflag:
