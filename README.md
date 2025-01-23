@@ -7,7 +7,8 @@
 1. [Build dataprep component](./comps/dataprep/README.md)
 2. [Build retriever component](./comps/retriever/README.md)
 3. [Build backend component](./comps/README.md)
-4. [Build ui component](./design-patterns/rag/README.md)
+4. [Build groq component](./comps/groq/README.md)
+5. [Build ui component](./design-patterns/rag/README.md)
 
 ```
 export EMBEDDING_MODEL_ID="BAAI/bge-base-en-v1.5"
