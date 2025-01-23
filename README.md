@@ -34,7 +34,7 @@ export LLM_SERVER_PORT=8000
 export GROQ_MODEL=llama-3.3-70b-versatile
 export GROQ_API_KEY=${GROQ_API_KEY}
 
-docker compose -f install/docker/docker-compose.yaml-groq up
+docker compose -f install/docker/docker-compose-groq.yaml up
 ```
 
 ## VLLM Serving (Not required for PC):
