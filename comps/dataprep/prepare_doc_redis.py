@@ -255,7 +255,6 @@ def ingest_data_to_redis(doc_path: DocPath):
     tree_parser.populate_tree(tree)
     chunks = create_chunks(tree.rootNode, text_splitter)
 
-    # tree_parser.generate_output_text(tree)
 
     # output_path = tree_parser.get_output_path(tree)
 
