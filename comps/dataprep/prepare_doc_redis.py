@@ -240,20 +240,6 @@ def ingest_data_to_redis(doc_path: DocPath):
     if logflag:
         logger.info(f"[ ingest data ] Parsing document {path}.")
 
-    # if path.endswith(".html"):
-    #     headers_to_split_on = [
-    #         ("h1", "Header 1"),
-    #         ("h2", "Header 2"),
-    #         ("h3", "Header 3"),
-    #     ]
-    #     text_splitter = HTMLHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
-    # else:
-    #     text_splitter = RecursiveCharacterTextSplitter(
-    #         chunk_size=doc_path.chunk_size,
-    #         chunk_overlap=doc_path.chunk_overlap,
-    #         add_start_index=True,
-    #         separators=get_separators(),
-    #     )
     text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=doc_path.chunk_size,
             chunk_overlap=doc_path.chunk_overlap,
