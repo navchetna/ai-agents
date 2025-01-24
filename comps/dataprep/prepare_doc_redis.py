@@ -256,11 +256,6 @@ def ingest_data_to_redis(doc_path: DocPath):
     chunks = create_chunks(tree.rootNode, text_splitter)
 
 
-    # output_path = tree_parser.get_output_path(tree)
-
-    # content = document_loader(output_path)
-    # if logflag:
-    #     logger.info("[ ingest data ] file content loaded")
     
 
     # structured_types = [".xlsx", ".csv", ".json", "jsonl"]
