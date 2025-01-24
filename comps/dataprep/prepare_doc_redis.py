@@ -259,10 +259,6 @@ def ingest_data_to_redis(doc_path: DocPath):
     
 
 
-    # if ext in structured_types:
-    #     chunks = content
-    # else:
-    #     chunks = text_splitter.split_text(content)
 
     ### Specially processing for the table content in PDFs
     ## TODO: use our custom table parser
