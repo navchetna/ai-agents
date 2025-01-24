@@ -140,6 +140,7 @@ class TreeParser:
         with open(os.path.join(OUTPUT_DIR, filename, filename + ".md"), 'r') as markdown_file:
             line = markdown_file.readline()
             while line:
+                line = re.sub(r'<span[^>]*?\/?>', '', line)
                 if line == "\n":
                     line = markdown_file.readline()
                     continue
