@@ -258,8 +258,6 @@ def ingest_data_to_redis(doc_path: DocPath):
 
     
 
-    # structured_types = [".xlsx", ".csv", ".json", "jsonl"]
-    # _, ext = os.path.splitext(output_path)
 
     # if ext in structured_types:
     #     chunks = content
