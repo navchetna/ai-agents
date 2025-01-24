@@ -22,7 +22,6 @@ from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 import os
 
 from groq import Groq
-
 from utils import (
     create_upload_folder,
     document_loader,
