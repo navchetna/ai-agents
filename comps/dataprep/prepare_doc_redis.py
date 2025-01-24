@@ -225,9 +225,6 @@ def chunk_node_content(node: Node, text_splitter: RecursiveCharacterTextSplitter
             table_description = get_table_description(item)
             table_description_chunks = text_splitter.split_text(table_description)
             chunks.extend(table_description_chunks)
-            # print("\n\n Testing groq")
-            # print("Response: !!!! ", table_description)
-            # print("\n\n Done  groq")
     return chunks
 
 def create_chunks(node: Node, text_splitter: RecursiveCharacterTextSplitter):
