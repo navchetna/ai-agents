@@ -17,8 +17,8 @@ cd ai-agents/design-patterns/rag;
 #### Build image
 
 ```
-export SERVER_HOST=<host>
-docker buildx build --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy --build-arg SERVER_URL=${SERVER_HOST} -t ai-agents/rag/ui:latest -f install/docker/Dockerfile .;   
+export SERVER_HOST_URL=<host>:<port>
+docker buildx build --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy --build-arg SERVER_URL=${SERVER_HOST_URL} -t ai-agents/rag/ui:latest -f install/docker/Dockerfile .;   
 ```
 
 > Note: host would be localhost for local dev or server hostname for remote server

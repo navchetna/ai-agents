@@ -30,7 +30,7 @@ export HUGGINGFACEHUB_API_TOKEN=${your_hf_api_token}
 docker compose -f comps/retriever/redis_langchain.yaml up -d
 ```
 
-## To check retival
+## To check retrieval
 
 ```
 export your_embedding=$(python3 -c "import random; embedding = [random.uniform(-1, 1) for _ in range(768)]; print(embedding)")
