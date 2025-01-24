@@ -4,14 +4,14 @@ from marker.output import output_exists, save_output
 from sortedcontainers import SortedDict
 from pdfminer.pdfparser import PDFParser, PDFSyntaxError
 from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
-from gmft.auto import CroppedTable, AutoTableDetector, AutoTableFormatter
-from gmft.pdf_bindings import PyPDFium2Document
 from difflib import SequenceMatcher
 import re
 import json 
 import os
 from comps import CustomLogger
 from comps.parsers.node import Node
+from comps.parsers.text import Text
+from comps.parsers.table import Table
 from comps.core.utils import mkdirIfNotExists
 
 OUTPUT_DIR = "out"
@@ -118,11 +118,12 @@ class TreeParser:
                 finally:
                     parser.close()
 
-    def peek_line(self, f):
+    def peek_next_lines(self, f):
         pos = f.tell()
         line = f.readline()
+        line_2 = f.readline()
         f.seek(pos)
-        return line
+        return line, line_2
 
     def parse_markdown(self, filename, rootNode, recentNodeDict):
         toc_file = open(os.path.join(OUTPUT_DIR, filename, "toc.txt"), "r")
@@ -131,6 +132,10 @@ class TreeParser:
         currNode = rootNode
 
         tables = []
+
+        content = ""
+
+        previous_line = ""
 
         with open(os.path.join(OUTPUT_DIR, filename, filename + ".md"), 'r') as markdown_file:
             line = markdown_file.readline()
@@ -162,26 +167,43 @@ class TreeParser:
                             recentNodeDict[parent_key].append_child(node)
                             node.set_parent(recentNodeDict[parent_key])
                             recentNodeDict[node.get_level()] = node
+                        text_obj = Text(content, currNode)
+                        currNode.append_content(text_obj)
                         for table in tables:
                             currNode.append_content(table)
                         tables.clear()
+                        content = ""
                         currNode = node
                         toc_line = toc_file.readline()  
                     else:
-                        currNode.append_content(line)    
+                        content += line    
                 elif line[0] == '|':
                     table_list = []
                     table_list.append(line)
-                    while self.peek_line(markdown_file)[0] == '|':
+                    while self.peek_next_lines(markdown_file)[0][0] == '|':
                         line = markdown_file.readline()
                         table_list.append(line)
-                    table_str = "".join(table_list)
-                    tables.append(table_str)
+                    next_line = self.peek_next_lines(markdown_file)[1].split('>', 1)
+                    if len(next_line) > 1:
+                        next_line = next_line[1]
+                    else:
+                        next_line = next_line[0]
+                    pattern_table_heading = re.compile(r'^(Table|Figure)\s+(\d+)', re.IGNORECASE) 
+                    match_table_heading_previous = pattern_table_heading.search(previous_line)
+                    match_table_heading_next = pattern_table_heading.search(next_line)
+                    heading = ""
+                    if match_table_heading_previous:
+                        heading = previous_line
+                    elif match_table_heading_next:
+                        heading = next_line
+                    table_obj = Table("".join(table_list), heading, currNode)
+                    tables.append(table_obj)
                 else:
-                    pattern = re.compile(r'^Table\s+(\d+)', re.IGNORECASE)
-                    match = pattern.search(line)
-                    if not match:
-                        currNode.append_content(line)
+                    pattern_heading = re.compile(r'^(Table|Figure)\s+(\d+)', re.IGNORECASE)
+                    match_heading = pattern_heading.search(line)
+                    if not match_heading:
+                        content += line
+                previous_line = line
                 line = markdown_file.readline()
 
         if toc_file.readline():

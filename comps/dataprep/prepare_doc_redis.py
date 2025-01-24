@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 from typing import List, Optional, Union
+import requests
 
 # from pyspark import SparkConf, SparkContext
 import redis
@@ -18,8 +19,9 @@ from langchain_text_splitters import HTMLHeaderTextSplitter
 from redis.commands.search.field import TextField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 
-import sys
 import os
+
+from groq import Groq
 
 from utils import (
     create_upload_folder,
@@ -36,6 +38,9 @@ from utils import (
 from comps import CustomLogger, DocPath, opea_microservices, register_microservice
 from comps.parsers.treeparser import TreeParser
 from comps.parsers.tree import Tree
+from comps.parsers.node import Node
+from comps.parsers.text import Text
+from comps.parsers.table import Table
 
 
 logger = CustomLogger("prepare_doc_redis")
@@ -177,6 +182,61 @@ def ingest_chunks_to_redis(file_name: str, chunks: List):
         raise HTTPException(status_code=500, detail=f"Fail to store chunks of file {file_name}.")
     return True
 
+def get_table_description(item: Table):
+    client = Groq(
+        api_key=os.environ.get("GROQ_API_KEY"),
+    )
+
+    chat_completion = client.chat.completions.create(
+        messages=[
+            {
+                "role": "system",
+                "content": """
+                    <s>[INST] <<SYS>>\n You are a helpful, respectful, and honest assistant. Your task is to generate a detailed and descriptive summary of the provided table data in Markdown format, based strictly on the table and its heading. <</SYS>> 
+                    [INST] Your job is to create a clear, specific, and **factual** textual description. **Do not add any external information** or provide an abstract summary. Only base the description on the data from the table and its heading.
+                    
+                    1. Link the **columns** with the corresponding **values** in the rows, referencing the exact terms and terminology from the table. 
+                    2. For each row, explain how each column's data relates to the corresponding values. Ensure the description is **step-by-step** and follows the structure of the table in a natural order.
+                    3. **Do not return the table itself.** Provide only the descriptive summary, written in **paragraphs**.
+                    4. The description should be precise, direct, and **avoid interpretation** or generalization. Stay true to the exact data given.
+                    
+                    Think carefully and make sure to describe every column and its respective values in detail. 
+                """
+            },
+            {
+                "role": "user",
+                "content": f"{item.heading}\n{item.markdown_content}",
+            }
+        ],
+        model="llama-3.3-70b-versatile",
+    )
+
+    return chat_completion.choices[0].message.content
+
+
+def chunk_node_content(node: Node, text_splitter: RecursiveCharacterTextSplitter):
+    content = node.get_content()
+    chunks = []
+    for item in content:
+        if isinstance(item, Text):
+            text_chunks = text_splitter.split_text(item.content)
+            chunks.extend(text_chunks)
+        if isinstance(item, Table):
+            # TBD
+            table_description = get_table_description(item)
+            table_description_chunks = text_splitter.split_text(table_description)
+            chunks.extend(table_description_chunks)
+            # print("\n\n Testing groq")
+            # print("Response: !!!! ", table_description)
+            # print("\n\n Done  groq")
+    return chunks
+
+def create_chunks(node: Node, text_splitter: RecursiveCharacterTextSplitter):
+    node_chunks = chunk_node_content(node, text_splitter)
+    total = node.get_length_children()
+    for i in range(total):
+        node_chunks.extend(create_chunks(node.get_child(i), text_splitter))
+    return node_chunks
 
 def ingest_data_to_redis(doc_path: DocPath):
     """Ingest document to Redis."""
@@ -184,15 +244,21 @@ def ingest_data_to_redis(doc_path: DocPath):
     if logflag:
         logger.info(f"[ ingest data ] Parsing document {path}.")
 
-    if path.endswith(".html"):
-        headers_to_split_on = [
-            ("h1", "Header 1"),
-            ("h2", "Header 2"),
-            ("h3", "Header 3"),
-        ]
-        text_splitter = HTMLHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
-    else:
-        text_splitter = RecursiveCharacterTextSplitter(
+    # if path.endswith(".html"):
+    #     headers_to_split_on = [
+    #         ("h1", "Header 1"),
+    #         ("h2", "Header 2"),
+    #         ("h3", "Header 3"),
+    #     ]
+    #     text_splitter = HTMLHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
+    # else:
+    #     text_splitter = RecursiveCharacterTextSplitter(
+    #         chunk_size=doc_path.chunk_size,
+    #         chunk_overlap=doc_path.chunk_overlap,
+    #         add_start_index=True,
+    #         separators=get_separators(),
+    #     )
+    text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=doc_path.chunk_size,
             chunk_overlap=doc_path.chunk_overlap,
             add_start_index=True,
@@ -200,28 +266,29 @@ def ingest_data_to_redis(doc_path: DocPath):
         )
 
 
-
     ## TODO: call our custom pdf parser
     ## content
     tree = Tree(path)
     tree_parser = TreeParser()
     tree_parser.populate_tree(tree)
-    tree_parser.generate_output_text(tree)
+    chunks = create_chunks(tree.rootNode, text_splitter)
 
-    output_path = tree_parser.get_output_path(tree)
+    # tree_parser.generate_output_text(tree)
 
-    content = document_loader(output_path)
-    if logflag:
-        logger.info("[ ingest data ] file content loaded")
+    # output_path = tree_parser.get_output_path(tree)
+
+    # content = document_loader(output_path)
+    # if logflag:
+    #     logger.info("[ ingest data ] file content loaded")
     
 
-    structured_types = [".xlsx", ".csv", ".json", "jsonl"]
-    _, ext = os.path.splitext(output_path)
+    # structured_types = [".xlsx", ".csv", ".json", "jsonl"]
+    # _, ext = os.path.splitext(output_path)
 
-    if ext in structured_types:
-        chunks = content
-    else:
-        chunks = text_splitter.split_text(content)
+    # if ext in structured_types:
+    #     chunks = content
+    # else:
+    #     chunks = text_splitter.split_text(content)
 
     ### Specially processing for the table content in PDFs
     ## TODO: use our custom table parser
