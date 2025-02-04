@@ -182,12 +182,16 @@ def ingest_chunks_to_redis(file_name: str, chunks: List):
     return True
 
 def get_table_description(item: Table):
-    client = Groq(
-        api_key=os.environ.get("GROQ_API_KEY"),
-    )
+    server_host_ip = os.getenv("SERVER_HOST_IP")
+    server_port = os.getenv("SERVER_PORT")
+    url = f"http://{server_host_ip}:{server_port}/v1/chat/completions"
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "text/event-stream"
+    }
 
-    chat_completion = client.chat.completions.create(
-        messages=[
+    data = {
+        "messages": [
             {
                 "role": "system",
                 "content": """
@@ -207,10 +211,12 @@ def get_table_description(item: Table):
                 "content": f"{item.heading}\n{item.markdown_content}",
             }
         ],
-        model="llama-3.3-70b-versatile",
-    )
+        "stream": False
+    }
 
-    return chat_completion.choices[0].message.content
+    response = requests.post(url, headers=headers, json=data)
+    response_data = json.loads(response.text)
+    return response_data['choices'][0]['message']['content']
 
 
 def chunk_node_content(node: Node, text_splitter: RecursiveCharacterTextSplitter):
