@@ -227,7 +227,6 @@ def chunk_node_content(node: Node, text_splitter: RecursiveCharacterTextSplitter
             text_chunks = text_splitter.split_text(item.content)
             chunks.extend(text_chunks)
         if isinstance(item, Table):
-            # TBD
             table_description = get_table_description(item)
             table_description_chunks = text_splitter.split_text(table_description)
             chunks.extend(table_description_chunks)

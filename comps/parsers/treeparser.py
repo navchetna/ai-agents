@@ -15,6 +15,7 @@ from comps.parsers.table import Table
 from comps.core.utils import mkdirIfNotExists
 
 OUTPUT_DIR = "out"
+NCERT_TOC_DIR = "../parsers/ncert_toc"
 
 logger = CustomLogger("treeparser")
 
@@ -52,7 +53,7 @@ class TreeParser:
                 if level_pattern.match(heading['title']):
                     heading_number, title = heading['title'].split(" ", 1)
                     level = heading_number.count(".") + 1
-                    file_toc.write(f"{level};{heading['title']};;;\n")
+                    file_toc.write(f"{level};{heading['title']}\n")
 
     def generate_toc_using_size(self, filename, headings):
 
@@ -103,6 +104,8 @@ class TreeParser:
             self.generate_toc_using_size(filename, headings)        
     
     def generate_toc(self, file, filename):
+        if "grade" in filename:
+            return
         with open(os.path.join(OUTPUT_DIR, filename, 'toc.txt'), 'w') as file_toc:
             with open(file, "rb") as fp:
                 try:
@@ -110,7 +113,7 @@ class TreeParser:
                     document = PDFDocument(parser)
                     outlines = document.get_outlines()
                     for (level, title, dest, a, se) in outlines:
-                        file_toc.write(f"{level};{title};{dest};{a};{se}\n")
+                        file_toc.write(f"{level};{title}\n")
                 except PDFNoOutlines:
                     self.generate_toc_no_outline(filename)
                 except PDFSyntaxError:
@@ -126,7 +129,12 @@ class TreeParser:
         return line, line_2
 
     def parse_markdown(self, filename, rootNode, recentNodeDict):
-        toc_file = open(os.path.join(OUTPUT_DIR, filename, "toc.txt"), "r")
+        toc_file = None
+
+        if "grade" in filename:
+            toc_file = open(os.path.join(NCERT_TOC_DIR, f"{filename}.txt"), "r")
+        else:
+            toc_file = open(os.path.join(OUTPUT_DIR, filename, "toc.txt"), "r")
         toc_line = toc_file.readline()
                 
         currNode = rootNode
@@ -140,7 +148,7 @@ class TreeParser:
         with open(os.path.join(OUTPUT_DIR, filename, filename + ".md"), 'r') as markdown_file:
             line = markdown_file.readline()
             while line:
-                line = re.sub(r'<span[^>]*?\/?>', '', line)
+                line = re.sub(r'<span[^>]*?\/?>(</span>)?', '', line)
                 if line == "\n":
                     line = markdown_file.readline()
                     continue
@@ -149,11 +157,11 @@ class TreeParser:
                     if not toc_line:
                         line = markdown_file.readline()
                         continue
-                    level, heading_toc, _, _, _ = toc_line.split(";")
-                    heading = heading.strip()
+                    level, heading_toc = toc_line.split(";")
+                    heading = heading.strip().replace("*", "")
                     if (SequenceMatcher(None, "contents", heading_toc.lower())).ratio() > 0.6:
                         toc_line = toc_file.readline()
-                        level, heading_toc, _, _, _ = toc_line.split(";")
+                        level, heading_toc = toc_line.split(";")
                     elif SequenceMatcher(None, heading.lower(), heading_toc.lower()).ratio() > 0.6:
                         node = Node(level, heading, os.path.join(OUTPUT_DIR, filename))
                         if level > currNode.get_level():
@@ -206,6 +214,11 @@ class TreeParser:
                         content += line
                 previous_line = line
                 line = markdown_file.readline()
+                if not line:
+                    text_obj = Text(content, currNode)
+                    currNode.append_content(text_obj)
+                    for table in tables:
+                        currNode.append_content(table)
 
         if toc_file.readline():
             logger.warning("PDF not parsed accurately")
@@ -236,8 +249,15 @@ class TreeParser:
         heading = node.get_heading()
 
         data[heading] = {}
+        data[heading]['content'] = []
 
-        data[heading]['content'] = node.get_content()
+        content = node.get_content()
+        for item in content:
+            if isinstance(item, Text):
+                data[heading]['content'].append(item.content)
+            if isinstance(item, Table):
+                data[heading]['content'].append(item.markdown_content)
+
         data[heading]['children'] = []
         
         total = node.get_length_children()
