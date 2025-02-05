@@ -36,7 +36,7 @@ services:
     volumes:
       - "./cache:/.cache"
     ports:
-      - "5006:5007"
+      - "5006:6007"
     ipc: host
     environment:
       no_proxy: ${no_proxy}
