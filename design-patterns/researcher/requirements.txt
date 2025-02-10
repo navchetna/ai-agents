@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+requests
+python-dotenv
+nltk
+pymupdf
+fastapi-cors
+networkx
