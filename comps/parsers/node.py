@@ -1,4 +1,6 @@
 import os
+from comps.parsers.text import Text
+from comps.parsers.table import Table
 
 class Node:
     def __init__(self, level, heading, dir):
@@ -36,6 +38,11 @@ class Node:
     def output_node_info(self):
         with open(os.path.join(self.__dir, "output.txt"), "a") as f:
             f.write(self.__heading + "\n")
-            for line in self.__content:
-                f.write(line)
+            for item in self.__content:
+                if isinstance(item, Text):
+                    for line in item.content:
+                        f.write(line)
+                if isinstance(item, Table):
+                    for line in item.markdown_content:
+                        f.write(line)
             f.write("\n")
