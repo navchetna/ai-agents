@@ -12,27 +12,23 @@ GROQ_MODEL_ID = "llama-3.3-70b-versatile"
 
 @dataclass
 class Message:
-    """Represents a single message in the conversation."""
     content: str
     timestamp: datetime
     role: str 
 
 @dataclass
 class Context:
-    """Represents a piece of context from the Redis database."""
     content: str
     source: str 
     relevance_score: float 
 
 @dataclass
 class ConversationTurn:
-    """Represents a single turn in the conversation (question and response)."""
     question: Message
     answer: Message
     context: List[Context]
 
 class PromptTemplate:
-    """Handles prompt generation for the RAG system."""
     
     @staticmethod
     def create_prompt(question: str, context: str, conversation_history: str = "") -> str:
@@ -61,9 +57,7 @@ Instructions:
 
 Answer: Let me address your question based on the provided research context."""
 
-class RAGConversation:
-    """Manages a conversation session with RAG capabilities."""
-    
+class RAGConversation:    
     def __init__(self, redis_url: str = "redis://localhost:6379", 
                  index_name: str = "rag-redis",
                  groq_api_key: Optional[str] = None):
@@ -88,7 +82,6 @@ class RAGConversation:
         self.model = GROQ_MODEL_ID
 
     def get_conversation_history_text(self) -> str:
-        """Returns formatted conversation history for context."""
         if not self.turns:
             return ""
         
@@ -102,9 +95,8 @@ class RAGConversation:
     async def generate_response(self, 
                               question: str, 
                               max_tokens: int = 1024,
-                              temperature: float = 0.1,
+                              temperature: float = 0.3,
                               top_k: int = 3) -> str:
-        """Generate a response using Groq based on context."""
         try:
             search_results_with_scores = await self.vector_store.asimilarity_search_with_relevance_scores(
                 question,
@@ -197,7 +189,6 @@ class RAGConversation:
             raise
     
     def get_history(self) -> List[Dict]:
-        """Returns the conversation history in a serializable format."""
         return [
             {
                 'question': {
@@ -223,7 +214,6 @@ class RAGConversation:
         ]
     
     async def get_source_filename(self, chunk_id: str) -> str:
-        """Get source filename for a chunk by looking up in file-keys index."""
         try:
             key_index = self.redis_client.ft('file-keys')
             results = key_index.search("*")
@@ -248,7 +238,6 @@ class RAGConversation:
             return 'unknown'
     
     def to_dict(self) -> Dict:
-        """Converts the conversation to a dictionary format for storage."""
         return {
             'conversation_id': self.conversation_id,
             'created_at': self.created_at.isoformat(),
@@ -339,26 +328,22 @@ if __name__ == "__main__":
             return False
     
     class QuestionRequest(BaseModel):
-        """Request model for questions."""
         question: str
         max_tokens: Optional[int] = 1024
         temperature: Optional[float] = 0.1
         
     class SourceInfo(BaseModel):
-        """Model for source information."""
         source: str
         relevance_score: float
         content: str
         
     class ConversationResponse(BaseModel):
-        """Response model for conversation."""
         answer: str
         sources: List[SourceInfo]
         conversation_id: str
     
     @app.post("/conversation/new")
     async def start_new_conversation():
-        """Start a new conversation and return its ID."""
         try:
             new_conversation = RAGConversation(
                 redis_url=os.getenv("REDIS_URL", "redis://localhost:6379"),
@@ -374,7 +359,6 @@ if __name__ == "__main__":
     
     @app.post("/conversation/{conversation_id}", response_model=ConversationResponse)
     async def continue_conversation(conversation_id: str, request: QuestionRequest):
-        """Continue an existing conversation with a new question."""
         try:
             conversation = active_conversations.get(conversation_id)
             
@@ -427,7 +411,6 @@ if __name__ == "__main__":
     
     @app.get("/conversation/{conversation_id}")
     async def get_conversation_history(conversation_id: str):
-        """Get the full history of a conversation."""
         try:
             conversation = active_conversations.get(conversation_id)
             if conversation:
@@ -448,7 +431,6 @@ if __name__ == "__main__":
             
     @app.delete("/conversation/{conversation_id}")
     async def delete_conversation(conversation_id: str):
-        """Delete a conversation from both active memory and MongoDB."""
         try:
             active_conversations.pop(conversation_id, None)
             
@@ -468,7 +450,6 @@ if __name__ == "__main__":
     
     @app.get("/conversations")
     async def list_conversations(limit: int = 10, skip: int = 0):
-        """List all stored conversations with pagination."""
         try:
             conversations = list(conversations_collection
                                .find({}, {'_id': 0})
