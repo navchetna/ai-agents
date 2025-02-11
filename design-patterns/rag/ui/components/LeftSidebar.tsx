@@ -15,7 +15,7 @@
 // import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 // import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 // import ChatIcon from '@mui/icons-material/Chat';
-// import { API_BASE_URL } from '@/lib/constants';
+// import { CHAT_QNA_URL } from '@/lib/constants';
 
 // interface Conversation {
 //   conversation_id: string;
@@ -51,7 +51,7 @@
 //   const fetchConversations = async () => {
 //     try {
 //       setIsLoading(true);
-//       const response = await fetch(`${API_BASE_URL}/conversations`);
+//       const response = await fetch(`${CHAT_QNA_URL}/conversations`);
 //       if (!response.ok) {
 //         throw new Error('Failed to fetch conversations');
 //       }
@@ -68,7 +68,7 @@
 //   const handleDeleteConversation = async (id: string, e: React.MouseEvent) => {
 //     e.stopPropagation();
 //     try {
-//       const response = await fetch(`${API_BASE_URL}/conversation/${id}`, {
+//       const response = await fetch(`${CHAT_QNA_URL}/conversation/${id}`, {
 //         method: 'DELETE'
 //       });
 //       if (!response.ok) {
@@ -302,7 +302,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChatIcon from '@mui/icons-material/Chat';
-import { API_BASE_URL } from '@/lib/constants';
+import { CHAT_QNA_URL } from '@/lib/constants';
 
 interface Conversation {
   conversation_id: string;
@@ -338,7 +338,7 @@ export default function LeftSidebar({
   const fetchConversations = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/conversations`);
+      const response = await fetch(`${CHAT_QNA_URL}/conversations`);
       if (!response.ok) {
         throw new Error('Failed to fetch conversations');
       }
@@ -355,7 +355,7 @@ export default function LeftSidebar({
   const handleDeleteConversation = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      const response = await fetch(`${API_BASE_URL}/conversation/${id}`, {
+      const response = await fetch(`${CHAT_QNA_URL}/conversation/${id}`, {
         method: 'DELETE'
       });
       if (!response.ok) {

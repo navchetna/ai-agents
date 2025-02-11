@@ -17,7 +17,7 @@ import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import DescriptionIcon from '@mui/icons-material/Description';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import { API_BASE_URL } from '@/lib/constants';
+import { CHAT_QNA_URL } from '@/lib/constants';
 
 interface Message {
   id: string;
@@ -81,7 +81,7 @@ export default function ChatArea({
   const loadConversation = async (id: string) => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/conversation/${id}`);
+      const response = await fetch(`${CHAT_QNA_URL}/conversation/${id}`);
       if (!response.ok) throw new Error('Failed to load conversation');
       
       const data = await response.json();
@@ -113,7 +113,7 @@ export default function ChatArea({
     setIsLoading(true);
     setShowNewChatPrompt(false);
     try {
-      const response = await fetch(`${API_BASE_URL}/conversation/new`, {
+      const response = await fetch(`${CHAT_QNA_URL}/conversation/new`, {
         method: 'POST'
       });
       if (!response.ok) throw new Error('Failed to create conversation');
@@ -149,7 +149,7 @@ export default function ChatArea({
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/conversation/${currentConversationId}`, {
+      const response = await fetch(`${CHAT_QNA_URL}/conversation/${currentConversationId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -555,7 +555,7 @@ export default function ChatArea({
 // import DescriptionIcon from '@mui/icons-material/Description';
 // import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 // import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-// import { API_BASE_URL } from '@/lib/constants';
+// import { CHAT_QNA_URL } from '@/lib/constants';
 
 // interface Message {
 //   id: string;
@@ -619,7 +619,7 @@ export default function ChatArea({
 //   const loadConversation = async (id: string) => {
 //     try {
 //       setIsLoading(true);
-//       const response = await fetch(`${API_BASE_URL}/conversation/${id}`);
+//       const response = await fetch(`${CHAT_QNA_URL}/conversation/${id}`);
 //       if (!response.ok) throw new Error('Failed to load conversation');
       
 //       const data = await response.json();
@@ -651,7 +651,7 @@ export default function ChatArea({
 //     setIsLoading(true);
 //     setShowNewChatPrompt(false);
 //     try {
-//       const response = await fetch(`${API_BASE_URL}/conversation/new`, {
+//       const response = await fetch(`${CHAT_QNA_URL}/conversation/new`, {
 //         method: 'POST'
 //       });
 //       if (!response.ok) throw new Error('Failed to create conversation');
@@ -687,7 +687,7 @@ export default function ChatArea({
 //     setIsLoading(true);
 
 //     try {
-//       const response = await fetch(`${API_BASE_URL}/conversation/${currentConversationId}`, {
+//       const response = await fetch(`${CHAT_QNA_URL}/conversation/${currentConversationId}`, {
 //         method: 'POST',
 //         headers: { 'Content-Type': 'application/json' },
 //         body: JSON.stringify({
