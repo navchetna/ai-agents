@@ -18,3 +18,9 @@ pyyaml
 requests
 shortuuid
 uvicorn
+transformers
+torch
+pytest
+accelerate==0.26.0
+python-dotenv
+motor
