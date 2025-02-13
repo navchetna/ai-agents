@@ -1,395 +1,619 @@
-'use client'
-
-import React, { useState, useEffect, useRef } from 'react'
-import { TextField, IconButton, Paper, Typography, Tooltip, CircularProgress, ToggleButtonGroup, ToggleButton, Collapse, Select, MenuItem, FormControl, InputLabel, Box } from '@mui/material'
-import { SelectChangeEvent } from '@mui/material/Select'
-import SendIcon from '@mui/icons-material/Send'
-import ThumbUpIcon from '@mui/icons-material/ThumbUp'
-import ThumbDownIcon from '@mui/icons-material/ThumbDown'
-import PanToolIcon from '@mui/icons-material/PanTool'
-import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined'
-import PushPinIcon from '@mui/icons-material/PushPin'
-import DescriptionIcon from '@mui/icons-material/Description'
-import ContentCopyIcon from '@mui/icons-material/ContentCopy'
-import PDFViewer from './PDFViewer'
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Box, 
+  TextField, 
+  IconButton, 
+  Typography, 
+  Tooltip, 
+  CircularProgress, 
+  Button,
+  Collapse,
+  Fade,
+  Paper,
+  Chip
+} from '@mui/material';
+import SendIcon from '@mui/icons-material/Send';
+import ThumbUpIcon from '@mui/icons-material/ThumbUp';
+import ThumbDownIcon from '@mui/icons-material/ThumbDown';
+import DescriptionIcon from '@mui/icons-material/Description';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { CHAT_QNA_URL } from '@/lib/constants';
 
 interface Message {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  quality?: 'good' | 'bad' | 'ok'
-  isPinned?: boolean
-  references?: string[]
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+  quality?: 'good' | 'bad';
+  sources?: Array<{
+    source: string;
+    relevance_score: number;
+    content: string;
+  }>;
 }
 
 interface ChatAreaProps {
-  conversationId: string | null
-  onTogglePDFViewer: () => void
-  isPDFViewerOpen: boolean
+  conversationId: string | null;
+  onTogglePDFViewer: () => void;
+  isPDFViewerOpen: boolean;
+  isCollapsed: boolean;
+  onCollapseChange: (collapsed: boolean) => void;
+  onContextChange: (context: string) => void; 
 }
 
-interface CopyPopupState {
-  open: boolean
-  messageId: string | null
-}
+import SecurityIcon from '@mui/icons-material/Security';
+import BiotechIcon from '@mui/icons-material/Biotech';
+import PsychologyIcon from '@mui/icons-material/Psychology';
+import MemoryIcon from '@mui/icons-material/Memory';
+import CloudIcon from '@mui/icons-material/Cloud';
+import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing';
 
-const contextOptions = [
-  'General',
-  'Scientific Research',
-  'Literature Review',
-  'Data Analysis',
-  'Technical Writing',
-  'Academic Writing',
-]
-
-export default function ChatArea({ conversationId, onTogglePDFViewer, isPDFViewerOpen }: ChatAreaProps) {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [showReferences, setShowReferences] = useState<{ [key: string]: boolean }>({})
-  const [copyPopup, setCopyPopup] = useState<CopyPopupState>({ open: false, messageId: null })
-  const [selectedContext, setSelectedContext] = useState(contextOptions[0])
-  const [conversations, setConversations] = useState<{ [key: string]: Message[] }>({
-    'General': [],
-  })
-  const [pdfDocuments, setPdfDocuments] = useState<{ name: string; url: string }[]>([
-    { name: 'Sample Document', url: 'https://example.com/sample.pdf' },
-    { name: 'Another Document', url: 'https://example.com/another.pdf' },
-  ])
-  const currentMessageId = useRef<string>('')
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInput(e.target.value)
+export const topics = [
+  {
+    name: 'Cybersecurity',
+    icon: <SecurityIcon />,
+    color: '#e91e63'
+  },
+  {
+    name: 'Biotechnology',
+    icon: <BiotechIcon />,
+    color: '#4caf50'
+  },
+  {
+    name: 'Neurology',
+    icon: <PsychologyIcon />,
+    color: '#ff9800'
+  },
+  {
+    name: 'Artificial Intelligence',
+    icon: <MemoryIcon />,
+    color: '#2196f3'
+  },
+  {
+    name: 'Cloud Computing',
+    icon: <CloudIcon />,
+    color: '#03a9f4'
+  },
+  {
+    name: 'Robotics',
+    icon: <PrecisionManufacturingIcon />,
+    color: '#9c27b0'
   }
+];
 
-  const handleContextChange = (event: SelectChangeEvent<string>) => {
-    setSelectedContext(event.target.value)
-  }
+export default function ChatArea({
+  conversationId,
+  onTogglePDFViewer,
+  isPDFViewerOpen,
+  isCollapsed,
+  onContextChange,
+  onCollapseChange
+}: ChatAreaProps) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showReferences, setShowReferences] = useState<{ [key: string]: boolean }>({});
+  const [copyPopup, setCopyPopup] = useState<{ open: boolean; messageId: string | null }>({ 
+    open: false, 
+    messageId: null 
+  });
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId);
+  const [showNewChatPrompt, setShowNewChatPrompt] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(true);
+  
+  const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
-  const processStream = async (reader: ReadableStreamDefaultReader<Uint8Array>) => {
-    try {
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
-        const text = new TextDecoder().decode(value)
-        const lines = text.split('\n')
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const content = line.slice(6).trim()
-            if (content === '[DONE]') continue
-
-            try {
-              const cleanContent = content.replace(/^b'|'$/g, '').replace(/\\'/g, "'")
-              
-              setConversations(prev => {
-                const currentConversation = prev[selectedContext] || []
-                const lastMessage = currentConversation[currentConversation.length - 1]
-
-                if (lastMessage && lastMessage.id === currentMessageId.current) {
-                  const updatedMessages = currentConversation.map(msg =>
-                    msg.id === currentMessageId.current
-                      ? { ...msg, content: msg.content + cleanContent }
-                      : msg
-                  )
-                  return { ...prev, [selectedContext]: updatedMessages }
-                } else {
-                  const newMessage: Message = {
-                    id: currentMessageId.current,
-                    role: 'assistant',
-                    content: cleanContent,
-                  }
-                  return {
-                    ...prev,
-                    [selectedContext]: [...currentConversation, newMessage]
-                  }
-                }
-              })
-            }
-            catch (e) {
-              console.error('Error processing stream chunk:', e)
-            }
-          }
-        }
-      }
-    } finally {
-      setIsLoading(false)
+  useEffect(() => {
+    if (conversationId) {
+      setCurrentConversationId(conversationId);
+      loadConversation(conversationId);
+      setShowWelcome(false);
+    } else {
+      setShowNewChatPrompt(true);
+      setMessages([]);
+      setShowWelcome(true);
     }
-  }
+  }, [conversationId]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!input.trim()) return
+  const loadConversation = async (id: string) => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${CHAT_QNA_URL}/conversation/${id}`);
+      if (!response.ok) throw new Error('Failed to load conversation');
+      
+      const data = await response.json();
+      const formattedMessages = data.history.flatMap((turn: any) => [
+        {
+          id: `${turn.question.timestamp}-user`,
+          role: 'user',
+          content: turn.question.content,
+          timestamp: turn.question.timestamp,
+        },
+        {
+          id: `${turn.answer.timestamp}-assistant`,
+          role: 'assistant',
+          content: turn.answer.content,
+          timestamp: turn.answer.timestamp,
+          sources: turn.context
+        }
+      ]);
+      
+      setMessages(formattedMessages);
+    } catch (error) {
+      console.error('Error loading conversation:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleTopicSelect = (topicName: string) => {
+    onContextChange(topicName);
+    const welcomeMessage = `You are now in ${topicName} context. How can I help you?`;
+    setInput(welcomeMessage);
+    handleSubmit(welcomeMessage);
+  };
+
+  const startNewConversation = async () => {
+    setIsLoading(true);
+    setShowNewChatPrompt(false);
+    try {
+      const response = await fetch(`${CHAT_QNA_URL}/conversation/new`, {
+        method: 'POST'
+      });
+      if (!response.ok) throw new Error('Failed to create conversation');
+      const data = await response.json();
+      setCurrentConversationId(data.conversation_id);
+      setMessages([]);
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+      setShowNewChatPrompt(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement> | string) => {
+    if (typeof e !== 'string' && e?.preventDefault) {
+      e.preventDefault();
+    }
+    const messageContent = typeof e === 'string' ? e : input;
+    
+    if (!messageContent.trim() || isLoading) return;
+
+    setShowWelcome(false);
+
+    if (!currentConversationId) {
+      await startNewConversation();
+      if (!currentConversationId) return;
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim(),
-      isPinned: false,
-    }
+      content: messageContent.trim(),
+      timestamp: new Date().toISOString(),
+    };
 
-    setConversations(prev => ({
-      ...prev,
-      [selectedContext]: [...(prev[selectedContext] || []), userMessage],
-    }))
-    setInput('')
-    setIsLoading(true)
-
-    currentMessageId.current = (Date.now() + 1).toString()
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
 
     try {
-      const response = await fetch(`${CHAT_QNA_URL}/v1/chatqna`, {
+      const response = await fetch(`${CHAT_QNA_URL}/conversation/${currentConversationId}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: input.trim()
+          question: messageContent.trim(),
+          max_tokens: 1024,
+          temperature: 0.1
         })
-      })
+      });
 
-      if (!response.body) throw new Error('No response body')
+      if (!response.ok) throw new Error('Failed to send message');
 
-      const reader = response.body.getReader()
-      await processStream(reader)
+      const data = await response.json();
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: data.answer,
+        timestamp: new Date().toISOString(),
+        sources: data.sources
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
-      console.error('Error:', error)
-      setIsLoading(false)
+      console.error('Error:', error);
+    } finally {
+      setIsLoading(false);
     }
-  }
+  };
 
-  const handleQualityChange = (messageId: string, newQuality: 'good' | 'bad' | 'ok' | null) => {
-    setConversations(prevConversations => {
-      const updatedConversations = {...prevConversations}
-      updatedConversations[selectedContext] = updatedConversations[selectedContext]?.map((message) =>
+  const handleQualityChange = (messageId: string, newQuality: 'good' | 'bad') => {
+    setMessages(prevMessages =>
+      prevMessages.map(message =>
         message.id === messageId
-          ? { ...message, quality: newQuality as 'good' | 'bad' | 'ok' }
+          ? { ...message, quality: newQuality }
           : message
-      ) || []
-      return updatedConversations
-    })
-  }
-
-  const handlePinToggle = (messageId: string) => {
-    setConversations(prevConversations => {
-      const updatedConversations = {...prevConversations}
-      updatedConversations[selectedContext] = updatedConversations[selectedContext]?.map((message) =>
-        message.id === messageId
-          ? { ...message, isPinned: !message.isPinned }
-          : message
-      ) || []
-      return updatedConversations
-    })
-  }
+      )
+    );
+  };
 
   const toggleReferences = (messageId: string) => {
-    setShowReferences((prev) => ({
+    setShowReferences(prev => ({
       ...prev,
       [messageId]: !prev[messageId],
-    }))
-  }
+    }));
+  };
 
   const handleCopyContent = (content: string, messageId: string) => {
     navigator.clipboard.writeText(content).then(() => {
-      setCopyPopup({ open: true, messageId })
-      setTimeout(() => setCopyPopup({ open: false, messageId: null }), 2000)
-    }).catch(err => {
-      console.error('Failed to copy content: ', err)
-    })
-  }
+      setCopyPopup({ open: true, messageId });
+      setTimeout(() => setCopyPopup({ open: false, messageId: null }), 2000);
+    });
+  };
 
-  useEffect(() => {
-    setMessages(conversations[selectedContext] || [])
-  }, [selectedContext, conversations])
+  const formatTimestamp = (timestamp: string) => {
+    return new Date(timestamp).toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const handleExampleClick = (prompt: string) => {
+    setInput(prompt);
+    handleSubmit(prompt);
+  };
 
   return (
-    <Box sx={{ display: 'flex', height: '100%', width: '100%' }}>
-      <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', p: 2 }}>
-        {!isPDFViewerOpen && (
-          <FormControl variant="outlined" sx={{ mb: 2, width: '100%' }} size="small">
-            <InputLabel id="context-select-label">Conversation Context</InputLabel>
-            <Select
-              labelId="context-select-label"
-              id="context-select"
-              value={selectedContext}
-              onChange={handleContextChange}
-              label="Conversation Context"
-              sx={{
-                fontSize: '0.875rem',
-                backgroundColor: '#FFFFFF',
-                width: '100%',
-                '& .MuiSelect-select': {
-                  padding: '0.5rem',
-                },
-              }}
-            >
-              {contextOptions.map((option) => (
-                <MenuItem key={option} value={option}>{option}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        )}
+    <Box 
+      sx={{ 
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        width: '100%',
+        position: 'relative',
+        backgroundColor: '#0071C5',
+      }}
+    >
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: '#ffffff',
+          zIndex: 0,
+        }}
+      />
 
-        <Box sx={{ flexGrow: 1, overflowY: 'auto', mb: 2 }}>
-          {isPDFViewerOpen ? (
-            <PDFViewer documents={pdfDocuments} />
-          ) : (
+      <Box 
+        sx={{ 
+          position: 'relative',
+          zIndex: 1,
+          maxWidth: '800px',
+          width: '100%',
+          mx: 'auto',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <Box 
+          sx={{ 
+            flexGrow: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            overflowY: 'auto',
+            px: { xs: 2, sm: 4 },
+            pb: 2,
+            gap: 2,
+            '&::-webkit-scrollbar': {
+              width: '8px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: 'transparent',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: '#bbb',
+              borderRadius: '4px',
+              '&:hover': {
+                background: '#999',
+              },
+            },
+            paddingBottom: '100px'
+          }}
+        >
+          {showWelcome ? (
+        <Fade in>
+          <Box 
+            sx={{ 
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: '60vh',
+              gap: 3,
+              textAlign: 'center',
+              p: 2
+            }}
+          >
+            <AutoAwesomeIcon sx={{ fontSize: 48, color: '#0071C5' }} />
+            <Typography variant="h5" sx={{ fontWeight: 600, color: '#2c2c2c' }}>
+              Select a Topic to Begin
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 460, mb: 4 }}>
+              Choose your area of interest:
+            </Typography>
+            
+            <Box sx={{ 
+              display: 'flex', 
+              flexWrap: 'wrap', 
+              gap: 2, 
+              justifyContent: 'center',
+              maxWidth: 600,
+              mx: 'auto'
+            }}>
+              {topics.map((topic) => (
+                <Chip
+                  key={topic.name}
+                  icon={topic.icon}
+                  label={topic.name}
+                  onClick={() => handleTopicSelect(topic.name)}
+                  sx={{
+                    bgcolor: `${topic.color}15`,
+                    color: topic.color,
+                    border: `1px solid ${topic.color}30`,
+                    p: 2,
+                    fontSize: '1rem',
+                    '& .MuiChip-icon': {
+                      color: topic.color
+                    },
+                    '&:hover': {
+                      bgcolor: `${topic.color}25`,
+                      transform: 'scale(1.05)',
+                    },
+                    transition: 'all 0.2s ease',
+                    cursor: 'pointer'
+                  }}
+                />
+              ))}
+            </Box>
+          </Box>
+        </Fade>
+      ) : (
             <>
-              {conversations[selectedContext]?.map((message) => (
-                <Paper key={message.id} sx={{ p: 1, mb: 1, position: 'relative' }} elevation={1}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <Typography variant="body1" sx={{ color: 'text.primary' }}>
-                      <strong>{message.role === 'user' ? 'You' : 'AI'}:</strong> {message.content}
-                    </Typography>
-                    <Box sx={{ display: 'flex' }}>
-                      {message.role === 'assistant' && (
-                        <Tooltip title="Copy response" arrow>
-                          <IconButton
-                            onClick={() => handleCopyContent(message.content, message.id)}
-                            size="small"
-                          >
-                            <ContentCopyIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {message.role === 'user' && (
-                        <IconButton
-                          onClick={() => handlePinToggle(message.id)}
-                          size="small"
-                          color={message.isPinned ? 'primary' : 'default'}
-                        >
-                          {message.isPinned ? <PushPinIcon /> : <PushPinOutlinedIcon />}
-                        </IconButton>
-                      )}
-                    </Box>
-                  </Box>
-                  {message.role === 'assistant' && (
-                    <Box sx={{ mt: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <ToggleButtonGroup
-                          value={message.quality}
-                          exclusive
-                          onChange={(_, newQuality) => handleQualityChange(message.id, newQuality)}
-                          aria-label="response quality"
-                          size="small"
-                        >
-                          <ToggleButton value="good" aria-label="good response">
-                            <Tooltip title="Good">
-                              <ThumbUpIcon fontSize="small" />
-                            </Tooltip>
-                          </ToggleButton>
-                          <ToggleButton value="ok" aria-label="okay response">
-                            <Tooltip title="Okay">
-                              <PanToolIcon fontSize="small" />
-                            </Tooltip>
-                          </ToggleButton>
-                          <ToggleButton value="bad" aria-label="bad response">
-                            <Tooltip title="Bad">
-                              <ThumbDownIcon fontSize="small" />
-                            </Tooltip>
-                          </ToggleButton>
-                        </ToggleButtonGroup>
-                        {message.references && message.references.length > 0 && (
-                          <Tooltip title="Show References">
-                            <IconButton
-                              onClick={() => toggleReferences(message.id)}
-                              size="small"
-                              sx={{ ml: 1 }}
-                            >
-                              <DescriptionIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
-                      <Collapse in={showReferences[message.id]}>
-                        <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block' }}>
-                          References:
-                          <ul style={{ paddingLeft: '20px', listStyleType: 'disc' }}>
-                            {message.references?.map((ref, index) => (
-                              <li key={index}>{ref}</li>
-                            ))}
-                          </ul>
-                        </Typography>
-                      </Collapse>
-                    </Box>
-                  )}
-                  {copyPopup.open && copyPopup.messageId === message.id && (
+              {messages.map((message) => (
+                <Fade in key={message.id}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      maxWidth: '88%',
+                      alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
+                    }}
+                  >
                     <Box
                       sx={{
-                        position: 'absolute',
-                        top: '100%',
-                        right: 0,
-                        backgroundColor: '#686868',
-                        color: 'white',
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                        fontSize: '0.75rem',
-                        zIndex: 9999,
-                        opacity: 1,
-                        transition: 'opacity 0.15s ease-in-out',
+                        backgroundColor: message.role === 'user' ? '#E4D96F' : '#f8f9fa',
+                        borderRadius: 2,
+                        p: 2,
+                        maxWidth: '100%',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                        position: 'relative',
                       }}
                     >
-                      Copied
+                      <Typography
+                        variant="body1"
+                        sx={{
+                          color: '#2c2c2c',
+                          lineHeight: 1.5,
+                          whiteSpace: 'pre-wrap',
+                        }}
+                      >
+                        {message.content}
+                      </Typography>
+
+                      {message.role === 'assistant' && (
+                        <Box sx={{ display: 'flex', gap: 1, mt: 2, alignItems: 'center' }}>
+                          <Tooltip title="Copy response">
+                            <IconButton
+                              onClick={() => handleCopyContent(message.content, message.id)}
+                              size="small"
+                              sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}
+                            >
+                              <ContentCopyIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Box sx={{ display: 'flex', gap: 0.5 }}>
+                            <Tooltip title="Helpful">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleQualityChange(message.id, 'good')}
+                                sx={{
+                                  opacity: message.quality === 'good' ? 1 : 0.6,
+                                  '&:hover': { opacity: 1 },
+                                  color: message.quality === 'good' ? '#2e7d32' : 'inherit',
+                                }}
+                              >
+                                <ThumbUpIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Not helpful">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleQualityChange(message.id, 'bad')}
+                                sx={{
+                                  opacity: message.quality === 'bad' ? 1 : 0.6,
+                                  '&:hover': { opacity: 1 },
+                                  color: message.quality === 'bad' ? '#d32f2f' : 'inherit',
+                                }}
+                              >
+                                <ThumbDownIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                          {message.sources && message.sources.length > 0 && (
+                            <Tooltip title="View sources">
+                              <IconButton
+                                size="small"
+                                onClick={() => toggleReferences(message.id)}
+                                sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}
+                              >
+                                <DescriptionIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Box>
+                      )}
                     </Box>
-                  )}
-                </Paper>
+
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: '#666',
+                        mt: 1,
+                        ml: 2,
+                      }}
+                    >
+                      {formatTimestamp(message.timestamp)}
+                    </Typography>
+
+                    {message.role === 'assistant' && message.sources && (
+                      <Collapse in={showReferences[message.id]} sx={{ mt: 1, maxWidth: '100%' }}>
+                        <Box
+                          sx={{
+                            backgroundColor: '#f8f9fa',
+                            borderRadius: 2,
+                            p: 2,
+                            border: '1px solid #e0e0e0',
+                          }}
+                        >
+                          <Typography variant="subtitle2" sx={{ mb: 1, color: '#2c2c2c' }}>
+                            Sources
+                          </Typography>
+                          {message.sources?.map((source, index) => (
+                            <Box key={index} sx={{ mb: 2, '&:last-child': { mb: 0 } }}>
+                              <Typography
+                                variant="subtitle2"
+                                sx={{ 
+                                  color: '#1976d2',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 600,
+                                  mb: 0.5
+                                }}
+                              >
+                                {source.source} (Score: {source.relevance_score.toFixed(2)})
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: '#666',
+                                  fontSize: '0.8rem',
+                                  lineHeight: 1.4
+                                }}
+                              >
+                                {source.content}
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Box>
+                      </Collapse>
+                    )}
+                  </Box>
+                </Fade>
               ))}
               {isLoading && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                  <CircularProgress size={24} />
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+                  <CircularProgress size={24} sx={{ color: '#E4D96F' }} />
                 </Box>
               )}
+              <div ref={messagesEndRef} />
             </>
           )}
         </Box>
-        {!isPDFViewerOpen && (
-          <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', width: '100%' }}>
-            <TextField
-              value={input}
-              onChange={handleInputChange}
-              placeholder="Type your message..."
-              variant="outlined"
-              fullWidth
+
+        <Box
+          component="form"
+          onSubmit={handleSubmit}
+          sx={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            p: 3,
+            backgroundColor: '#ffffff',
+            borderTop: '1px solid rgba(0, 0, 0, 0.1)',
+            display: 'flex',
+            gap: 2,
+            alignItems: 'flex-end',
+            width: '100%',
+            maxWidth: '100%',
+            mx: 'auto',
+            boxSizing: 'border-box',
+          }}
+        >
+          <TextField
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={isLoading ? "Please wait..." : "Type your message..."}
+            variant="outlined"
+            multiline
+            maxRows={4}
+            fullWidth
+            disabled={isLoading}
+            sx={{
+              backgroundColor: '#ffffff',
+              maxWidth: '100%',
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                fontSize: '0.95rem',
+                '& fieldset': {
+                  borderColor: 'rgba(0, 0, 0, 0.1)',
+                },
+                '&:hover fieldset': {
+                  borderColor: 'rgba(0, 0, 0, 0.2)',
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: '#E4D96F',
+                },
+              },
+            }}
+          />
+          <Tooltip title="Send message" arrow>
+            <IconButton
+              type="submit"
+              disabled={isLoading || !input.trim()}
               sx={{
-                mr: 1,
-                flexGrow: 1,
-                backgroundColor: '#FFFFFF',
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': {
-                    borderColor: '#E0E0E0',
-                  },
-                  '&:hover fieldset': {
-                    borderColor: '#BDBDBD',
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: '#9E9E9E',
-                  },
+                backgroundColor: '#E4D96F',
+                color: '#2c2c2c',
+                width: 44,
+                height: 44,
+                flexShrink: 0,
+                '&:hover': {
+                  backgroundColor: '#D6CB61',
+                },
+                '&.Mui-disabled': {
+                  backgroundColor: 'rgba(0, 0, 0, 0.12)',
+                  color: 'rgba(0, 0, 0, 0.26)',
                 },
               }}
-            />
-            <Tooltip title="Send" arrow>
-              <IconButton
-                type="submit"
-                sx={{
-                  backgroundColor: '#E4D96F',
-                  color: 'grey',
-                  borderRadius: 0,
-                  width: '2.5rem',
-                  height: '2.5rem',
-                  flexShrink: 0,
-                  '&:hover': {
-                    backgroundColor: '#D6CB61',
-                  },
-                }}
-              >
-                <SendIcon />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        )}
+            >
+              <SendIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
       </Box>
     </Box>
-  )
+  );
 }
