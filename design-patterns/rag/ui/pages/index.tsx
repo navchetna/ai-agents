@@ -35,11 +35,11 @@ export default function Home() {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Navbar user={mockUser} />
-      <Box 
-        sx={{ 
+      <Box
+        sx={{
           backgroundColor: 'aliceblue',
-          display: 'flex', 
-          flexGrow: 1, 
+          display: 'flex',
+          flexGrow: 1,
           pt: '64px',
           overflow: 'hidden',
           position: 'relative'
@@ -53,7 +53,7 @@ export default function Home() {
         />
         <Box
           component="main"
-          sx={{ 
+          sx={{
             position: 'fixed',
             left: leftSidebarWidth,
             right: rightSidebarWidth,
@@ -67,7 +67,7 @@ export default function Home() {
           <Box
             sx={{
               width: '100%',
-              maxWidth: '800px',
+              maxWidth: '1000px',
               mx: 'auto',
               position: 'relative',
             }}

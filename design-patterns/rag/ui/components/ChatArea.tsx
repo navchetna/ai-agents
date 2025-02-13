@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Box, 
-  TextField, 
-  IconButton, 
-  Typography, 
-  Tooltip, 
-  CircularProgress, 
+import {
+  Box,
+  TextField,
+  IconButton,
+  Typography,
+  Tooltip,
+  CircularProgress,
   Button,
   Collapse,
   Fade,
@@ -18,6 +18,7 @@ import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import DescriptionIcon from '@mui/icons-material/Description';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import { CHAT_QNA_URL } from '@/lib/constants';
 
 interface Message {
@@ -39,7 +40,7 @@ interface ChatAreaProps {
   isPDFViewerOpen: boolean;
   isCollapsed: boolean;
   onCollapseChange: (collapsed: boolean) => void;
-  onContextChange: (context: string) => void; 
+  onContextChange: (context: string) => void;
 }
 
 import SecurityIcon from '@mui/icons-material/Security';
@@ -94,14 +95,14 @@ export default function ChatArea({
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showReferences, setShowReferences] = useState<{ [key: string]: boolean }>({});
-  const [copyPopup, setCopyPopup] = useState<{ open: boolean; messageId: string | null }>({ 
-    open: false, 
-    messageId: null 
+  const [copyPopup, setCopyPopup] = useState<{ open: boolean; messageId: string | null }>({
+    open: false,
+    messageId: null
   });
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId);
   const [showNewChatPrompt, setShowNewChatPrompt] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
-  
+
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -129,7 +130,7 @@ export default function ChatArea({
       setIsLoading(true);
       const response = await fetch(`${CHAT_QNA_URL}/conversation/${id}`);
       if (!response.ok) throw new Error('Failed to load conversation');
-      
+
       const data = await response.json();
       const formattedMessages = data.history.flatMap((turn: any) => [
         {
@@ -146,7 +147,7 @@ export default function ChatArea({
           sources: turn.context
         }
       ]);
-      
+
       setMessages(formattedMessages);
     } catch (error) {
       console.error('Error loading conversation:', error);
@@ -186,7 +187,7 @@ export default function ChatArea({
       e.preventDefault();
     }
     const messageContent = typeof e === 'string' ? e : input;
-    
+
     if (!messageContent.trim() || isLoading) return;
 
     setShowWelcome(false);
@@ -274,8 +275,8 @@ export default function ChatArea({
   };
 
   return (
-    <Box 
-      sx={{ 
+    <Box
+      sx={{
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
@@ -296,11 +297,11 @@ export default function ChatArea({
         }}
       />
 
-      <Box 
-        sx={{ 
+      <Box
+        sx={{
           position: 'relative',
           zIndex: 1,
-          maxWidth: '800px',
+          maxWidth: '1000px',
           width: '100%',
           mx: 'auto',
           height: '100%',
@@ -308,13 +309,14 @@ export default function ChatArea({
           flexDirection: 'column',
         }}
       >
-        <Box 
-          sx={{ 
+        <Box
+          sx={{
             flexGrow: 1,
             display: 'flex',
             flexDirection: 'column',
             overflowY: 'auto',
             px: { xs: 2, sm: 4 },
+            pt: 4, // Added 32px of space at the top
             pb: 2,
             gap: 2,
             '&::-webkit-scrollbar': {
@@ -334,208 +336,236 @@ export default function ChatArea({
           }}
         >
           {showWelcome ? (
-        <Fade in>
-          <Box 
-            sx={{ 
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: '60vh',
-              gap: 3,
-              textAlign: 'center',
-              p: 2
-            }}
-          >
-            <AutoAwesomeIcon sx={{ fontSize: 48, color: '#0071C5' }} />
-            <Typography variant="h5" sx={{ fontWeight: 600, color: '#2c2c2c' }}>
-              Select a Topic to Begin
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 460, mb: 4 }}>
-              Choose your area of interest:
-            </Typography>
-            
-            <Box sx={{ 
-              display: 'flex', 
-              flexWrap: 'wrap', 
-              gap: 2, 
-              justifyContent: 'center',
-              maxWidth: 600,
-              mx: 'auto'
-            }}>
-              {topics.map((topic) => (
-                <Chip
-                  key={topic.name}
-                  icon={topic.icon}
-                  label={topic.name}
-                  onClick={() => handleTopicSelect(topic.name)}
-                  sx={{
-                    bgcolor: `${topic.color}15`,
-                    color: topic.color,
-                    border: `1px solid ${topic.color}30`,
-                    p: 2,
-                    fontSize: '1rem',
-                    '& .MuiChip-icon': {
-                      color: topic.color
-                    },
-                    '&:hover': {
-                      bgcolor: `${topic.color}25`,
-                      transform: 'scale(1.05)',
-                    },
-                    transition: 'all 0.2s ease',
-                    cursor: 'pointer'
-                  }}
-                />
-              ))}
-            </Box>
-          </Box>
-        </Fade>
-      ) : (
+            <Fade in>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: '60vh',
+                  gap: 3,
+                  textAlign: 'center',
+                  p: 2
+                }}
+              >
+                <AutoAwesomeIcon sx={{ fontSize: 48, color: '#0071C5' }} />
+                <Typography variant="h5" sx={{ fontWeight: 600, color: '#2c2c2c' }}>
+                  Select a Topic to Begin
+                </Typography>
+                <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 460, mb: 4 }}>
+                  Choose your area of interest:
+                </Typography>
+
+                <Box sx={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 2,
+                  justifyContent: 'center',
+                  maxWidth: 600,
+                  mx: 'auto'
+                }}>
+                  {topics.map((topic) => (
+                    <Chip
+                      key={topic.name}
+                      icon={topic.icon}
+                      label={topic.name}
+                      onClick={() => handleTopicSelect(topic.name)}
+                      sx={{
+                        bgcolor: `${topic.color}15`,
+                        color: topic.color,
+                        border: `1px solid ${topic.color}30`,
+                        p: 2,
+                        fontSize: '1rem',
+                        '& .MuiChip-icon': {
+                          color: topic.color
+                        },
+                        '&:hover': {
+                          bgcolor: `${topic.color}25`,
+                          transform: 'scale(1.05)',
+                        },
+                        transition: 'all 0.2s ease',
+                        cursor: 'pointer'
+                      }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+            </Fade>
+          ) : (
             <>
               {messages.map((message) => (
                 <Fade in key={message.id}>
                   <Box
                     sx={{
                       display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'flex-start',
-                      maxWidth: '88%',
-                      alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
+                      flexDirection: 'row',
+                      gap: 2,
                     }}
                   >
+                    {message.role === 'user' ? (
+                      <AccountCircleIcon
+                        sx={{
+                          fontSize: 32,
+                          color: '#00C7FD',
+                          alignSelf: 'flex-start',
+                          mt: 2  // Added margin top to align with the message padding
+                        }}
+                      />
+                    ) : (
+                      <AutoAwesomeIcon
+                        sx={{
+                          fontSize: 32,
+                          color: '#0071C5',
+                          alignSelf: 'flex-start',
+                          mt: 2
+                        }}
+                      />
+                    )}
+
                     <Box
                       sx={{
-                        backgroundColor: message.role === 'user' ? '#E4D96F' : '#f8f9fa',
-                        borderRadius: 2,
-                        p: 2,
-                        maxWidth: '100%',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-                        position: 'relative',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                        width: '95%',
+                        alignSelf: 'flex-start',
                       }}
                     >
-                      <Typography
-                        variant="body1"
+                      <Box
                         sx={{
-                          color: '#2c2c2c',
-                          lineHeight: 1.5,
-                          whiteSpace: 'pre-wrap',
+                          backgroundColor: message.role === 'user' ? '#00C7FD' : '#f8f9fa',
+                          borderRadius: 2,
+                          p: 2,
+                          maxWidth: '100%',
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                          position: 'relative',
                         }}
                       >
-                        {message.content}
-                      </Typography>
-
-                      {message.role === 'assistant' && (
-                        <Box sx={{ display: 'flex', gap: 1, mt: 2, alignItems: 'center' }}>
-                          <Tooltip title="Copy response">
-                            <IconButton
-                              onClick={() => handleCopyContent(message.content, message.id)}
-                              size="small"
-                              sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}
-                            >
-                              <ContentCopyIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Box sx={{ display: 'flex', gap: 0.5 }}>
-                            <Tooltip title="Helpful">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleQualityChange(message.id, 'good')}
-                                sx={{
-                                  opacity: message.quality === 'good' ? 1 : 0.6,
-                                  '&:hover': { opacity: 1 },
-                                  color: message.quality === 'good' ? '#2e7d32' : 'inherit',
-                                }}
-                              >
-                                <ThumbUpIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Not helpful">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleQualityChange(message.id, 'bad')}
-                                sx={{
-                                  opacity: message.quality === 'bad' ? 1 : 0.6,
-                                  '&:hover': { opacity: 1 },
-                                  color: message.quality === 'bad' ? '#d32f2f' : 'inherit',
-                                }}
-                              >
-                                <ThumbDownIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
-                          {message.sources && message.sources.length > 0 && (
-                            <Tooltip title="View sources">
-                              <IconButton
-                                size="small"
-                                onClick={() => toggleReferences(message.id)}
-                                sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}
-                              >
-                                <DescriptionIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Box>
-                      )}
-                    </Box>
-
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: '#666',
-                        mt: 1,
-                        ml: 2,
-                      }}
-                    >
-                      {formatTimestamp(message.timestamp)}
-                    </Typography>
-
-                    {message.role === 'assistant' && message.sources && (
-                      <Collapse in={showReferences[message.id]} sx={{ mt: 1, maxWidth: '100%' }}>
-                        <Box
+                        <Typography
+                          variant="body1"
                           sx={{
-                            backgroundColor: '#f8f9fa',
-                            borderRadius: 2,
-                            p: 2,
-                            border: '1px solid #e0e0e0',
+                            color: message.role === 'user' ? '#ffffff' : '#2c2c2c',
+                            lineHeight: 1.5,
+                            whiteSpace: 'pre-wrap',
                           }}
                         >
-                          <Typography variant="subtitle2" sx={{ mb: 1, color: '#2c2c2c' }}>
-                            Sources
-                          </Typography>
-                          {message.sources?.map((source, index) => (
-                            <Box key={index} sx={{ mb: 2, '&:last-child': { mb: 0 } }}>
-                              <Typography
-                                variant="subtitle2"
-                                sx={{ 
-                                  color: '#1976d2',
-                                  fontSize: '0.8rem',
-                                  fontWeight: 600,
-                                  mb: 0.5
-                                }}
+                          {message.content}
+                        </Typography>
+
+                        {message.role === 'assistant' && (
+                          <Box sx={{ display: 'flex', gap: 1, mt: 2, alignItems: 'center' }}>
+                            <Tooltip title="Copy response">
+                              <IconButton
+                                onClick={() => handleCopyContent(message.content, message.id)}
+                                size="small"
+                                sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}
                               >
-                                {source.source} (Score: {source.relevance_score.toFixed(2)})
-                              </Typography>
-                              <Typography
-                                variant="body2"
-                                sx={{
-                                  color: '#666',
-                                  fontSize: '0.8rem',
-                                  lineHeight: 1.4
-                                }}
-                              >
-                                {source.content}
-                              </Typography>
+                                <ContentCopyIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Box sx={{ display: 'flex', gap: 0.5 }}>
+                              <Tooltip title="Helpful">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleQualityChange(message.id, 'good')}
+                                  sx={{
+                                    opacity: message.quality === 'good' ? 1 : 0.6,
+                                    '&:hover': { opacity: 1 },
+                                    color: message.quality === 'good' ? '#2e7d32' : 'inherit',
+                                  }}
+                                >
+                                  <ThumbUpIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Not helpful">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleQualityChange(message.id, 'bad')}
+                                  sx={{
+                                    opacity: message.quality === 'bad' ? 1 : 0.6,
+                                    '&:hover': { opacity: 1 },
+                                    color: message.quality === 'bad' ? '#d32f2f' : 'inherit',
+                                  }}
+                                >
+                                  <ThumbDownIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
                             </Box>
-                          ))}
-                        </Box>
-                      </Collapse>
-                    )}
+                            {message.sources && message.sources.length > 0 && (
+                              <Tooltip title="View sources">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => toggleReferences(message.id)}
+                                  sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}
+                                >
+                                  <DescriptionIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Box>
+                        )}
+                      </Box>
+
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: '#666',
+                          mt: 1,
+                          ml: 2,
+                        }}
+                      >
+                        {formatTimestamp(message.timestamp)}
+                      </Typography>
+
+                      {message.role === 'assistant' && message.sources && (
+                        <Collapse in={showReferences[message.id]} sx={{ mt: 1, maxWidth: '100%' }}>
+                          <Box
+                            sx={{
+                              backgroundColor: '#f8f9fa',
+                              borderRadius: 2,
+                              p: 2,
+                              border: '1px solid #e0e0e0',
+                            }}
+                          >
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#2c2c2c' }}>
+                              Sources
+                            </Typography>
+                            {message.sources?.map((source, index) => (
+                              <Box key={index} sx={{ mb: 2, '&:last-child': { mb: 0 } }}>
+                                <Typography
+                                  variant="subtitle2"
+                                  sx={{
+                                    color: '#1976d2',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 600,
+                                    mb: 0.5
+                                  }}
+                                >
+                                  {source.source} (Score: {source.relevance_score.toFixed(2)})
+                                </Typography>
+                                <Typography
+                                  variant="body2"
+                                  sx={{
+                                    color: '#666',
+                                    fontSize: '0.8rem',
+                                    lineHeight: 1.4
+                                  }}
+                                >
+                                  {source.content}
+                                </Typography>
+                              </Box>
+                            ))}
+                          </Box>
+                        </Collapse>
+                      )}
+                    </Box>
                   </Box>
                 </Fade>
               ))}
               {isLoading && (
                 <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                  <CircularProgress size={24} sx={{ color: '#E4D96F' }} />
+                  <CircularProgress size={24} sx={{ color: '#0071C5' }} />
                 </Box>
               )}
               <div ref={messagesEndRef} />
@@ -585,7 +615,7 @@ export default function ChatArea({
                   borderColor: 'rgba(0, 0, 0, 0.2)',
                 },
                 '&.Mui-focused fieldset': {
-                  borderColor: '#E4D96F',
+                  borderColor: '#0071C5',
                 },
               },
             }}
@@ -595,17 +625,17 @@ export default function ChatArea({
               type="submit"
               disabled={isLoading || !input.trim()}
               sx={{
-                backgroundColor: '#E4D96F',
-                color: '#2c2c2c',
+                backgroundColor: '#0071C5',
+                color: 'white',
                 width: 44,
                 height: 44,
                 flexShrink: 0,
                 '&:hover': {
-                  backgroundColor: '#D6CB61',
+                  backgroundColor: '#00C7FD',
                 },
                 '&.Mui-disabled': {
                   backgroundColor: 'rgba(0, 0, 0, 0.12)',
-                  color: 'rgba(0, 0, 0, 0.26)',
+                  color: 'black',
                 },
               }}
             >
@@ -616,4 +646,5 @@ export default function ChatArea({
       </Box>
     </Box>
   );
+
 }

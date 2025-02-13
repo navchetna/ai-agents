@@ -119,7 +119,7 @@ export default function RightSidebar({
             transition: 'all 0.3s ease',
             boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
             '&:hover': {
-              backgroundColor: '#D6CB61',
+              backgroundColor: '#00C7FD',
               boxShadow: '0 6px 8px rgba(0, 0, 0, 0.15)',
             },
             '&:active': {
@@ -142,7 +142,7 @@ export default function RightSidebar({
             transition: 'all 0.3s ease',
             boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
             '&:hover': {
-              backgroundColor: '#D6CB61',
+              backgroundColor: '#00C7FD',
               transform: 'translateY(-2px)',
               boxShadow: '0 6px 8px rgba(0, 0, 0, 0.15)',
             },
@@ -166,7 +166,7 @@ export default function RightSidebar({
             transition: 'all 0.3s ease',
             boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
             '&:hover': {
-              backgroundColor: '#D6CB61',
+              backgroundColor: '#00C7FD',
               transform: 'translateY(-2px)',
               boxShadow: '0 6px 8px rgba(0, 0, 0, 0.15)',
             },
@@ -190,7 +190,7 @@ export default function RightSidebar({
             transition: 'all 0.3s ease',
             boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
             '&:hover': {
-              backgroundColor: isPDFViewerOpen ? '#C8BE54' : '#D6CB61',
+              backgroundColor: isPDFViewerOpen ? '#00C7FD' : '#00C7FD',
               transform: 'translateY(-2px)',
               boxShadow: '0 6px 8px rgba(0, 0, 0, 0.15)',
             },
