@@ -316,7 +316,7 @@ export default function ChatArea({
             flexDirection: 'column',
             overflowY: 'auto',
             px: { xs: 2, sm: 4 },
-            pt: 4, // Added 32px of space at the top
+            pt: 4,
             pb: 2,
             gap: 2,
             '&::-webkit-scrollbar': {
@@ -407,9 +407,9 @@ export default function ChatArea({
                       <AccountCircleIcon
                         sx={{
                           fontSize: 32,
-                          color: '#00C7FD',
+                          color: '#0071C5',
                           alignSelf: 'flex-start',
-                          mt: 2  // Added margin top to align with the message padding
+                          mt: 2
                         }}
                       />
                     ) : (
@@ -434,7 +434,7 @@ export default function ChatArea({
                     >
                       <Box
                         sx={{
-                          backgroundColor: message.role === 'user' ? '#00C7FD' : '#f8f9fa',
+                          backgroundColor: message.role === 'user' ? '#0071C5' : '#f8f9fa',
                           borderRadius: 2,
                           p: 2,
                           maxWidth: '100%',
@@ -511,11 +511,11 @@ export default function ChatArea({
                         variant="caption"
                         sx={{
                           color: '#666',
-                          mt: 1,
+                          // mt: 1,
                           ml: 2,
                         }}
                       >
-                        {formatTimestamp(message.timestamp)}
+                        {/* {formatTimestamp(message.timestamp)} */}
                       </Typography>
 
                       {message.role === 'assistant' && message.sources && (
