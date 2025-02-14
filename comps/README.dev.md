@@ -60,6 +60,8 @@ export no_proxy=127.0.0.1,localhost,.intel.com,10.235.124.11,10.235.124.12,10.23
 ```bash
 python3 prepare_doc_redis.py
 ```
+The dataprep service will be running on http://localhost:6007
+
 #### Test the dataprep component by uploading a file:
 ```bash
 curl -X POST "http://localhost:6007/v1/dataprep" -H "Content-Type: multipart/form-data" -F "files=@<path/to/pdf>"
@@ -138,6 +140,7 @@ cd comps/
 ```bash
 python3 conversation.py
 ```
+The backend will be running on http://localhost:9001
 
 
 ### Test the backend
@@ -166,6 +169,26 @@ curl -X DELETE "http://localhost:9001/conversation/{conversation_id}"
 
 
 
+
+---
+---
+## UI (new terminal)
+```bash
+export no_proxy=127.0.0.1,localhost,.intel.com,10.235.124.11,10.235.124.12,10.235.124.13,10.96.0.0/12,10.235.64.0/18,chatqna-xeon-ui-server,chatqna-xeon-backend-server,dataprep-redis-service,tei-embedding-service,retriever,tei-reranking-service,tgi-service,vllm_service,backend,mongodb,tei-reranking-server,tei-embedding-server,groq-service
+export SERVER_HOST_URL=localhost:9001
+export NEXT_PUBLIC_SERVER_URL=localhost:9001
+
+# Install dependencies
+cd design-patterns/rag/ui
+npm install
+```
+
+#### Start the UI:
+```bash
+npm run dev
+```
+
+The frontend will be running on http://localhost:3000
 
 ---
 ---
