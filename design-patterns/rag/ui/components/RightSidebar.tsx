@@ -181,7 +181,7 @@ export default function RightSidebar({
         <IconButton
           onClick={onTogglePDFViewer}
           sx={{
-            backgroundColor: isPDFViewerOpen ? '#D6CB61' : '#0071C5',
+            backgroundColor: isPDFViewerOpen ? '#0071C5' : '#0071C5',
             color: 'white',
             borderRadius: '8px',
             width: '3rem',
