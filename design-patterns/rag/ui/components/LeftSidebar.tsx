@@ -156,7 +156,7 @@ export default function LeftSidebar({
           {/* <Typography variant="h6" sx={{ mb: 2, color: '#333' }}>
             Conversations
           </Typography> */}
-          <Tooltip title="New Chat" arrow>
+          <Tooltip title="Start a new chat" arrow>
             <IconButton 
               onClick={() => onSelectConversation('')}
               sx={{ 
@@ -164,9 +164,10 @@ export default function LeftSidebar({
                 color: 'white',
                 width: '100%',
                 borderRadius: '8px',
+                transition: 'all 0.3s ease',
                 py: 1,
                 '&:hover': {
-                  backgroundColor: '#0071C5',
+                  backgroundColor: '#00C7FD',
                 },
               }}
             >
@@ -223,15 +224,15 @@ export default function LeftSidebar({
                     minHeight: '60px',
                     maxHeight: '80px',
                     '&:hover': {
-                      backgroundColor: '#f8f9fa',
+                      backgroundColor: 'aliceblue',
                       transform: 'translateY(-1px)',
                       boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                     },
                     '&.Mui-selected': {
-                      backgroundColor: '#E4D96F15',
-                      borderColor: '#E4D96F',
+                      backgroundColor: 'aliceblue',
+                      borderColor: '#0071C5',
                       '&:hover': {
-                        backgroundColor: '#E4D96F25',
+                        backgroundColor: 'aliceblue',
                       }
                     }
                   }}
@@ -326,7 +327,7 @@ export default function LeftSidebar({
           pt: 2,
           gap: 2
         }}>
-          <Tooltip title="New Chat" arrow placement="right">
+          <Tooltip title="Start a new chat" arrow placement="right">
             <IconButton
               onClick={() => {
                 onCollapseChange(false);
