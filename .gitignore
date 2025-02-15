@@ -3,3 +3,5 @@ venv
 **data
 **cache
 **.pyc
+out
+uploaded_files

@@ -1,3 +1,4 @@
+from marker.config.parser import ConfigParser
 from marker.converters.pdf import PdfConverter
 from marker.models import create_model_dict
 from marker.output import output_exists, save_output
@@ -28,8 +29,14 @@ class TreeParser:
 
     def generate_markdown(self, file, filename):
         if not output_exists(os.path.join(OUTPUT_DIR, filename), filename):
+            config = {
+                "output_format": "markdown",
+                "use_llm": False,
+            }
+            config_parser = ConfigParser(config)
             converter = PdfConverter(
                 artifact_dict=create_model_dict(),
+                config=config
             )
             rendered = converter(file)
             os.mkdir(os.path.join(OUTPUT_DIR, filename))
