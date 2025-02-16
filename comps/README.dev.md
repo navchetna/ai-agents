@@ -138,7 +138,7 @@ cd comps/
 
 #### Run the service:
 ```bash
-python3 conversation.py
+python3 main.py
 ```
 The backend will be running on http://localhost:9001
 
