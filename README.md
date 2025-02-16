@@ -109,16 +109,13 @@ THESE STEPS ARE TO RUN IT VIA DOCKER
 
  http://localhost:8000/docs
 
+FOR EXAMPLE IF YOU WANT TO ACCESS THE DOWNLOAD_REFERENCES ENDPOINT YOU GO TO 
+ http://localhost:8000/api/docs#/default/download_references_download_references_post
+
 7. if you want to check  the processing in your terminal you can
 docker logs <container_id>
 
 8. after opening fast api refer to the the .txt file (api that can be used)
-
-FOR EXAMPLE IF YOU WANT TO ACCESS THE DOWNLOAD_REFERENCES ENDPOINT YOU GO TO 
- http://localhost:8000/api/docs#/default/download_references_download_references_post
-
-
-7. after opening fast api refer to the the .txt file (api that can be used)
 
 to explore different api for different endpoints
 
