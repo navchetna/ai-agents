@@ -4,6 +4,3 @@ __pycache__
 *.pyd
 venv
 .env
-.git/
-*.log
-data/
