@@ -1,0 +1,10 @@
+venv
+__pycache__
+out
+outputs
+output.json
+output.txt
+toc.txt
+program.py
+get_content.sh
+get_memory.sh

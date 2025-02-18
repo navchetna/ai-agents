@@ -1,0 +1,23 @@
+# Copyright (C) 2024 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+version: "3.8"
+
+services:
+  retriever:
+    image: ai-agents/retriever:latest
+    container_name: retriever-redis-server
+    ports:
+      - "5007:7000"
+    ipc: host
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      REDIS_URL: ${REDIS_URL}
+      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+    restart: unless-stopped
+
+networks:
+  default:
+    driver: bridge

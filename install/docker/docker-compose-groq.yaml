@@ -1,0 +1,149 @@
+# Copyright (C) 2024 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+version: "3.8"
+
+services:
+  retriever:
+    image: ai-agents/retriever:latest
+    container_name: retriever-redis-server
+    ports:
+      - "5007:7000"
+    ipc: host
+    depends_on:
+      - redis-vector-db
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      REDIS_URL: ${REDIS_URL}
+      INDEX_NAME: ${INDEX_NAME}
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      TEI_EMBEDDING_ENDPOINT: http://tei-embedding-service:80
+      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+    restart: unless-stopped
+  redis-vector-db:
+    image: redis/redis-stack:7.2.0-v9
+    container_name: redis-vector-db
+    ports:
+      - "6379:6379"
+      - "8001:8001"
+  dataprep-redis:
+    image: ai-agents/dataprep:latest
+    container_name: dataprep-redis-server
+    depends_on:
+      - redis-vector-db
+      - tei-embedding-service
+    volumes:
+      - "./cache:/.cache"
+    ports:
+      - "5006:6007"
+    ipc: host
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      REDIS_URL: ${REDIS_URL}
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      LOGFLAG: ${LOGFLAG}
+      TEI_ENDPOINT: http://tei-embedding-service:80
+      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+    restart: unless-stopped
+  groq-service:
+    image: ai-agents/groq:latest
+    container_name: groq-service
+    ports:
+      - "5099:8000"
+    volumes:
+      - "./cache:/root/.cache"
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+  tei-reranking-service:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+    container_name: tei-reranking-server
+    ports:
+      - "8808:80"
+    volumes:
+      - "./data:/data"
+    shm_size: 1g
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+      HF_HUB_DISABLE_PROGRESS_BARS: 1
+      HF_HUB_ENABLE_HF_TRANSFER: 0
+    command: --model-id ${RERANK_MODEL_ID} --auto-truncate
+  tei-embedding-service:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+    container_name: tei-embedding-server
+    ports:
+      - "6006:80"
+    volumes:
+      - "./data:/data"
+    shm_size: 1g
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+    command: --model-id ${EMBEDDING_MODEL_ID} --auto-truncate
+  mongodb:
+    image: mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: agents
+      MONGO_INITDB_ROOT_PASSWORD: agents
+    ports:
+      - "27017:27017"
+  backend:
+    image: ai-agents/rag/backend:latest
+    depends_on:
+      - redis-vector-db
+      - tei-embedding-service
+      - retriever
+      - tei-reranking-service
+    ports:
+      - "5008:5008"
+    environment:
+      - no_proxy=${no_proxy}
+      - https_proxy=${https_proxy}
+      - http_proxy=${http_proxy}
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - MEGA_SERVICE_HOST_IP=127.0.0.1
+      - MEGA_SERVICE_PORT=${MEGA_SERVICE_PORT}
+      - EMBEDDING_SERVER_HOST_IP=${EMBEDDING_SERVER_HOST_IP}
+      - EMBEDDING_SERVER_PORT=${EMBEDDING_SERVER_PORT:-80}
+      - RETRIEVER_SERVICE_HOST_IP=${RETRIEVER_SERVICE_HOST_IP}
+      - RETRIEVER_SERVICE_PORT=${RETRIEVER_SERVICE_PORT}
+      - RERANK_SERVER_HOST_IP=${RERANK_SERVER_HOST_IP}
+      - RERANK_SERVER_PORT=${RERANK_SERVER_PORT:-80}
+      - LLM_SERVER_HOST_IP=${LLM_SERVER_HOST_IP}
+      - LLM_SERVER_PORT=${LLM_SERVER_PORT:-80}
+      - LLM_MODEL=${LLM_MODEL_ID}
+      - LOGFLAG=${LOGFLAG}
+    ipc: host
+    restart: always
+  ui:
+    image: ai-agents/rag/ui:latest
+    depends_on:
+      - backend
+    ports:
+      - "5009:3000"
+    restart: always
+
+
+networks:
+  default:
+    driver: bridge
