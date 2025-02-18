@@ -159,7 +159,7 @@ curl -X POST "http://localhost:9001/conversation/{conversation_id}" \
 
 #### Get conversation history:
 ```bash
-curl "http://localhost:9001/conversation/{conversation_id}"
+curl -X GET "http://localhost:9001/conversation/{conversation_id}"
 ```
 
 #### Delete conversation:
