@@ -14,7 +14,7 @@ export EMBEDDING_MODEL_ID="BAAI/bge-base-en-v1.5"
 export RERANK_MODEL_ID="BAAI/bge-reranker-base"
 export LLM_MODEL_ID="meta-llama/Meta-Llama-3.1-8B-Instruct"
 export INDEX_NAME="rag-redis"
-export REDIS_URL="redis://localhost:6379"
+export REDIS_URL="redis://redis-vector-db:6379"
 export SERVER_HOST_URL=localhost:9001
 export HUGGINGFACEHUB_API_TOKEN=<token>
 export MEGA_SERVICE_PORT=9001
@@ -52,7 +52,7 @@ pip install -r requirements.txt # only once
 
 export PYTHONPATH=<path/to/ai-agents/dir>
 export HUGGINGFACEHUB_API_TOKEN=<token>
-export REDIS_URL=redis://localhost:6379
+export REDIS_URL=redis://redis-vector-db:6379
 export no_proxy=127.0.0.1,localhost,.intel.com,10.235.124.11,10.235.124.12,10.235.124.13,10.96.0.0/12,10.235.64.0/18,chatqna-xeon-ui-server,chatqna-xeon-backend-server,dataprep-redis-service,tei-embedding-service,retriever,tei-reranking-service,tgi-service,vllm_service,backend,mongodb,tei-reranking-server,tei-embedding-server,groq-service
 ```
 
@@ -82,7 +82,7 @@ pip install -r requirements.txt # only once
 
 export PYTHONPATH=<path/to/ai-agents/dir>
 export HUGGINGFACEHUB_API_TOKEN=<token>
-export REDIS_URL=redis://localhost:6379
+export REDIS_URL=redis://redis-vector-db:6379
 export INDEX_NAME="rag-redis"
 export no_proxy=127.0.0.1,localhost,.intel.com,10.235.124.11,10.235.124.12,10.235.124.13,10.96.0.0/12,10.235.64.0/18,chatqna-xeon-ui-server,chatqna-xeon-backend-server,dataprep-redis-service,tei-embedding-service,retriever,tei-reranking-service,tgi-service,vllm_service,backend,mongodb,tei-reranking-server,tei-embedding-server,groq-service
 ```
@@ -112,7 +112,7 @@ export EMBEDDING_MODEL_ID="BAAI/bge-base-en-v1.5"
 export RERANK_MODEL_ID="BAAI/bge-reranker-base"
 export LLM_MODEL_ID="meta-llama/Meta-Llama-3.1-8B-Instruct"
 export INDEX_NAME="rag-redis"
-export REDIS_URL="redis://localhost:6379"
+export REDIS_URL="redis://redis-vector-db:6379"
 export SERVER_HOST_URL=localhost:9001
 export HUGGINGFACEHUB_API_TOKEN=<token>
 export MEGA_SERVICE_PORT=9001
