@@ -24,3 +24,6 @@ pytest
 accelerate==0.26.0
 python-dotenv
 motor
+redis
+pymongo
+groq
