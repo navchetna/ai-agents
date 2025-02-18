@@ -1,0 +1,16 @@
+## for search paper 
+1. semantic_scholar 
+2. arxiv_papers
+3. doaj
+
+
+
+##suggestions
+1.semantic_scholar
+2.doaj
+
+##download references(snowballing)
+1.semantic_scholar 
+
+## Configure logging
+#logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
