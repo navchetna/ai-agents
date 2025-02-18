@@ -136,7 +136,7 @@ services:
     ipc: host
     restart: always
   ui:
-    image: ai-agents/rag/ui:latest
+    image: ervin0307/ai-agents-rag-ui:latest
     depends_on:
       - backend
     ports:
