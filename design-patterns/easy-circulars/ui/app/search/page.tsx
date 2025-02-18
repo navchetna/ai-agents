@@ -9,30 +9,42 @@ import { Badge } from "@/components/ui/badge"
 import { Search } from "lucide-react"
 import { usePageTitle } from "../contexts/PageTitleContext"
 
-// Mock data for circulars
-const mockCirculars = [
-  { id: 1, title: "Circular on Digital Payments", tags: ["digital", "payments"], date: "2023-05-15" },
-  { id: 2, title: "Circular on KYC Norms", tags: ["kyc", "compliance"], date: "2023-06-01" },
-  { id: 3, title: "Circular on Foreign Exchange", tags: ["forex", "trade"], date: "2023-07-01" },
-]
+interface Circular {
+  id: number;
+  title: string;
+  tags: string[];
+  date: string;
+}
 
 export default function SearchPage() {
   const { setPageTitle } = usePageTitle()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [circulars, setCirculars] = useState<Circular[]>([]);
   const router = useRouter()
 
   useEffect(() => {
     setPageTitle("Search Circulars")
+    fetch('http://localhost:6016/v1/circular/get', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({})
+    })
+      .then(response => response.json())
+      .then((data: Circular[]) => setCirculars(data))
+      .catch(error => console.error('Error fetching circulars:', error));
   }, [setPageTitle])
 
-  const filteredCirculars = mockCirculars.filter(
+  const filteredCirculars = circulars.filter(
     (circular) =>
       (circular.title.toLowerCase().includes(searchTerm.toLowerCase()) || searchTerm === "") &&
       (selectedTags.length === 0 || selectedTags.some((tag) => circular.tags.includes(tag))),
   )
 
-  const allTags = Array.from(new Set(mockCirculars.flatMap((c) => c.tags)))
+  const allTags = Array.from(new Set(circulars.flatMap((c) => c.tags)))
 
   const handleCircularClick = (id: number) => {
     router.push(`/circular/${id}`)
