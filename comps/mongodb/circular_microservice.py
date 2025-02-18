@@ -1,7 +1,7 @@
 # Copyright (C) 2024 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 import os
-from typing import List
+from typing import Optional
 
 from fastapi import HTTPException
 from circular import Circular
@@ -14,11 +14,8 @@ logger = CustomLogger("circular_mongo")
 logflag = os.getenv("LOGFLAG", False)
 
 
-class CircularData(BaseModel):
-    id: int
-    title: str
-    tags: List[str]
-    date: date
+class CircularId(BaseModel):
+    circular_id: Optional[str] = None
 
 
 @register_microservice(
@@ -27,11 +24,16 @@ class CircularData(BaseModel):
     host="0.0.0.0",
     port=8000,
 )
-async def get_circulars():
+async def get_circular(circularId: CircularId):
 
     try:
         circular = Circular()
-        response = await circular.get_all_circulars()
+        if circularId.circular_id:
+            print(circularId)
+            print(circularId.circular_id)
+            response = await circular.get_circular_by_id(circularId.circular_id)
+        else:
+            response = await circular.get_all_circulars()
         
         logger.info(response)
 

@@ -10,10 +10,13 @@ import { Search } from "lucide-react"
 import { usePageTitle } from "../contexts/PageTitleContext"
 
 interface Circular {
-  id: number;
+  circular_id: string;
   title: string;
   tags: string[];
   date: string;
+  url: string;
+  bookmark: boolean;
+  references: string[];
 }
 
 export default function SearchPage() {
@@ -31,7 +34,7 @@ export default function SearchPage() {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({})
+      body: JSON.stringify({ circularId: null })
     })
       .then(response => response.json())
       .then((data: Circular[]) => setCirculars(data))
@@ -46,7 +49,7 @@ export default function SearchPage() {
 
   const allTags = Array.from(new Set(circulars.flatMap((c) => c.tags)))
 
-  const handleCircularClick = (id: number) => {
+  const handleCircularClick = (id: string) => {
     router.push(`/circular/${id}`)
   }
 
@@ -82,7 +85,7 @@ export default function SearchPage() {
       </div>
       <div className="space-y-4">
         {filteredCirculars.map((circular) => (
-          <Card key={circular.id} className="cursor-pointer" onClick={() => handleCircularClick(circular.id)}>
+          <Card key={circular.circular_id} className="cursor-pointer" onClick={() => handleCircularClick(circular.circular_id)}>
             <CardHeader>
               <CardTitle className="text-foreground">{circular.title}</CardTitle>
             </CardHeader>

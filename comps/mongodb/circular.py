@@ -4,7 +4,6 @@
 from integrations.mongo.config import COLLECTION_NAME
 from integrations.mongo.mongo_conn import MongoClient
 
-
 class Circular:
 
     def __init__(
@@ -27,3 +26,31 @@ class Circular:
         except Exception as e:
             print(e)
             raise Exception(e)
+        
+    async def get_circular_by_id(self, circular_id) -> dict | None:
+        try:
+
+            main_circular = await self.collection.find_one({"_id": circular_id})
+            if not main_circular:
+                return None
+
+            references_ids = main_circular.get("references", [])
+
+            referenced_circulars = []
+            if references_ids:
+                object_ids = [ref_id for ref_id in references_ids]
+                cursor = self.collection.find({"_id": {"$in": object_ids}})
+                referenced_circulars = await cursor.to_list(length=len(references_ids))
+
+                for ref in referenced_circulars:
+                    ref["circular_id"] = str(ref["_id"])
+
+            main_circular["circular_id"] = str(main_circular["_id"])
+            
+            return {
+                "circular": main_circular,
+                "references": referenced_circulars
+            }
+        except Exception as e:
+            print(f"Error fetching circular: {e}")
+            return None
