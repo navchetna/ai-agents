@@ -107,7 +107,7 @@ services:
     ports:
       - "27017:27017"
   backend:
-    image: ai-agents/rag/backend:latest
+    image: ervin0307/ai-agents-rag-backend:latest
     depends_on:
       - redis-vector-db
       - tei-embedding-service
