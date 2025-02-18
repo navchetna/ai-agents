@@ -21,11 +21,11 @@ export MEGA_SERVICE_PORT=9001
 export EMBEDDING_SERVER_HOST_IP=localhost
 export EMBEDDING_SERVER_PORT=6006
 export RETRIEVER_SERVICE_HOST_IP=localhost
-export RETRIEVER_SERVICE_PORT=7000
+export RETRIEVER_SERVICE_PORT=5007
 export RERANK_SERVER_HOST_IP=localhost
 export RERANK_SERVER_PORT=8808
 export LLM_SERVER_HOST_IP=localhost
-export LLM_SERVER_PORT=8000
+export LLM_SERVER_PORT=5099
 export GROQ_API_KEY=<GROQ_API_KEY>
 export MONGO_USERNAME=agents
 export MONGO_PASSWORD=agents
@@ -119,11 +119,11 @@ export MEGA_SERVICE_PORT=9001
 export EMBEDDING_SERVER_HOST_IP=localhost
 export EMBEDDING_SERVER_PORT=6006
 export RETRIEVER_SERVICE_HOST_IP=localhost
-export RETRIEVER_SERVICE_PORT=7000
+export RETRIEVER_SERVICE_PORT=5007
 export RERANK_SERVER_HOST_IP=localhost
 export RERANK_SERVER_PORT=8808
 export LLM_SERVER_HOST_IP=localhost
-export LLM_SERVER_PORT=8000
+export LLM_SERVER_PORT=5099
 export GROQ_API_KEY=<GROQ_API_KEY>
 export MONGO_USERNAME=agents
 export MONGO_PASSWORD=agents
@@ -146,7 +146,7 @@ The backend will be running on http://localhost:9001
 ### Test the backend
 #### Start a new conversation:
 ```bash
-curl -X POST "http://localhost:9001/conversation/new"
+curl -X POST "http://localhost:9001/conversation/new" | jq
 ```
 
 #### Continue a conversation:
@@ -159,16 +159,18 @@ curl -X POST "http://localhost:9001/conversation/{conversation_id}" \
 
 #### Get conversation history:
 ```bash
-curl -X GET "http://localhost:9001/conversation/{conversation_id}"
+curl -X GET "http://localhost:9001/conversation/{conversation_id}" | jq
 ```
 
 #### Delete conversation:
 ```bash
-curl -X DELETE "http://localhost:9001/conversation/{conversation_id}"
+curl -X DELETE "http://localhost:9001/conversation/{conversation_id}" | jq
 ```
 
-
-
+#### List all conversations:
+```bash
+curl -X GET "http://localhost:9001/conversations?limit=3" | jq
+```
 
 ---
 ---
