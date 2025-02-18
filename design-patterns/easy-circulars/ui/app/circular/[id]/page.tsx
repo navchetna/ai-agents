@@ -35,7 +35,6 @@ export default function CircularPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [references, setReferences] = useState<Circular[]>([])
-  const [isBookmarked, setIsBookmarked] = useState(false)
   const [activeTab, setActiveTab] = useState("content")
 
   useEffect(() => {
@@ -59,22 +58,25 @@ export default function CircularPage() {
       });
   }, [id]);
 
-  useEffect(() => {
-    const bookmarks = JSON.parse(localStorage.getItem("bookmarks") || "[]")
-    setIsBookmarked(bookmarks.includes(id))
-  }, [id])
+  const toggleBookmark = async () => {
+    if (circular) {
+      const updatedCircular = { ...circular, bookmark: !circular.bookmark };
+  
+      await fetch('http://10.235.124.11:6016/v1/circular/update', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          circular_id: circular.circular_id,
+          bookmark: updatedCircular.bookmark,
+        }),
+      });
 
-  const toggleBookmark = () => {
-    const bookmarks = JSON.parse(localStorage.getItem("bookmarks") || "[]")
-    if (isBookmarked) {
-      const updatedBookmarks = bookmarks.filter((bookmarkId: number) => bookmarkId !== id)
-      localStorage.setItem("bookmarks", JSON.stringify(updatedBookmarks))
-    } else {
-      bookmarks.push(id)
-      localStorage.setItem("bookmarks", JSON.stringify(bookmarks))
+      setCircular(updatedCircular);
     }
-    setIsBookmarked(!isBookmarked)
-  }
+  };
 
   const handleSend = () => {
     if (input.trim()) {
@@ -114,8 +116,8 @@ export default function CircularPage() {
         </Link>
         <div className="flex gap-2">
           <Button size="sm" onClick={toggleBookmark}>
-            <Bookmark className={`h-4 w-4 mr-2 ${isBookmarked ? "fill-current" : ""}`} />
-            {isBookmarked ? "Bookmarked" : "Bookmark"}
+            <Bookmark className={`h-4 w-4 mr-2 ${circular.bookmark ? "fill-current" : ""}`} />
+            {circular.bookmark ? "Bookmarked" : "Bookmark"}
           </Button>
         </div>
       </div>
@@ -129,7 +131,7 @@ export default function CircularPage() {
         <TabsContent value="content">
           <Card>
             <CardContent className="p-6">
-              <ScrollArea className="h-[50vh] mb-4">
+              <ScrollArea className="h-[55vh] mb-4">
                 <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.js">
                   <div>
                     <Viewer fileUrl={circular.url} />

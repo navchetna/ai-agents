@@ -54,3 +54,35 @@ class Circular:
         except Exception as e:
             print(f"Error fetching circular: {e}")
             return None
+        
+    async def get_bookmarked_circulars(self) -> list[dict]:
+        try:
+            circulars: list = []
+            cursor = self.collection.find({"bookmark": True})
+
+            async for document in cursor:
+                document["circular_id"] = str(document["_id"])
+                del document["_id"]
+                circulars.append(document)
+            return circulars
+
+        except Exception as e:
+            print(e)
+            raise Exception(e)
+        
+    async def update_circular(self, circular_data) -> bool:
+        try:
+            updated_result = await self.collection.update_one(
+                {"_id": circular_data.circular_id},
+                {"$set": {"bookmark": circular_data.bookmark}},
+            )
+
+            if updated_result.modified_count == 1:
+                print(f"Updated document: {circular_data.circular_id} !")
+                return True
+            else:
+                raise Exception("Not able to update the data.")
+
+        except Exception as e:
+            print(e)
+            raise Exception(e)    
