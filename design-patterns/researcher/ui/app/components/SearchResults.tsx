@@ -2,9 +2,7 @@
 
 import { Box, Card, CardContent, Typography, Button, Chip, CircularProgress } from "@mui/material"
 import { styled } from "@mui/material/styles"
-import { useRouter } from "next/navigation"
 import {
-  Hub as HubIcon,
   OpenInNew as OpenInNewIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
@@ -13,7 +11,7 @@ import { useState } from "react"
 import type { Paper } from "../types"
 
 const ResultCard = styled(Card)(({ theme }) => ({
-  backgroundColor: "rgba(255, 255, 255, 0.95)", // Lighter background
+  backgroundColor: "rgba(255, 255, 255, 0.95)",
   backdropFilter: "blur(10px)",
   borderRadius: "16px",
   border: "1px solid rgba(255, 255, 255, 0.1)",
@@ -30,14 +28,14 @@ const CardTitle = styled(Typography)({
   fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
   fontSize: "20px",
   fontWeight: 600,
-  color: "#1a1a1a", // Dark text for better contrast
+  color: "#1a1a1a",
   marginBottom: "12px",
 })
 
 const CardUrl = styled(Typography)({
   fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
   fontSize: "14px",
-  color: "#2563eb", // Blue color for URLs
+  color: "#2563eb",
   marginBottom: "12px",
   wordBreak: "break-all",
 })
@@ -46,8 +44,8 @@ const AbstractText = styled(Typography)({
   fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
   fontSize: "15px",
   lineHeight: 1.6,
-  color: "#4b5563", // Gray color for better readability
-  backgroundColor: "rgba(243, 244, 246, 0.8)", // Light gray background
+  color: "#4b5563",
+  backgroundColor: "rgba(243, 244, 246, 0.8)",
   padding: "16px",
   borderRadius: "8px",
   marginBottom: "16px",
@@ -56,7 +54,7 @@ const AbstractText = styled(Typography)({
 })
 
 const ActionButton = styled(Button)(({ theme }) => ({
-  backgroundColor: "#2563eb", // Blue background
+  backgroundColor: "#2563eb",
   color: "white",
   borderRadius: "8px",
   padding: "6px 16px",
@@ -66,13 +64,13 @@ const ActionButton = styled(Button)(({ theme }) => ({
   textTransform: "none",
   marginRight: theme.spacing(1),
   "&:hover": {
-    backgroundColor: "#1d4ed8", // Darker blue on hover
+    backgroundColor: "#1d4ed8",
   },
 }))
 
 const KeywordChip = styled(Chip)({
-  backgroundColor: "rgba(37, 99, 235, 0.1)", // Light blue background
-  color: "#2563eb", // Blue text
+  backgroundColor: "rgba(37, 99, 235, 0.1)",
+  color: "#2563eb",
   margin: "0 4px 4px 0",
   fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
   fontWeight: 500,
@@ -80,7 +78,7 @@ const KeywordChip = styled(Chip)({
 
 const ExpandButton = styled(Button)(({ theme }) => ({
   backgroundColor: "transparent",
-  color: "#4b5563", // Gray color
+  color: "#4b5563",
   fontSize: "0.875rem",
   padding: "4px 8px",
   minWidth: "auto",
@@ -125,7 +123,6 @@ const extractKeywords = (text: string): string[] => {
 
 export default function SearchResults({ papers, onPaperSelect, isLoading, api }: SearchResultsProps) {
   const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set())
-  const router = useRouter()
 
   const toggleExpand = (index: number) => {
     const newExpanded = new Set(expandedCards)
@@ -135,11 +132,6 @@ export default function SearchResults({ papers, onPaperSelect, isLoading, api }:
       newExpanded.add(index)
     }
     setExpandedCards(newExpanded)
-  }
-
-  const handleViewReferences = (paper: Paper) => {
-    // Navigate directly to references page with the paper ID
-    router.push(`/references?paperId=${paper.paperId || paper.id}`)
   }
 
   if (isLoading) {
@@ -168,7 +160,15 @@ export default function SearchResults({ papers, onPaperSelect, isLoading, api }:
         <ResultCard key={index}>
           <CardContent>
             <CardTitle variant="h6">{paper.title}</CardTitle>
-            <CardUrl variant="body2">{paper.url}</CardUrl>
+            <CardUrl variant="body2">
+              {paper.url ? (
+                <a href={paper.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                  {paper.url}
+                </a>
+              ) : (
+                "No URL available"
+              )}
+            </CardUrl>
 
             <Box sx={{ mb: 2 }}>
               {extractKeywords(paper.title + " " + (paper.abstract || "")).map((keyword, idx) => (
@@ -197,14 +197,9 @@ export default function SearchResults({ papers, onPaperSelect, isLoading, api }:
             )}
 
             <Box sx={{ mt: 2 }}>
-              <ActionButton startIcon={<OpenInNewIcon />} onClick={() => onPaperSelect(paper)}>
+              <ActionButton startIcon={<OpenInNewIcon />} onClick={() => window.open(paper.url, "_blank")}>
                 Open Paper
               </ActionButton>
-              {api === "semantic_scholar" && (
-                <ActionButton startIcon={<HubIcon />} onClick={() => handleViewReferences(paper)}>
-                  View References
-                </ActionButton>
-              )}
             </Box>
           </CardContent>
         </ResultCard>
