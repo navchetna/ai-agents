@@ -151,7 +151,7 @@ curl -X POST "http://localhost:9001/conversation/new"
 
 #### Continue a conversation:
 ```bash
-curl -X POST "http://localhost:9001/conversation/c925a063-ab0a-4c8a-8470-8c97752bd6ed" \
+curl -X POST "http://localhost:9001/conversation/{conversation_id}" \
      -H "Content-Type: application/json" \
      -d '{"question": "what are straightforward to define and efficient to train, but to the best of our knowledge, there has been no demonstration that they are capable of generating high quality samples?"}' | jq
 ### Can add temperature, max_tokens
@@ -159,7 +159,7 @@ curl -X POST "http://localhost:9001/conversation/c925a063-ab0a-4c8a-8470-8c97752
 
 #### Get conversation history:
 ```bash
-curl "http://localhost:9001/conversation/13dea296-a093-47f8-bdbf-8fea25a8c31e"
+curl "http://localhost:9001/conversation/{conversation_id}"
 ```
 
 #### Delete conversation:
