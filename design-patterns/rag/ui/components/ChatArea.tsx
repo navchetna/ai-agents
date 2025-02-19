@@ -10,7 +10,9 @@ import {
   Collapse,
   Fade,
   Paper,
-  Chip
+  Chip,
+  Alert,
+  Snackbar
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
@@ -19,6 +21,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { CHAT_QNA_URL } from '@/lib/constants';
 
 interface Message {
@@ -32,6 +35,7 @@ interface Message {
     relevance_score: number;
     content: string;
   }>;
+  isPending?: boolean;
 }
 
 interface ChatAreaProps {
@@ -41,6 +45,8 @@ interface ChatAreaProps {
   isCollapsed: boolean;
   onCollapseChange: (collapsed: boolean) => void;
   onContextChange: (context: string) => void;
+  onSelectConversation: (id: string) => void;
+  onConversationUpdated?: () => void;
 }
 
 import SecurityIcon from '@mui/icons-material/Security';
@@ -89,9 +95,12 @@ export default function ChatArea({
   isPDFViewerOpen,
   isCollapsed,
   onContextChange,
-  onCollapseChange
+  onCollapseChange,
+  onSelectConversation,
+  onConversationUpdated
 }: ChatAreaProps) {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showReferences, setShowReferences] = useState<{ [key: string]: boolean }>({});
@@ -102,6 +111,8 @@ export default function ChatArea({
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId);
   const [showNewChatPrompt, setShowNewChatPrompt] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showErrorSnackbar, setShowErrorSnackbar] = useState(false);
 
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
@@ -109,48 +120,94 @@ export default function ChatArea({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const displayMessages = [...messages, ...localMessages];
+
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [displayMessages]);
 
   useEffect(() => {
     if (conversationId) {
       setCurrentConversationId(conversationId);
       loadConversation(conversationId);
       setShowWelcome(false);
+      setLocalMessages([]);
     } else {
       setShowNewChatPrompt(true);
       setMessages([]);
       setShowWelcome(true);
+      setCurrentConversationId(null);
+      setLocalMessages([]);
     }
   }, [conversationId]);
+
+  
 
   const loadConversation = async (id: string) => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${CHAT_QNA_URL}/conversation/${id}`);
-      if (!response.ok) throw new Error('Failed to load conversation');
+      setErrorMessage(null);
+      const response = await fetch(`${CHAT_QNA_URL}/conversation/${id}?db_name=rag_db`);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to load conversation' }));
+        throw new Error(errorData.message || 'Failed to load conversation');
+      }
 
       const data = await response.json();
-      const formattedMessages = data.history.flatMap((turn: any) => [
-        {
-          id: `${turn.question.timestamp}-user`,
-          role: 'user',
-          content: turn.question.content,
-          timestamp: turn.question.timestamp,
-        },
-        {
-          id: `${turn.answer.timestamp}-assistant`,
-          role: 'assistant',
-          content: turn.answer.content,
-          timestamp: turn.answer.timestamp,
-          sources: turn.context
+      console.log('Loaded conversation data:', data);
+      
+      if (!data.history || !Array.isArray(data.history)) {
+        console.warn('History is missing or not an array in conversation data', data);
+        setMessages([]);
+        return;
+      }
+      
+      const formattedMessages: Message[] = [];
+      data.history.forEach((turn: any, index: number) => {
+        if (turn.question) {
+          const questionContent = typeof turn.question === 'string' 
+            ? turn.question 
+            : turn.question.content || '';
+          
+          const timestamp = turn.question.timestamp || 
+                          turn.timestamp || 
+                          new Date().toISOString();
+          
+          formattedMessages.push({
+            id: `${timestamp}-user-${index}`,
+            role: 'user',
+            content: questionContent,
+            timestamp: timestamp,
+          });
         }
-      ]);
+        
+        if (turn.answer) {
+          const answerContent = typeof turn.answer === 'string'
+            ? turn.answer
+            : turn.answer.content || '';
+            
+          const timestamp = turn.answer.timestamp || 
+                          (Number(new Date(turn.timestamp || 0)) + 1).toString() || 
+                          new Date().toISOString();
+          
+          formattedMessages.push({
+            id: `${timestamp}-assistant-${index}`,
+            role: 'assistant',
+            content: answerContent,
+            timestamp: timestamp,
+            sources: turn.sources || turn.context || []
+          });
+        }
+      });
 
+      console.log('Formatted messages:', formattedMessages);
       setMessages(formattedMessages);
     } catch (error) {
       console.error('Error loading conversation:', error);
+      setErrorMessage(error instanceof Error ? error.message : 'Error loading conversation data');
+      setShowErrorSnackbar(true);
+      setMessages([]);
     } finally {
       setIsLoading(false);
     }
@@ -163,53 +220,51 @@ export default function ChatArea({
     handleSubmit(welcomeMessage);
   };
 
-  const startNewConversation = async () => {
-    setIsLoading(true);
-    setShowNewChatPrompt(false);
+  const startNewConversation = async (userMessageContent: string) => {
     try {
-      const response = await fetch(`${CHAT_QNA_URL}/conversation/new`, {
+      const response = await fetch(`${CHAT_QNA_URL}/conversation/new?db_name=rag_db`, {
         method: 'POST'
       });
-      if (!response.ok) throw new Error('Failed to create conversation');
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to create conversation' }));
+        throw new Error(errorData.message || 'Failed to create conversation');
+      }
+      
       const data = await response.json();
-      setCurrentConversationId(data.conversation_id);
-      setMessages([]);
+      console.log('Created new conversation:', data);
+      
+      const newConversationId = data.conversation_id;
+      setCurrentConversationId(newConversationId);
+      onSelectConversation(newConversationId);
+      
+      if (onConversationUpdated) {
+        onConversationUpdated();
+      }
+      
+      await sendMessage(userMessageContent, newConversationId);
+      
+      return newConversationId;
     } catch (error) {
       console.error('Error creating conversation:', error);
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to create a new conversation');
+      setShowErrorSnackbar(true);
       setShowNewChatPrompt(true);
-    } finally {
+      
+      setLocalMessages(prev => 
+        prev.map(msg => 
+          msg.isPending ? { ...msg, isPending: false } : msg
+        )
+      );
+      
       setIsLoading(false);
+      return null;
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement> | string) => {
-    if (typeof e !== 'string' && e?.preventDefault) {
-      e.preventDefault();
-    }
-    const messageContent = typeof e === 'string' ? e : input;
-
-    if (!messageContent.trim() || isLoading) return;
-
-    setShowWelcome(false);
-
-    if (!currentConversationId) {
-      await startNewConversation();
-      if (!currentConversationId) return;
-    }
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: messageContent.trim(),
-      timestamp: new Date().toISOString(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setIsLoading(true);
-
+  const sendMessage = async (messageContent: string, targetConversationId: string) => {
     try {
-      const response = await fetch(`${CHAT_QNA_URL}/conversation/${currentConversationId}`, {
+      const response = await fetch(`${CHAT_QNA_URL}/conversation/${targetConversationId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -219,33 +274,100 @@ export default function ChatArea({
         })
       });
 
-      if (!response.ok) throw new Error('Failed to send message');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to send message' }));
+        throw new Error(errorData.message || 'Failed to send message');
+      }
 
       const data = await response.json();
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: data.answer,
-        timestamp: new Date().toISOString(),
-        sources: data.sources
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
+      console.log('Received response:', data);
+      
+      setLocalMessages([]);
+      
+      if (targetConversationId) {
+        loadConversation(targetConversationId);
+      }
+      
+      if (onConversationUpdated) {
+        onConversationUpdated();
+      }
+      
     } catch (error) {
       console.error('Error:', error);
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to get response');
+      setShowErrorSnackbar(true);
+      
+      setLocalMessages(prev => {
+        const updatedMessages = prev.map(msg => 
+          msg.isPending ? { ...msg, isPending: false } : msg
+        );
+        
+        const errorAssistantMessage: Message = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: 'Sorry, I encountered an error processing your request. Please try again or start a new conversation.',
+          timestamp: new Date().toISOString(),
+        };
+        
+        return [...updatedMessages, errorAssistantMessage];
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement> | string) => {
+    if (typeof e !== 'string' && e?.preventDefault) {
+      e.preventDefault();
+    }
+    
+    const messageContent = typeof e === 'string' ? e : input;
+    if (!messageContent.trim() || isLoading) return;
+
+    setShowWelcome(false);
+    setErrorMessage(null);
+    setIsLoading(true);
+    
+    const userMessageId = Date.now().toString();
+    const userMessage: Message = {
+      id: userMessageId,
+      role: 'user',
+      content: messageContent.trim(),
+      timestamp: new Date().toISOString(),
+      isPending: true
+    };
+    
+    setLocalMessages(prev => [...prev, userMessage]);
+    setInput('');
+
+    if (currentConversationId) {
+      await sendMessage(messageContent.trim(), currentConversationId);
+    } else {
+      setShowNewChatPrompt(false);
+      await startNewConversation(messageContent.trim());
+    }
+  };
+
   const handleQualityChange = (messageId: string, newQuality: 'good' | 'bad') => {
-    setMessages(prevMessages =>
-      prevMessages.map(message =>
-        message.id === messageId
-          ? { ...message, quality: newQuality }
-          : message
-      )
-    );
+    const isLocal = localMessages.some(msg => msg.id === messageId);
+    
+    if (isLocal) {
+      setLocalMessages(prevMessages =>
+        prevMessages.map(message =>
+          message.id === messageId
+            ? { ...message, quality: newQuality }
+            : message
+        )
+      );
+    } else {
+      setMessages(prevMessages =>
+        prevMessages.map(message =>
+          message.id === messageId
+            ? { ...message, quality: newQuality }
+            : message
+        )
+      );
+    }
   };
 
   const toggleReferences = (messageId: string) => {
@@ -263,10 +385,14 @@ export default function ChatArea({
   };
 
   const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString(undefined, {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    try {
+      return new Date(timestamp).toLocaleTimeString(undefined, {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return '';
+    }
   };
 
   const handleExampleClick = (prompt: string) => {
@@ -296,6 +422,21 @@ export default function ChatArea({
           zIndex: 0,
         }}
       />
+
+      <Snackbar
+        open={showErrorSnackbar}
+        autoHideDuration={6000}
+        onClose={() => setShowErrorSnackbar(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setShowErrorSnackbar(false)} 
+          severity="error" 
+          sx={{ width: '100%' }}
+        >
+          {errorMessage}
+        </Alert>
+      </Snackbar>
 
       <Box
         sx={{
@@ -335,7 +476,29 @@ export default function ChatArea({
             paddingBottom: '100px'
           }}
         >
-          {showWelcome ? (
+          {errorMessage && !showWelcome && displayMessages.length === 0 && (
+            <Fade in>
+              <Box sx={{ my: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <ErrorOutlineIcon sx={{ fontSize: 48, color: '#d32f2f', mb: 2 }} />
+                <Typography variant="h6" align="center" sx={{ mb: 2 }}>
+                  Something went wrong
+                </Typography>
+                <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 3 }}>
+                  We couldn't load the conversation data. You can try again or start a new chat.
+                </Typography>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => onSelectConversation('')}
+                  sx={{ mt: 2 }}
+                >
+                  Start New Chat
+                </Button>
+              </Box>
+            </Fade>
+          )}
+          
+          {showWelcome && !currentConversationId && displayMessages.length === 0 ? (
             <Fade in>
               <Box
                 sx={{
@@ -394,13 +557,14 @@ export default function ChatArea({
             </Fade>
           ) : (
             <>
-              {messages.map((message) => (
+              {displayMessages.map((message) => (
                 <Fade in key={message.id}>
                   <Box
                     sx={{
                       display: 'flex',
                       flexDirection: 'row',
                       gap: 2,
+                      opacity: message.isPending ? 0.7 : 1,
                     }}
                   >
                     {message.role === 'user' ? (
@@ -451,6 +615,11 @@ export default function ChatArea({
                           }}
                         >
                           {message.content}
+                          {message.isPending && (
+                            <span style={{ marginLeft: '5px', opacity: 0.7 }}>
+                              (sending...)
+                            </span>
+                          )}
                         </Typography>
 
                         {message.role === 'assistant' && (
@@ -511,11 +680,9 @@ export default function ChatArea({
                         variant="caption"
                         sx={{
                           color: '#666',
-                          // mt: 1,
                           ml: 2,
                         }}
                       >
-                        {/* {formatTimestamp(message.timestamp)} */}
                       </Typography>
 
                       {message.role === 'assistant' && message.sources && (
@@ -646,5 +813,4 @@ export default function ChatArea({
       </Box>
     </Box>
   );
-
 }
