@@ -470,7 +470,7 @@ class ChatQnAService:
             score_threshold=chat_request.score_threshold if chat_request.score_threshold else 0.2,
         )
         reranker_parameters = RerankerParms(
-            top_n=chat_request.top_n if chat_request.top_n else 1,
+            top_n=chat_request.top_n if chat_request.top_n else 3,
         )
         
         try:
@@ -558,7 +558,9 @@ class ConversationRAGService(ChatQnAService):
             self.mongo_client = pymongo.MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
             self.mongo_client.server_info()
             print("Successfully connected to MongoDB")
-            self.db = self.mongo_client[MONGO_DB]
+            self.circulars = self.mongo_client[MONGO_DB]
+            self.research_assistant = self.mongo_client[MONGO_DB]
+            self.study_buddy = self.mongo_client[MONGO_DB]
             self.conversations_collection = self.db["conversations"]
         except Exception as e:
             print(f"Error connecting to MongoDB: {str(e)}")
