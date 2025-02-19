@@ -72,9 +72,14 @@ class Circular:
         
     async def update_circular(self, circular_data) -> bool:
         try:
+            update_fields = {}
+            if circular_data.bookmark is not None:
+                update_fields["bookmark"] = circular_data.bookmark
+            if circular_data.conversation_id is not None:
+                update_fields["conversation_id"] = circular_data.conversation_id
             updated_result = await self.collection.update_one(
                 {"_id": circular_data.circular_id},
-                {"$set": {"bookmark": circular_data.bookmark}},
+                {"$set": update_fields},
             )
 
             if updated_result.modified_count == 1:

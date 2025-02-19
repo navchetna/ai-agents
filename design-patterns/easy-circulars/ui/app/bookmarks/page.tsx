@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Bookmark, X } from "lucide-react"
 import { usePageTitle } from "../contexts/PageTitleContext"
+import axios from "axios"
 
 interface Circular {
   circular_id: string;
@@ -24,32 +25,33 @@ export default function BookmarksPage() {
 
   useEffect(() => {
     setPageTitle("Bookmarks")
-    fetch('http://localhost:6016/v1/circular/get', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ bookmark: true })
-    })
-      .then(response => response.json())
-      .then((data: Circular[]) => setCirculars(data))
-      .catch(error => console.error('Error fetching circulars:', error));
+    axios.post<Circular[]>("http://10.235.124.11:6016/v1/circular/get", 
+      { bookmark: true }, 
+      {
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+        },
+      }
+    )
+      .then((response) => setCirculars(response.data))
+      .catch((error) => console.error("Error fetching circulars:", error));
   }, [setPageTitle])
 
   const removeBookmark = async (id: string) => {
     const updatedCirculars = circulars.filter(circular => circular.circular_id !== id)
-    await fetch('http://10.235.124.11:6016/v1/circular/update', {
-      method: 'POST',
-      headers: {
-        'accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    await axios.post("http://10.235.124.11:6016/v1/circular/update", 
+      {
         circular_id: id,
         bookmark: false,
-      }),
-    });
+      }, 
+      {
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+        },
+      }
+    );    
     setCirculars(updatedCirculars)
   }
 

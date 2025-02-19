@@ -20,8 +20,8 @@ from fastapi.middleware.cors import CORSMiddleware
 load_dotenv()
 
 EMBEDDING_MODEL_ID = "BAAI/bge-base-en-v1.5"
-MONGO_USERNAME = os.getenv("MONGO_USERNAME")
-MONGO_PASSWORD = os.getenv("MONGO_PASSWORD")
+MONGO_USERNAME = os.getenv("MONGO_USERNAME", "agents")
+MONGO_PASSWORD = os.getenv("MONGO_PASSWORD", "agents")
 MONGO_HOST = os.getenv("MONGO_HOST", "localhost")
 MONGO_PORT = os.getenv("MONGO_PORT", "27017")
 MONGO_DB = os.getenv("MONGO_DB", "rag_db")
@@ -40,7 +40,6 @@ try:
     print("Successfully connected to MongoDB")
     
     db = mongo_client[MONGO_DB]
-    conversations_collection = db["conversations"]
     
 except Exception as e:
     print(f"Error connecting to MongoDB: {str(e)}")
@@ -77,6 +76,7 @@ class ConversationTurn:
 
 class QuestionRequest(BaseModel):
     question: str
+    collection_name: str
     max_tokens: Optional[int] = 1024
     temperature: Optional[float] = 0.1
     
@@ -89,6 +89,9 @@ class ConversationResponse(BaseModel):
     answer: str
     sources: List[SourceInfo]
     conversation_id: str
+
+class ConversationRequest(BaseModel):
+    collection_name: str
 
 class PromptTemplate:
     
@@ -120,10 +123,11 @@ class PromptTemplate:
         Answer:"""
 
 class RAGConversation:    
-    def __init__(self, redis_url: str = "redis://localhost:6379", 
+    def __init__(self, collection, redis_url: str = "redis://localhost:6379", 
                  index_name: str = "rag-redis",
                  groq_api_key: Optional[str] = None):
         self.conversation_id: str = str(uuid4())
+        self.collection = collection
         self.turns: List[ConversationTurn] = []
         self.created_at: datetime = datetime.now()
         self.last_updated: datetime = datetime.now()
@@ -132,13 +136,12 @@ class RAGConversation:
         self.index_name = index_name
         
         self.embeddings = HuggingFaceBgeEmbeddings(model_name=EMBEDDING_MODEL_ID)
+        self.redis_client = redis.Redis.from_url(redis_url)
         self.vector_store = LangRedis(
             redis_url=redis_url,
             index_name=index_name,
             embedding=self.embeddings
         )
-        
-        self.redis_client = redis.Redis.from_url(redis_url)
         
         self.groq_client = Groq(api_key=groq_api_key)
         self.model = GROQ_MODEL
@@ -336,7 +339,7 @@ class RAGConversation:
 
 active_conversations: Dict[str, RAGConversation] = {}
 
-async def save_to_mongodb(conversation_data: dict):
+async def save_to_mongodb(conversation_data: dict, collection):
     try:
         if isinstance(conversation_data['created_at'], datetime):
             conversation_data['created_at'] = conversation_data['created_at'].isoformat()
@@ -355,7 +358,7 @@ async def save_to_mongodb(conversation_data: dict):
                     if isinstance(turn['answer']['timestamp'], datetime) \
                     else turn['answer']['timestamp']
         
-        result = conversations_collection.update_one(
+        result = collection.update_one(
             {'conversation_id': conversation_data['conversation_id']},
             {'$set': conversation_data},
             upsert=True
@@ -368,17 +371,18 @@ async def save_to_mongodb(conversation_data: dict):
         return False
 
 @app.post("/conversation/new")
-async def start_new_conversation():
+async def start_new_conversation(request: ConversationRequest):
     try:
+        conversations_collection = db[request.collection_name]
+
         new_conversation = RAGConversation(
+            collection=conversations_collection,
             redis_url=os.getenv("REDIS_URL", "redis://localhost:6379"),
             groq_api_key=os.getenv("GROQ_API_KEY")
         )
-        
         active_conversations[new_conversation.conversation_id] = new_conversation
-        
         return {"conversation_id": new_conversation.conversation_id}
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -386,7 +390,7 @@ async def start_new_conversation():
 async def continue_conversation(conversation_id: str, request: QuestionRequest):
     try:
         conversation = active_conversations.get(conversation_id)
-        
+        conversations_collection = db[request.collection_name]
         if not conversation:
             stored_conversation = conversations_collection.find_one(
                 {"conversation_id": conversation_id}
@@ -394,6 +398,7 @@ async def continue_conversation(conversation_id: str, request: QuestionRequest):
             
             if stored_conversation:
                 conversation = RAGConversation(
+                    collection=conversations_collection,
                     redis_url=os.getenv("REDIS_URL", "redis://localhost:6379"),
                     groq_api_key=os.getenv("GROQ_API_KEY")
                 )
@@ -420,7 +425,7 @@ async def continue_conversation(conversation_id: str, request: QuestionRequest):
         ]
         
         conversation_data = conversation.to_dict()
-        save_success = await save_to_mongodb(conversation_data)
+        save_success = await save_to_mongodb(conversation_data, conversation.collection)
         
         if not save_success:
             print("Warning: Failed to save conversation to MongoDB")
@@ -437,11 +442,13 @@ async def continue_conversation(conversation_id: str, request: QuestionRequest):
 @app.get("/conversation/{conversation_id}")
 async def get_conversation_history(conversation_id: str):
     try:
+        print("bbbb")
+        print(active_conversations)
         conversation = active_conversations.get(conversation_id)
         if conversation:
             return conversation.to_dict()
         
-        stored_conversation = conversations_collection.find_one(
+        stored_conversation = conversation.collection.find_one(
             {"conversation_id": conversation_id}
         )
         
@@ -457,9 +464,10 @@ async def get_conversation_history(conversation_id: str):
 @app.delete("/conversation/{conversation_id}")
 async def delete_conversation(conversation_id: str):
     try:
+        conversation = active_conversations.get(conversation_id)
         active_conversations.pop(conversation_id, None)
         
-        result = conversations_collection.delete_one(
+        result = conversation.collection.delete_one(
             {"conversation_id": conversation_id}
         )
         
@@ -474,8 +482,9 @@ async def delete_conversation(conversation_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/conversations")
-async def list_conversations(limit: int = 10, skip: int = 0):
+async def list_conversations(collection_name: str, limit: int = 10, skip: int = 0):
     try:
+        conversations_collection = db[collection_name]
         conversations = list(conversations_collection
                             .find({}, {'_id': 0})
                             .sort('created_at', -1)
@@ -493,4 +502,4 @@ async def list_conversations(limit: int = 10, skip: int = 0):
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=9001)
+    uvicorn.run(app, host="0.0.0.0", port=9002)

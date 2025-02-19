@@ -20,7 +20,8 @@ class CircularData(BaseModel):
 
 class CircularUpdateData(BaseModel):
     circular_id: str
-    bookmark: bool
+    bookmark: Optional[bool] = None
+    conversation_id: Optional[str] = None 
 
 @register_microservice(
     name="opea_service@circular_mongo",

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Search } from "lucide-react"
 import { usePageTitle } from "../contexts/PageTitleContext"
+import axios from "axios"
 
 interface Circular {
   circular_id: string;
@@ -28,17 +29,18 @@ export default function SearchPage() {
 
   useEffect(() => {
     setPageTitle("Search Circulars")
-    fetch('http://localhost:6016/v1/circular/get', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ circularId: null })
-    })
-      .then(response => response.json())
-      .then((data: Circular[]) => setCirculars(data))
-      .catch(error => console.error('Error fetching circulars:', error));
+    axios.post<Circular[]>("http://10.235.124.11:6016/v1/circular/get", 
+      { circularId: null }, 
+      {
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+        },
+      }
+    )
+    .then((response) => setCirculars(response.data))
+    .catch((error) => console.error("Error fetching circulars:", error));
+    
   }, [setPageTitle])
 
   const filteredCirculars = circulars.filter(

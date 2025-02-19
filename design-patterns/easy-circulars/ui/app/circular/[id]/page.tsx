@@ -10,10 +10,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Send, ExternalLink, Bookmark } from "lucide-react"
 import { Viewer, Worker } from "@react-pdf-viewer/core";
 import Link from "next/link"
+import axios from "axios"
 
 interface Message {
-  role: "user" | "bot"
-  content: string
+  question: string;
+  answer: string;
+  sources: string[];
+  timestamp: string;
+}
+
+interface Conversation {
+  conversation_id: string;
+  created_at: string;
+  last_updated: string;
+  history: Message[];
 }
 
 interface Circular {
@@ -32,69 +42,160 @@ export default function CircularPage() {
   const id = String(params.id)
 
   const [circular, setCircular] = useState<Circular | null>(null);
-  const [messages, setMessages] = useState<Message[]>([])
+  const [conversation, setConversation] = useState<Conversation | null>(null);
   const [input, setInput] = useState("")
   const [references, setReferences] = useState<Circular[]>([])
   const [activeTab, setActiveTab] = useState("content")
 
-  useEffect(() => {
-    if (!id) return;
-
-    fetch("http://localhost:6016/v1/circular/get", {
-      method: "POST",
-      headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ circular_id: id }),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        setCircular(data.circular);
-        setReferences(data.references);
-      })
-      .catch((error) => {
-        console.error("Error fetching circulars:", error);
+  const fetchCircular = async (id: string) => {
+    try {
+      const response = await axios.post(
+        "http://10.235.124.11:6016/v1/circular/get",
+        { circular_id: id },
+        {
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+          },
+        }
+      );
+  
+      const data = response.data;
+      setCircular(data.circular);
+      setReferences(data.references);
+  
+      let conversationId = data.circular.conversation_id;
+  
+      if (!conversationId) {
+        conversationId = await createNewConversation();
+        if (conversationId) {
+          await updateCircularConversation(id, conversationId);
+        }
+      }
+  
+      if (conversationId) {
+        await fetchConversation(conversationId);
+      }
+    } catch (error) {
+      console.error("Error fetching circulars:", error);
+    }
+  };
+  
+  const fetchConversation = async (conversationId: string) => {
+    try {
+      const response = await axios.get(
+        `http://localhost:9001/conversation/${conversationId}`
+      );
+      setConversation(response.data);
+    } catch (error) {
+      console.error("Error fetching conversation:", error);
+    }
+  };
+  
+  
+  const createNewConversation = async (): Promise<string | null> => {
+    try {
+      const response = await axios.post("http://localhost:9001/conversation/new", {
+        collection_name: "conversations_circular",
+      }, {
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+        },
       });
-  }, [id]);
+  
+      const data = response.data;
+      console.log("New conversation created:", data);
+      return data.conversation_id || null;
+    } catch (error) {
+      console.error("Error creating new conversation:", error);
+      return null;
+    }
+  };
+  
+  const updateCircularConversation = async (circularId: string, conversationId: string) => {
+    try {
+      const response = await axios.post("http://10.235.124.11:6016/v1/circular/update", { 
+        circular_id: circularId, 
+        conversation_id: conversationId,
+      }, {
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+        },
+      }); 
+      const data = response.data;
+      console.log("Circular updated with new conversation ID:", data);
+    } catch (error) {
+      console.error("Error updating circular:", error);
+    }
+  };
+  
+  useEffect(() => {
+    if (id) {
+      fetchCircular(id);
+    }
+  }, [id]);  
 
   const toggleBookmark = async () => {
     if (circular) {
       const updatedCircular = { ...circular, bookmark: !circular.bookmark };
-  
-      await fetch('http://10.235.124.11:6016/v1/circular/update', {
-        method: 'POST',
-        headers: {
-          'accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          circular_id: circular.circular_id,
-          bookmark: updatedCircular.bookmark,
-        }),
-      });
 
+      await axios.post('http://localhost:6016/v1/circular/update', {
+        circular_id: circular.circular_id,
+        bookmark: updatedCircular.bookmark,
+      }, {
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+        },
+      });
       setCircular(updatedCircular);
     }
   };
 
-  const handleSend = () => {
-    if (input.trim()) {
-      setMessages((prev) => [...prev, { role: "user", content: input }])
-      setInput("")
+  const handleSend = async () => {
+    if (input.trim() && conversation) {
+      const newMessage: Message = {
+        question: input,
+        answer: "",
+        sources: [],
+        timestamp: new Date().toISOString(),
+      };
+  
+      setInput("");
+  
+      try {
+        console.log(input)
+        const response = await axios.post(
+          `http://localhost:9001/conversation/${conversation.conversation_id}`,
+          { question: input, collection_name: "conversations_circular" },
+          { headers: { "Content-Type": "application/json" } }
+        );
 
-      // Simulate bot response
-      setTimeout(() => {
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "bot",
-            content: `This is a simulated response about ${circular?.title}.`,
-          },
-        ])
-      }, 1000)
+        console.log(response)
+  
+        const botResponse: Message = {
+          question: input,
+          answer: response.data.answer,
+          sources: response.data.sources || [],
+          timestamp: new Date().toISOString(),
+        };
+
+        setConversation((prev) =>
+          prev
+            ? {
+                ...prev,
+                history: [...prev.history, botResponse],
+                last_updated: new Date().toISOString(),
+              }
+            : null
+        );
+      } catch (error) {
+        console.error("Error sending message:", error);
+      }
     }
-  }
+  };  
 
   const handleReferenceClick = (refId: string) => {
     setActiveTab("content")
@@ -145,16 +246,23 @@ export default function CircularPage() {
           <Card>
             <CardContent className="p-6">
               <ScrollArea className="h-[50vh] mb-4">
-                {messages.map((message, index) => (
-                  <div key={index} className={`mb-4 ${message.role === "user" ? "text-right" : "text-left"}`}>
-                    <div
-                      className={`inline-block p-2 rounded-lg ${
-                        message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
-                      }`}
-                    >
-                      {message.content}
+                {conversation?.history.map((message, index) => (
+                  <>
+                    <div key={index} className="mb-4 text-right">
+                      <div
+                        className="inline-block p-2 rounded-lg bg-primary text-primary-foreground"
+                      >
+                        {message.question}
+                      </div>
                     </div>
-                  </div>
+                    <div key={index} className="mb-4 text-left">
+                      <div
+                        className="inline-block p-2 rounded-lg bg-muted"
+                      >
+                        {message.answer}
+                      </div>
+                    </div>
+                  </>
                 ))}
               </ScrollArea>
               <div className="flex gap-2">
