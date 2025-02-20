@@ -241,6 +241,9 @@ async def search_papers(search_query: SearchQuery):
             papers = DOAJAPI.fetch_papers(query, year)
         else:
             raise HTTPException(status_code=400, detail="Unsupported API")
+        
+        # Log the results before caching
+        logging.info(f"Search results for {query} (Year: {year}, API: {api}): {papers}")
 
         redis_client.set(cache_key, json.dumps(papers), ex=3600)
         logging.info(f"Cache set for {cache_key}")
@@ -268,6 +271,9 @@ async def suggest(q: str = Query(..., min_length=3, description="The user's inpu
             return {"suggestions": [], "message": "arXiv API does not support suggestions. Please try Semantic Scholar or DOAJ."}
         else:
             raise HTTPException(status_code=400, detail="Unsupported API")
+        
+         # Log the suggestions before caching
+        logging.info(f"Suggestions for {q} (API: {api}): {suggestions}")
 
         cache_data = {'data': suggestions, 'time': time.time()}
         redis_client.set(cache_key, json.dumps(cache_data), ex=CACHE_EXPIRY_TIME)
@@ -298,6 +304,9 @@ async def download_references(paper: PaperID, depth: int = 1):
 
         if not references:
             raise HTTPException(status_code=500, detail="Failed to fetch references")
+        
+         # Log the references before caching
+        logging.info(f"References for paper {paper.paper_id} (API: {paper.api}): {references}")
 
         redis_client.set(cache_key, json.dumps(references), ex=CACHE_EXPIRY_REFERENCES)
         logging.info(f"Cache set for {cache_key}")
