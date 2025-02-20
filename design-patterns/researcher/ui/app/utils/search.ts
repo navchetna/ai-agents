@@ -158,4 +158,3 @@ export const fetchReferences = async (paperId: string): Promise<Paper[]> => {
     throw new Error(`Failed to fetch references: ${err instanceof Error ? err.message : "Unknown error"}`)
   }
 }
-

@@ -10,6 +10,7 @@ export interface Paper {
   title: string
   url: string
   abstract: string
+  snippet?: string // Make snippet optional
   year: number | null
   authors: string[]
   venue?: string
