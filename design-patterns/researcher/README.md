@@ -4,6 +4,7 @@
 # Research Paper Assistant
 
 #  FRONTEND SETUP
+```bash
 Research Paper Search
 A smart research paper search application built with Next.js and Tailwind CSS.
 
@@ -18,15 +19,13 @@ Installation
 
 1. Clone the repository:
 
-git clone https://github.com/vaibhav071104/smart-research-project.git
+git clone https://github.com/vaibhav071104/ai-agents.git
 
 
-cd smart-research-project-main
+cd ai-agents/design-patterns/researcher/ui
 
 
 
-
-cd research-paper-search 2
 
 
 
@@ -77,7 +76,7 @@ port 6379
 
 3. 127.0.0.1:6379> KEYS *
 
-# backend 
+# BACKEND SETUP 
 
 This project is a FastAPI-based application that allows users to search for research papers and get topic suggestions using the Semantic Scholar API.
 
