@@ -4,12 +4,12 @@
 version: "3.8"
 
 services:
-  # redis-vector-db-1:
-  #   image: redis/redis-stack:7.2.0-v9
-  #   container_name: redis-vector-db-1
-  #   ports:
-  #     - "6379:6379"
-  #     - "8001:8001"
+   redis-vector-db-1:
+     image: redis/redis-stack:7.2.0-v9
+     container_name: redis-vector-db-1
+     ports:
+       - "6379:6379"
+       - "8001:8001"
   mongodb:
     image: mongo
     restart: always
