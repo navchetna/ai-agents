@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Bookmark, X } from "lucide-react"
 import { usePageTitle } from "../contexts/PageTitleContext"
 import axios from "axios"
+import { CHAT_QNA_URL } from '@/lib/constants';
 
 interface Circular {
   circular_id: string;
@@ -26,7 +27,7 @@ export default function BookmarksPage() {
   useEffect(() => {
     setPageTitle("Bookmarks")
     axios
-    .get<Circular[]>("http://localhost:9001/circular/get", {
+    .get<Circular[]>(`${CHAT_QNA_URL}/circular/get`, {
       params: { bookmark: true },
       headers: {
         Accept: "application/json",
@@ -40,7 +41,7 @@ export default function BookmarksPage() {
   const removeBookmark = async (id: string) => {
     const updatedCirculars = circulars.filter(circular => circular.circular_id !== id)
     await axios.patch(
-      "http://localhost:9001/circular/update",
+      `${CHAT_QNA_URL}circular/update`,
       {
         circular_id: id,
         bookmark: false,

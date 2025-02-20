@@ -11,6 +11,7 @@ import { ArrowLeft, Send, ExternalLink, Bookmark } from "lucide-react"
 import { Viewer, Worker } from "@react-pdf-viewer/core";
 import Link from "next/link"
 import axios from "axios"
+import { CHAT_QNA_URL } from '@/lib/constants';
 
 interface Message {
   question: string;
@@ -50,7 +51,7 @@ export default function CircularPage() {
   const fetchCircular = async (id: string) => {
     try {
       const response = await axios.get(
-        "http://localhost:9001/circular/get",
+        `${CHAT_QNA_URL}/circular/get`,
         {
           params: { circular_id: id },
           headers: {
@@ -83,7 +84,7 @@ export default function CircularPage() {
   
   const fetchConversation = async (conversationId: string) => {
     try {
-      const response = await axios.get(`http://localhost:9001/conversation/${conversationId}`, {
+      const response = await axios.get(`${CHAT_QNA_URL}/conversation/${conversationId}`, {
         params: { db_name: "easy_circulars" },
       });
       setConversation(response.data);
@@ -95,7 +96,7 @@ export default function CircularPage() {
   
   const createNewConversation = async (): Promise<string | null> => {
     try {
-      const response = await axios.post("http://localhost:9001/conversation/new", {
+      const response = await axios.post(`${CHAT_QNA_URL}/conversation/new`, {
         db_name: "easy_circulars",
       }, {
         headers: {
@@ -116,7 +117,7 @@ export default function CircularPage() {
   const updateCircularConversation = async (circularId: string, conversationId: string) => {
     try {
       const response = await axios.patch(
-        "http://localhost:9001/circular/update",
+        `${CHAT_QNA_URL}/circular/update`,
         { 
           circular_id: circularId, 
           conversation_id: conversationId,
@@ -148,7 +149,7 @@ export default function CircularPage() {
       const updatedCircular = { ...circular, bookmark: !circular.bookmark };
 
       await axios.patch(
-        "http://localhost:9001/circular/update",
+        `${CHAT_QNA_URL}/circular/update`,
         { 
           circular_id: circular.circular_id,
           bookmark: updatedCircular.bookmark,
@@ -178,7 +179,7 @@ export default function CircularPage() {
       try {
         console.log(input)
         const response = await axios.post(
-          `http://localhost:9001/conversation/${conversation.conversation_id}`,
+          `${CHAT_QNA_URL}/conversation/${conversation.conversation_id}`,
           { db_name: "easy_circulars", question: input },
           { headers: { "Content-Type": "application/json" } }
         );

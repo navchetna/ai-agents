@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Search } from "lucide-react"
 import { usePageTitle } from "../contexts/PageTitleContext"
 import axios from "axios"
+import { CHAT_QNA_URL } from '@/lib/constants';
 
 interface Circular {
   circular_id: string;
@@ -30,7 +31,7 @@ export default function SearchPage() {
   useEffect(() => {
     setPageTitle("Search Circulars")
     axios
-    .get<Circular[]>("http://localhost:9001/circular/get", {
+    .get<Circular[]>(`${CHAT_QNA_URL}/circular/get`, {
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",

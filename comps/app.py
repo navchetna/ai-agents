@@ -442,13 +442,6 @@ class ChatQnAService:
             output_datatype=ChatCompletionResponse,
         )
 
-        self.mongo_service = MicroService(
-            "MongoService",
-            service_role=ServiceRoleType.MEGASERVICE,
-            host=self.host,
-            port=6016,
-        )
-
         self.service.add_route(self.endpoint, self.handle_request, methods=["POST"])
 
         self.service.start()
