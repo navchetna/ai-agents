@@ -25,33 +25,33 @@ export default function BookmarksPage() {
 
   useEffect(() => {
     setPageTitle("Bookmarks")
-    axios.post<Circular[]>("http://10.235.124.11:6016/v1/circular/get", 
-      { bookmark: true }, 
-      {
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-        },
-      }
-    )
-      .then((response) => setCirculars(response.data))
-      .catch((error) => console.error("Error fetching circulars:", error));
+    axios
+    .get<Circular[]>("http://localhost:9001/circular/get", {
+      params: { bookmark: true },
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+    })
+    .then((response) => setCirculars(response.data))
+    .catch((error) => console.error("Error fetching circulars:", error));  
   }, [setPageTitle])
 
   const removeBookmark = async (id: string) => {
     const updatedCirculars = circulars.filter(circular => circular.circular_id !== id)
-    await axios.post("http://10.235.124.11:6016/v1/circular/update", 
+    await axios.patch(
+      "http://localhost:9001/circular/update",
       {
         circular_id: id,
         bookmark: false,
-      }, 
+      },
       {
         headers: {
-          "Accept": "application/json",
+          Accept: "application/json",
           "Content-Type": "application/json",
         },
       }
-    );    
+    );       
     setCirculars(updatedCirculars)
   }
 

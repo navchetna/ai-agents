@@ -16,20 +16,16 @@ from comps.proto.api_protocol import (
     UsageInfo,
 )
 from comps.proto.docarray import LLMParams, RerankerParms, RetrieverParms
+from comps.circulars.metadata_operations import handle_circular_update, handle_circular_get
 from fastapi.responses import StreamingResponse
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from mongo_client import mongo_client
 
 
 load_dotenv()
-
-MONGO_USERNAME = os.getenv("MONGO_USERNAME")
-MONGO_PASSWORD = os.getenv("MONGO_PASSWORD")
-MONGO_HOST = os.getenv("MONGO_HOST", "localhost")
-MONGO_PORT = os.getenv("MONGO_PORT", "27017")
-MONGO_DB = os.getenv("MONGO_DB", "rag_db")
 
 MEGA_SERVICE_PORT = int(os.getenv("MEGA_SERVICE_PORT", 8888))
 GUARDRAIL_SERVICE_HOST_IP = os.getenv("GUARDRAIL_SERVICE_HOST_IP", "0.0.0.0")
@@ -43,12 +39,6 @@ RERANK_SERVER_PORT = int(os.getenv("RERANK_SERVER_PORT", 80))
 LLM_SERVER_HOST_IP = os.getenv("LLM_SERVER_HOST_IP", "0.0.0.0")
 LLM_SERVER_PORT = int(os.getenv("LLM_SERVER_PORT", 80))
 LLM_MODEL = os.getenv("LLM_MODEL", "Intel/neural-chat-7b-v3-3")
-
-if MONGO_USERNAME and MONGO_PASSWORD:
-    MONGO_URI = f"mongodb://{MONGO_USERNAME}:{MONGO_PASSWORD}@{MONGO_HOST}:{MONGO_PORT}"
-else:
-    MONGO_URI = f"mongodb://{MONGO_HOST}:{MONGO_PORT}"
-
 
 def align_inputs(self, inputs, cur_node, runtime_graph, llm_parameters_dict, **kwargs):
     if self.services[cur_node].service_type == ServiceType.EMBEDDING:
@@ -267,6 +257,7 @@ class SourceInfo(BaseModel):
 
 class ConversationRequest(BaseModel):
     question: str
+    db_name: str
     conversation_id: Optional[str] = None
     max_tokens: Optional[int] = 1024
     temperature: Optional[float] = 0.1
@@ -554,37 +545,19 @@ class ConversationRAGService(ChatQnAService):
         self.active_conversations = {}
         
         try:
-            self.mongo_client = pymongo.MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-            self.mongo_client.server_info()
-            print("Successfully connected to MongoDB")
-            self.db = self.mongo_client[MONGO_DB]
-            self.conversations_collection = self.db["conversations"]
+            self.mongo_client = mongo_client
         except Exception as e:
             print(f"Error connecting to MongoDB: {str(e)}")
             raise Exception("Failed to connect to MongoDB")
-
-    def get_conversation_history(self, conversation_id: str) -> str:
-        if conversation_id not in self.active_conversations:
-            stored_conversation = self.conversations_collection.find_one(
-                {"conversation_id": conversation_id}
-            )
-            if stored_conversation:
-                self.active_conversations[conversation_id] = stored_conversation["history"]
-            else:
-                return ""
-
-        history = []
-        for turn in self.active_conversations[conversation_id]:
-            history.append(f"User: {turn['question']}")
-            history.append(f"Assistant: {turn['answer']}")
-        return "\n\n".join(history)
     
     async def handle_new_conversation(self, request: Request):
         try:
+            data = await request.json()
+            db = self.mongo_client[data["db_name"]]
+            conversations_collection = db["conversations"]
             conversation_id = str(uuid4())
             self.active_conversations[conversation_id] = []
-            
-            self.conversations_collection.insert_one({
+            conversations_collection.insert_one({
                 "conversation_id": conversation_id,
                 "created_at": datetime.now(),
                 "last_updated": datetime.now(),
@@ -595,7 +568,7 @@ class ConversationRAGService(ChatQnAService):
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-    def save_conversation_turn(self, conversation_id: str, question: str, answer: str, sources: List[Dict]):
+    def save_conversation_turn(self, conversation_id: str, question: str, conversations_collection, answer: str, sources: List[Dict]):
         turn = {
             "question": question,
             "answer": answer,
@@ -611,7 +584,7 @@ class ConversationRAGService(ChatQnAService):
         serialized_turn = self.serialize_datetime(turn)
         
         # Save to MongoDB
-        self.conversations_collection.update_one(
+        conversations_collection.update_one(
             {"conversation_id": conversation_id},
             {
                 "$set": {
@@ -638,12 +611,14 @@ class ConversationRAGService(ChatQnAService):
         try:
             data = await request.json()
             conversation_request = ConversationRequest.parse_obj(data)
+            db = self.mongo_client[conversation_request.db_name]
+            conversations_collection = db["conversations"]
             
             if not conversation_request.conversation_id and "conversation_id" in request.path_params:
                 conversation_request.conversation_id = request.path_params["conversation_id"]
             
             if conversation_request.conversation_id not in self.active_conversations:
-                stored_conversation = self.conversations_collection.find_one(
+                stored_conversation = conversations_collection.find_one(
                     {"conversation_id": conversation_request.conversation_id}
                 )
                 if stored_conversation:
@@ -695,6 +670,7 @@ class ConversationRAGService(ChatQnAService):
                 self.save_conversation_turn(
                     conversation_request.conversation_id,
                     conversation_request.question,
+                    conversations_collection,
                     answer,
                     processed_sources
                 )
@@ -756,10 +732,12 @@ class ConversationRAGService(ChatQnAService):
     async def handle_get_history(self, request: Request):
         try:
             query_params = dict(request.query_params)
+            print(query_params)
             db_name = query_params.get("db_name")
             db = self.mongo_client[db_name]
             conversations_collection = db["conversations"]
             conversation_id = request.path_params["conversation_id"]
+            print(conversation_id)
             
             if conversation_id in self.active_conversations:
                 stored_conversation = conversations_collection.find_one(
@@ -773,6 +751,9 @@ class ConversationRAGService(ChatQnAService):
             stored_conversation = conversations_collection.find_one(
                 {"conversation_id": conversation_id}
             )
+
+            print(conversations_collection)
+            print(stored_conversation)
             
             if stored_conversation:
                 stored_conversation.pop('_id', None)
@@ -860,7 +841,8 @@ class ConversationRAGService(ChatQnAService):
         self.service.add_route("/conversation/{conversation_id}", self.handle_get_history, methods=["GET"])
         self.service.add_route("/conversation/{conversation_id}", self.handle_delete_conversation, methods=["DELETE"])
         self.service.add_route("/conversations", self.handle_list_conversations, methods=["GET"])
-
+        self.service.add_route("/circular/update", handle_circular_update, methods=["PATCH"])
+        self.service.add_route("/circular/get", handle_circular_get, methods=["GET"])
         self.service.start()
 
 if __name__ == "__main__":

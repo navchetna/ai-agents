@@ -49,16 +49,16 @@ export default function CircularPage() {
 
   const fetchCircular = async (id: string) => {
     try {
-      const response = await axios.post(
-        "http://10.235.124.11:6016/v1/circular/get",
-        { circular_id: id },
+      const response = await axios.get(
+        "http://localhost:9001/circular/get",
         {
+          params: { circular_id: id },
           headers: {
-            "Accept": "application/json",
+            Accept: "application/json",
             "Content-Type": "application/json",
           },
         }
-      );
+      );      
   
       const data = response.data;
       setCircular(data.circular);
@@ -83,9 +83,9 @@ export default function CircularPage() {
   
   const fetchConversation = async (conversationId: string) => {
     try {
-      const response = await axios.get(
-        `http://localhost:9001/conversation/${conversationId}?db_name=rag_db`
-      );
+      const response = await axios.get(`http://localhost:9001/conversation/${conversationId}`, {
+        params: { db_name: "easy_circulars" },
+      });
       setConversation(response.data);
     } catch (error) {
       console.error("Error fetching conversation:", error);
@@ -96,7 +96,7 @@ export default function CircularPage() {
   const createNewConversation = async (): Promise<string | null> => {
     try {
       const response = await axios.post("http://localhost:9001/conversation/new", {
-        db_name: "circular_conversations_db",
+        db_name: "easy_circulars",
       }, {
         headers: {
           "Accept": "application/json",
@@ -115,21 +115,27 @@ export default function CircularPage() {
   
   const updateCircularConversation = async (circularId: string, conversationId: string) => {
     try {
-      const response = await axios.post("http://10.235.124.11:6016/v1/circular/update", { 
-        circular_id: circularId, 
-        conversation_id: conversationId,
-      }, {
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-        },
-      }); 
+      const response = await axios.patch(
+        "http://localhost:9001/circular/update",
+        { 
+          circular_id: circularId, 
+          conversation_id: conversationId,
+        }, 
+        {
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+          },
+        }
+      );      
+  
       const data = response.data;
       console.log("Circular updated with new conversation ID:", data);
     } catch (error) {
       console.error("Error updating circular:", error);
     }
   };
+  
   
   useEffect(() => {
     if (id) {
@@ -141,15 +147,19 @@ export default function CircularPage() {
     if (circular) {
       const updatedCircular = { ...circular, bookmark: !circular.bookmark };
 
-      await axios.post('http://localhost:6016/v1/circular/update', {
-        circular_id: circular.circular_id,
-        bookmark: updatedCircular.bookmark,
-      }, {
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-        },
-      });
+      await axios.patch(
+        "http://localhost:9001/circular/update",
+        { 
+          circular_id: circular.circular_id,
+          bookmark: updatedCircular.bookmark,
+        }, 
+        {
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+          },
+        }
+      );      
       setCircular(updatedCircular);
     }
   };
@@ -169,7 +179,7 @@ export default function CircularPage() {
         console.log(input)
         const response = await axios.post(
           `http://localhost:9001/conversation/${conversation.conversation_id}`,
-          { db_name: "circular_conversations_db", question: input },
+          { db_name: "easy_circulars", question: input },
           { headers: { "Content-Type": "application/json" } }
         );
 

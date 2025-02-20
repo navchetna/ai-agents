@@ -29,17 +29,15 @@ export default function SearchPage() {
 
   useEffect(() => {
     setPageTitle("Search Circulars")
-    axios.post<Circular[]>("http://10.235.124.11:6016/v1/circular/get", 
-      { circularId: null }, 
-      {
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-        },
-      }
-    )
+    axios
+    .get<Circular[]>("http://localhost:9001/circular/get", {
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+    })
     .then((response) => setCirculars(response.data))
-    .catch((error) => console.error("Error fetching circulars:", error));
+    .catch((error) => console.error("Error fetching circulars:", error));  
     
   }, [setPageTitle])
 
