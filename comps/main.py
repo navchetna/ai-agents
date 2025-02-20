@@ -754,7 +754,6 @@ class ConversationRAGService(ChatQnAService):
             db = self.mongo_client[db_name]
             conversations_collection = db["conversations"]
             conversation_id = request.path_params["conversation_id"]
-            print(conversation_id)
             
             if conversation_id in self.active_conversations:
                 stored_conversation = conversations_collection.find_one(
