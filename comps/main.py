@@ -767,9 +767,6 @@ class ConversationRAGService(ChatQnAService):
             stored_conversation = conversations_collection.find_one(
                 {"conversation_id": conversation_id}
             )
-
-            print(conversations_collection)
-            print(stored_conversation)
             
             if stored_conversation:
                 stored_conversation.pop('_id', None)
