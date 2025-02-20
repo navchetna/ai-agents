@@ -750,7 +750,6 @@ class ConversationRAGService(ChatQnAService):
     async def handle_get_history(self, request: Request):
         try:
             query_params = dict(request.query_params)
-            print(query_params)
             db_name = query_params.get("db_name")
             db = self.mongo_client[db_name]
             conversations_collection = db["conversations"]
