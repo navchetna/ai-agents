@@ -14,6 +14,7 @@ import {
   Alert,
   Snackbar
 } from '@mui/material';
+import axios from 'axios';
 import SendIcon from '@mui/icons-material/Send';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
@@ -141,20 +142,13 @@ export default function ChatArea({
     }
   }, [conversationId]);
 
-  
-
   const loadConversation = async (id: string) => {
     try {
       setIsLoading(true);
       setErrorMessage(null);
-      const response = await fetch(`${CHAT_QNA_URL}/conversation/${id}?db_name=rag_db`);
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to load conversation' }));
-        throw new Error(errorData.message || 'Failed to load conversation');
-      }
-
-      const data = await response.json();
+      const response = await axios.get(`${CHAT_QNA_URL}/conversation/${id}?db_name=rag_db`);
+      const data = response.data;
       console.log('Loaded conversation data:', data);
       
       if (!data.history || !Array.isArray(data.history)) {
@@ -200,12 +194,20 @@ export default function ChatArea({
           });
         }
       });
-
+  
       console.log('Formatted messages:', formattedMessages);
       setMessages(formattedMessages);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error loading conversation:', error);
-      setErrorMessage(error instanceof Error ? error.message : 'Error loading conversation data');
+      let errorMessage = 'Error loading conversation data';
+      
+      if (axios.isAxiosError(error)) {
+        errorMessage = error.response?.data?.message || error.message || errorMessage;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      setErrorMessage(errorMessage);
       setShowErrorSnackbar(true);
       setMessages([]);
     } finally {
@@ -222,16 +224,9 @@ export default function ChatArea({
 
   const startNewConversation = async (userMessageContent: string) => {
     try {
-      const response = await fetch(`${CHAT_QNA_URL}/conversation/new?db_name=rag_db`, {
-        method: 'POST'
-      });
+      const response = await axios.post(`${CHAT_QNA_URL}/conversation/new?db_name=rag_db`)
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to create conversation' }));
-        throw new Error(errorData.message || 'Failed to create conversation');
-      }
-      
-      const data = await response.json();
+      const data = await response.data;
       console.log('Created new conversation:', data);
       
       const newConversationId = data.conversation_id;
@@ -264,22 +259,13 @@ export default function ChatArea({
 
   const sendMessage = async (messageContent: string, targetConversationId: string) => {
     try {
-      const response = await fetch(`${CHAT_QNA_URL}/conversation/${targetConversationId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const response = await axios.post(`${CHAT_QNA_URL}/conversation/${targetConversationId}`, {
           question: messageContent.trim(),
           max_tokens: 1024,
           temperature: 0.1
-        })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to send message' }));
-        throw new Error(errorData.message || 'Failed to send message');
-      }
-
-      const data = await response.json();
+      const data = await response.data;
       console.log('Received response:', data);
       
       setLocalMessages([]);
