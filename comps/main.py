@@ -634,7 +634,25 @@ class ConversationRAGService(ChatQnAService):
                 "k": conversation_request.top_k or 3,
                 "top_n": conversation_request.top_k or 3
             }
-            
+
+            if conversation_request.db_name == "easy_circulars":
+                chat_data["chat_template"] = """
+                You are an expert assistant specializing in RBI circulars. The user is asking about a specific circular, 
+                and your responses must be strictly based on the provided search results.
+
+                - Use only the given search results to answer the question.  
+                - Do not add information beyond what is provided.  
+                - If the search results do not contain relevant information, clearly state that the answer is unavailable.  
+                - Ensure responses are concise, accurate, and relevant to the question.  
+
+                ### Search Results:  
+                {context}  
+
+                ### User Question:  
+                {question}  
+
+                ### Answer:
+            """
             new_request = Request(scope=request.scope)
             async def receive():
                 return {"type": "http.request", "body": json.dumps(chat_data).encode()}
