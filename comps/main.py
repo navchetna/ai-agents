@@ -31,7 +31,7 @@ MONGO_HOST = os.getenv("MONGO_HOST", "localhost")
 MONGO_PORT = os.getenv("MONGO_PORT", "27017")
 MONGO_DB = os.getenv("MONGO_DB", "rag_db")
 
-MEGA_SERVICE_PORT = int(os.getenv("MEGA_SERVICE_PORT", 8888))
+MEGA_SERVICE_PORT = int(os.getenv("MEGA_SERVICE_PORT", 9001))
 GUARDRAIL_SERVICE_HOST_IP = os.getenv("GUARDRAIL_SERVICE_HOST_IP", "0.0.0.0")
 GUARDRAIL_SERVICE_PORT = int(os.getenv("GUARDRAIL_SERVICE_PORT", 80))
 EMBEDDING_SERVER_HOST_IP = os.getenv("EMBEDDING_SERVER_HOST_IP", "0.0.0.0")
@@ -446,7 +446,7 @@ class ChatQnAService:
 
     async def handle_request(self, request: Request):
         data = await request.json()
-        stream_opt = data.get("stream", True)
+        stream_opt = data.get("stream", False)
         chat_request = ChatCompletionRequest.parse_obj(data)
         prompt = handle_message(chat_request.messages)
         
@@ -639,6 +639,7 @@ class ConversationRAGService(ChatQnAService):
         try:
             data = await request.json()
             conversation_request = ConversationRequest.parse_obj(data)
+            stream = data.get("stream", False)
             
             if not conversation_request.conversation_id and "conversation_id" in request.path_params:
                 conversation_request.conversation_id = request.path_params["conversation_id"]
@@ -656,7 +657,7 @@ class ConversationRAGService(ChatQnAService):
                 "messages": [{"role": "user", "content": conversation_request.question}],
                 "max_tokens": conversation_request.max_tokens,
                 "temperature": conversation_request.temperature,
-                "stream": False,
+                "stream": stream,
                 "k": conversation_request.top_k or 3,
                 "top_n": conversation_request.top_k or 3
             }
