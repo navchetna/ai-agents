@@ -84,7 +84,7 @@ export default function CircularPage() {
   const fetchConversation = async (conversationId: string) => {
     try {
       const response = await axios.get(
-        `http://localhost:9001/conversation/${conversationId}`
+        `http://localhost:9001/conversation/${conversationId}?db_name=rag_db`
       );
       setConversation(response.data);
     } catch (error) {
@@ -96,7 +96,7 @@ export default function CircularPage() {
   const createNewConversation = async (): Promise<string | null> => {
     try {
       const response = await axios.post("http://localhost:9001/conversation/new", {
-        collection_name: "conversations_circular",
+        db_name: "circular_conversations_db",
       }, {
         headers: {
           "Accept": "application/json",
@@ -169,7 +169,7 @@ export default function CircularPage() {
         console.log(input)
         const response = await axios.post(
           `http://localhost:9001/conversation/${conversation.conversation_id}`,
-          { question: input, collection_name: "conversations_circular" },
+          { db_name: "circular_conversations_db", question: input },
           { headers: { "Content-Type": "application/json" } }
         );
 

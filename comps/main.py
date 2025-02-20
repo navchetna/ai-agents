@@ -268,7 +268,6 @@ class SourceInfo(BaseModel):
 class ConversationRequest(BaseModel):
     question: str
     conversation_id: Optional[str] = None
-    collection_name: str
     max_tokens: Optional[int] = 1024
     temperature: Optional[float] = 0.1
     top_k: Optional[int] = 3
@@ -277,12 +276,6 @@ class ConversationResponse(BaseModel):
     conversation_id: str
     answer: str
     sources: List[SourceInfo]
-
-class ConversationRequest(BaseModel):
-    collection_name: str
-
-class PromptTemplate:
-    
 
 class ChatTemplate:
     @staticmethod
