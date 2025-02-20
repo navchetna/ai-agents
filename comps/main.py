@@ -476,7 +476,7 @@ class ChatQnAService:
             score_threshold=chat_request.score_threshold if chat_request.score_threshold else 0.2,
         )
         reranker_parameters = RerankerParms(
-            top_n=chat_request.top_n if chat_request.top_n else 3,
+            top_n=chat_request.top_n if chat_request.top_n else 1,
         )
         
         try:
@@ -564,9 +564,7 @@ class ConversationRAGService(ChatQnAService):
             self.mongo_client = pymongo.MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
             self.mongo_client.server_info()
             print("Successfully connected to MongoDB")
-            self.circulars = self.mongo_client[MONGO_DB]
-            self.research_assistant = self.mongo_client[MONGO_DB]
-            self.study_buddy = self.mongo_client[MONGO_DB]
+            self.db = self.mongo_client[MONGO_DB]
             self.conversations_collection = self.db["conversations"]
         except Exception as e:
             print(f"Error connecting to MongoDB: {str(e)}")
@@ -764,10 +762,14 @@ class ConversationRAGService(ChatQnAService):
         
     async def handle_get_history(self, request: Request):
         try:
+            query_params = dict(request.query_params)
+            db_name = query_params.get("db_name")
+            db = self.mongo_client[db_name]
+            conversations_collection = db["conversations"]
             conversation_id = request.path_params["conversation_id"]
             
             if conversation_id in self.active_conversations:
-                stored_conversation = self.conversations_collection.find_one(
+                stored_conversation = conversations_collection.find_one(
                     {"conversation_id": conversation_id}
                 )
                 if stored_conversation:
@@ -775,7 +777,7 @@ class ConversationRAGService(ChatQnAService):
                     serialized_data = self.serialize_datetime(stored_conversation)
                     return JSONResponse(content=serialized_data)
             
-            stored_conversation = self.conversations_collection.find_one(
+            stored_conversation = conversations_collection.find_one(
                 {"conversation_id": conversation_id}
             )
             
@@ -794,10 +796,18 @@ class ConversationRAGService(ChatQnAService):
     async def handle_delete_conversation(self, request: Request):
         try:
             conversation_id = request.path_params["conversation_id"]
+            query_params = dict(request.query_params)
+            db_name = query_params.get("db_name")
+            
+            if not db_name:
+                raise HTTPException(status_code=400, detail="Missing required query parameter 'db_name'")
+            
+            db = self.mongo_client[db_name]
+            conversations_collection = db["conversations"]
             
             self.active_conversations.pop(conversation_id, None)
             
-            result = self.conversations_collection.delete_one(
+            result = conversations_collection.delete_one(
                 {"conversation_id": conversation_id}
             )
             
@@ -814,16 +824,20 @@ class ConversationRAGService(ChatQnAService):
     async def handle_list_conversations(self, request: Request):
         try:
             query_params = dict(request.query_params)
+            db_name = query_params.get("db_name")
+            db = self.mongo_client[db_name]
+            conversations_collection = db["conversations"]
+            
             limit = int(query_params.get("limit", 10))
             skip = int(query_params.get("skip", 0))
             
-            conversations = list(self.conversations_collection
+            conversations = list(conversations_collection
                                 .find({}, {'_id': 0})
                                 .sort('last_updated', -1)
                                 .skip(skip)
                                 .limit(limit))
             
-            total = self.conversations_collection.count_documents({})
+            total = conversations_collection.count_documents({})
             
             serialized_conversations = self.serialize_datetime(conversations)
             
