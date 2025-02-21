@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { TextField, Box, Paper, Typography, CircularProgress } from "@mui/material"
+import { TextField, Box, Paper, Typography, CircularProgress, Popper, ClickAwayListener } from "@mui/material"
 import { Search as SearchIcon } from "@mui/icons-material"
 import { styled } from "@mui/material/styles"
 import { fetchSuggestions } from "../utils/search"
@@ -13,47 +13,36 @@ interface SearchBarProps {
   onSuggestionsVisibilityChange: (visible: boolean) => void
 }
 
-const SearchContainer = styled(Box)(({ theme }) => ({
-  position: "relative",
-  width: "100%",
-  maxWidth: "800px",
-  margin: "0 auto",
-  zIndex: 1,
-}))
-
-const SearchInput = styled(TextField)(({ theme }) => ({
-  width: "100%",
+const SearchInput = styled(TextField)({
   "& .MuiOutlinedInput-root": {
-    backgroundColor: "#ffffff",
-    borderRadius: "24px",
-    transition: "all 0.2s ease-in-out",
-    "&.Mui-focused": {
-      boxShadow: "0 0 0 2px rgba(147, 51, 234, 0.3)",
-      borderColor: "transparent",
+    backgroundColor: "white",
+    borderRadius: "12px",
+    height: "56px",
+    "& .MuiOutlinedInput-notchedOutline": {
+      borderColor: "rgba(0, 0, 0, 0.1)",
+    },
+    "&:hover .MuiOutlinedInput-notchedOutline": {
+      borderColor: "rgba(0, 0, 0, 0.2)",
+    },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+      borderColor: "#9333EA",
     },
   },
-  "& .MuiOutlinedInput-input": {
-    padding: "12px 16px",
-    fontSize: "16px",
-  },
-}))
+})
 
 const SuggestionsList = styled(Paper)(({ theme }) => ({
-  position: "relative", // Changed from absolute to relative
+  backgroundColor: "white",
+  borderRadius: "12px",
   marginTop: "4px",
-  backgroundColor: "#ffffff",
-  borderRadius: "16px",
-  boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-  zIndex: 2,
+  boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)",
+  maxHeight: "300px",
+  overflow: "auto",
 }))
 
 const SuggestionItem = styled(Box)(({ theme }) => ({
-  padding: "8px 16px",
+  padding: "12px 16px",
   cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  gap: "12px",
-  transition: "background-color 0.15s ease",
+  transition: "background-color 0.2s ease",
   "&:hover": {
     backgroundColor: "rgba(147, 51, 234, 0.04)",
   },
@@ -85,12 +74,14 @@ export default function SearchBar({ onSearch, setQuery, api, onSuggestionsVisibi
   const [suggestions, setSuggestions] = useState<EnhancedSuggestion[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const searchContainerRef = useRef<HTMLDivElement>(null)
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
+  const inputRef = useRef<HTMLDivElement>(null)
+  const debounceTimerRef = useRef<NodeJS.Timeout>()
+  const preventSuggestionRef = useRef(false)
 
   const handleSuggestionsFetch = useCallback(
     async (input: string) => {
-      if (!input || input.length < 2) {
+      if (!input || input.length < 2 || preventSuggestionRef.current) {
         setSuggestions([])
         return
       }
@@ -98,7 +89,10 @@ export default function SearchBar({ onSearch, setQuery, api, onSuggestionsVisibi
       setIsLoading(true)
       try {
         const suggestionsList = await fetchSuggestions(input, api)
-        setSuggestions(suggestionsList.map(processRawSuggestion))
+        if (!preventSuggestionRef.current) {
+          setSuggestions(suggestionsList.map(processRawSuggestion))
+          setAnchorEl(inputRef.current)
+        }
       } catch (error) {
         console.error("Error fetching suggestions:", error)
         setSuggestions([])
@@ -110,33 +104,27 @@ export default function SearchBar({ onSearch, setQuery, api, onSuggestionsVisibi
   )
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchTerm) {
-        handleSuggestionsFetch(searchTerm)
-      } else {
-        setSuggestions([])
-      }
-    }, 150)
-
-    return () => clearTimeout(timer)
-  }, [searchTerm, handleSuggestionsFetch])
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
-        setShowSuggestions(false)
-        onSuggestionsVisibilityChange(false)
-      }
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
     }
 
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [onSuggestionsVisibilityChange])
+    if (searchTerm && !preventSuggestionRef.current) {
+      debounceTimerRef.current = setTimeout(() => {
+        handleSuggestionsFetch(searchTerm)
+        onSuggestionsVisibilityChange(true)
+      }, 300)
+    } else {
+      setSuggestions([])
+      setAnchorEl(null)
+      onSuggestionsVisibilityChange(false)
+    }
 
-  // Update parent component when suggestions visibility changes
-  useEffect(() => {
-    onSuggestionsVisibilityChange(showSuggestions && searchTerm.length >= 2 && (suggestions.length > 0 || isLoading))
-  }, [showSuggestions, searchTerm, suggestions.length, isLoading, onSuggestionsVisibilityChange])
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+    }
+  }, [searchTerm, handleSuggestionsFetch, onSuggestionsVisibilityChange])
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter") {
@@ -152,16 +140,14 @@ export default function SearchBar({ onSearch, setQuery, api, onSuggestionsVisibi
       event.preventDefault()
       setSelectedIndex((prev) => (prev > 0 ? prev - 1 : -1))
     } else if (event.key === "Escape") {
-      setShowSuggestions(false)
-      onSuggestionsVisibilityChange(false)
+      clearSuggestions()
     }
   }
 
   const handleSearch = () => {
     if (searchTerm.trim()) {
       onSearch(searchTerm)
-      setShowSuggestions(false)
-      onSuggestionsVisibilityChange(false)
+      clearSuggestions()
     }
   }
 
@@ -169,76 +155,89 @@ export default function SearchBar({ onSearch, setQuery, api, onSuggestionsVisibi
     setSearchTerm(suggestion)
     setQuery(suggestion)
     onSearch(suggestion)
-    setShowSuggestions(false)
-    onSuggestionsVisibilityChange(false)
+    clearSuggestions()
   }
 
-  return (
-    <SearchContainer ref={searchContainerRef}>
-      <SearchInput
-        value={searchTerm}
-        onChange={(e) => {
-          setSearchTerm(e.target.value)
-          setQuery(e.target.value)
-          setShowSuggestions(true)
-          setSelectedIndex(-1)
-        }}
-        onKeyDown={handleKeyDown}
-        onFocus={() => {
-          setShowSuggestions(true)
-          if (searchTerm.length >= 2) {
-            onSuggestionsVisibilityChange(true)
-          }
-        }}
-        placeholder="Search papers..."
-        InputProps={{
-          startAdornment: <SearchIcon sx={{ ml: 1, mr: 1, color: "text.secondary" }} />,
-        }}
-      />
+  const clearSuggestions = useCallback(() => {
+    preventSuggestionRef.current = true
+    setSuggestions([])
+    setAnchorEl(null)
+    setSelectedIndex(-1)
+    onSuggestionsVisibilityChange(false)
+    // Reset the prevention flag after a short delay
+    setTimeout(() => {
+      preventSuggestionRef.current = false
+    }, 100)
+  }, [onSuggestionsVisibilityChange])
 
-      {showSuggestions && searchTerm.length >= 2 && (suggestions.length > 0 || isLoading) && (
-        <SuggestionsList elevation={3}>
-          {isLoading ? (
-            <Box sx={{ display: "flex", justifyContent: "center", p: 2 }}>
-              <CircularProgress size={20} sx={{ color: "primary.main" }} />
-            </Box>
-          ) : (
-            suggestions.map((suggestion, index) => (
+  return (
+    <ClickAwayListener onClickAway={clearSuggestions}>
+      <Box sx={{ position: "relative" }} ref={inputRef}>
+        <SearchInput
+          fullWidth
+          placeholder="Search papers..."
+          value={searchTerm}
+          onChange={(e) => {
+            preventSuggestionRef.current = false
+            setSearchTerm(e.target.value)
+            setQuery(e.target.value)
+          }}
+          onKeyDown={handleKeyDown}
+          InputProps={{
+            startAdornment: (
+              <Box sx={{ pl: 1, pr: 1, display: "flex", alignItems: "center" }}>
+                <SearchIcon sx={{ color: "text.secondary" }} />
+              </Box>
+            ),
+            endAdornment: isLoading && (
+              <Box sx={{ pr: 2 }}>
+                <CircularProgress size={20} sx={{ color: "primary.main" }} />
+              </Box>
+            ),
+          }}
+        />
+        <Popper
+          open={Boolean(anchorEl) && suggestions.length > 0}
+          anchorEl={anchorEl}
+          placement="bottom-start"
+          style={{ width: anchorEl?.clientWidth, zIndex: 1300 }}
+        >
+          <SuggestionsList elevation={3}>
+            {suggestions.map((suggestion, index) => (
               <SuggestionItem
                 key={index}
                 className={index === selectedIndex ? "selected" : ""}
-                onClick={() => handleSuggestionClick(suggestion.main)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleSuggestionClick(suggestion.main)
+                }}
               >
-                <SearchIcon sx={{ color: "text.secondary", fontSize: 18 }} />
-                <Box sx={{ flex: 1 }}>
+                <Typography
+                  sx={{
+                    fontWeight: index === selectedIndex ? 500 : 400,
+                    color: "text.primary",
+                  }}
+                >
+                  {suggestion.main}
+                </Typography>
+                {suggestion.description && (
                   <Typography
-                    variant="body2"
+                    variant="caption"
                     sx={{
-                      color: "text.primary",
-                      fontWeight: index === selectedIndex ? 500 : 400,
+                      display: "block",
+                      color: "text.secondary",
+                      mt: 0.5,
                     }}
                   >
-                    {suggestion.main}
+                    {suggestion.description}
                   </Typography>
-                  {suggestion.description && (
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: "text.secondary",
-                        display: "block",
-                        mt: 0.25,
-                      }}
-                    >
-                      {suggestion.description}
-                    </Typography>
-                  )}
-                </Box>
+                )}
               </SuggestionItem>
-            ))
-          )}
-        </SuggestionsList>
-      )}
-    </SearchContainer>
+            ))}
+          </SuggestionsList>
+        </Popper>
+      </Box>
+    </ClickAwayListener>
   )
 }
 

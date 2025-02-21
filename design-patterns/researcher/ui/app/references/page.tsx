@@ -11,7 +11,6 @@ import {
   CardContent,
   Box,
   TextField,
-  Button,
   IconButton,
   InputAdornment,
   Select,
@@ -101,16 +100,11 @@ export default function Page() {
     }
   }, [searchParams])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!paperId) {
-      setError("Please enter a Paper ID")
-      return
+  React.useEffect(() => {
+    if (paperId) {
+      router.push(`/references/${paperId}?depth=${depth}`)
     }
-
-    router.push(`/references/${paperId}?depth=${depth}`)
-  }
+  }, [paperId, depth, router])
 
   const handleDepthChange = (event: SelectChangeEvent<number>) => {
     const value = Number(event.target.value)
@@ -139,7 +133,7 @@ export default function Page() {
                 </Typography>
               </Box>
 
-              <form onSubmit={handleSubmit}>
+              <div>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
                   <TextField
                     fullWidth
@@ -181,23 +175,8 @@ export default function Page() {
                       the paper, while Depth 2 will also fetch the references of each reference.
                     </Typography>
                   </Alert>
-
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    size="large"
-                    fullWidth
-                    sx={{
-                      backgroundColor: "#10B981",
-                      "&:hover": {
-                        backgroundColor: "#059669",
-                      },
-                    }}
-                  >
-                    Fetch References
-                  </Button>
                 </Box>
-              </form>
+              </div>
             </CardContent>
           </ContentCard>
         </Container>

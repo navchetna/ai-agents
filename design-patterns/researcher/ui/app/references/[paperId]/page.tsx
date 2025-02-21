@@ -154,9 +154,12 @@ const ReferencesPage: React.FC = () => {
 
     setIsLoading(true)
     setError(null)
+    let data: any = undefined
+
     try {
-      console.log("Loading references for paper:", paperId, "with depth:", depth)
-      const response = await fetch(`/api/download_references`, {
+      const apiUrl = "http://localhost:8000/api"
+      console.log(`Fetching references from: ${apiUrl}/download_references`)
+      const response = await fetch(`${apiUrl}/download_references`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -167,7 +170,14 @@ const ReferencesPage: React.FC = () => {
         }),
       })
 
-      const data = await response.json()
+      try {
+        data = await response.json()
+      } catch (jsonError) {
+        console.error("Error parsing JSON response:", jsonError)
+        setError("Failed to parse server response. Please try again later.")
+        return
+      }
+
       console.log("Raw response from /download_references:", data)
 
       if (Array.isArray(data)) {
@@ -190,18 +200,19 @@ const ReferencesPage: React.FC = () => {
             .filter((paper): paper is CitedPaper => paper !== null)
         }
 
-        const processedPapers = processReferences(data)
-        if (processedPapers.length > 0) {
-          setPapers(processedPapers)
-          setError(null)
-        } else {
-          throw new Error("No valid paper data found in response")
+        const processedPapers = processReferences(data);
+        setPapers(processedPapers);
+
+        setError(null)
+
+        if (processedPapers.length === 0) {
+          console.log("No references found for this paper.")
         }
       } else {
         throw new Error("Unexpected response format from server")
       }
     } catch (err) {
-      console.error("Error loading references:", err)
+      console.error("Error loading references:", err, "Response data:", data)
       setError(err instanceof Error ? err.message : "Failed to load references")
       setPapers([])
     } finally {
@@ -412,9 +423,17 @@ const ReferencesPage: React.FC = () => {
                 </Button>
               </Box>
             </Box>
-          ) : papers.length > 0 ? (
-            <Box sx={{ mt: 4 }}>{renderNestedReferences(papers)}</Box>
-          ) : null}
+          ) : (
+            <Box sx={{ mt: 4 }}>
+              {papers.length > 0 ? (
+                renderNestedReferences(papers)
+              ) : (
+                <Typography sx={{ color: "white", textAlign: "center" }}>
+                  No references found for this paper.
+                </Typography>
+              )}
+            </Box>
+          )}
         </Container>
       </GradientBackground>
     </ThemeProvider>
