@@ -83,7 +83,7 @@ export const topics = [
     color: '#03a9f4'
   },
   {
-    name: 'Robotics',
+    name: 'AI Agents',
     icon: <PrecisionManufacturingIcon />,
     color: '#9c27b0'
   }
@@ -215,7 +215,7 @@ export default function ChatArea({
 
   const handleTopicSelect = (topicName: string) => {
     onContextChange(topicName);
-    const welcomeMessage = `You are now in ${topicName} context. How can I help you?`;
+    const welcomeMessage = `You are now in ${topicName} context.`;
     setInput(welcomeMessage);
     handleSubmit(welcomeMessage);
   };
@@ -615,11 +615,6 @@ export default function ChatArea({
                           }}
                         >
                           {message.content}
-                          {message.isPending && (
-                            <span style={{ marginLeft: '5px', opacity: 0.7 }}>
-                              (sending...)
-                            </span>
-                          )}
                         </Typography>
 
                         {message.role === 'assistant' && (
