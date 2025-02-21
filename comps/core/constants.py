@@ -41,6 +41,7 @@ class MegaServiceEndpoint(Enum):
 
     # OPEA Exclusive
     CHAT_QNA = "/v1/chatqna"
+    CIRCULAR_QNA="/v1/circular"
     AUDIO_QNA = "/v1/audioqna"
     VISUAL_QNA = "/v1/visualqna"
     VIDEO_RAG_QNA = "/v1/videoqna"

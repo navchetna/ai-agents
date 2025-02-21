@@ -12,8 +12,11 @@ import {
   Paper,
   Chip,
   Alert,
-  Snackbar
+  Snackbar,
+  Switch,
+  FormControlLabel
 } from '@mui/material';
+import axios from 'axios';
 import SendIcon from '@mui/icons-material/Send';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
@@ -22,6 +25,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import BoltIcon from '@mui/icons-material/Bolt';
 import { CHAT_QNA_URL } from '@/lib/constants';
 
 interface Message {
@@ -36,6 +40,7 @@ interface Message {
     content: string;
   }>;
   isPending?: boolean;
+  isStreaming?: boolean;
 }
 
 interface ChatAreaProps {
@@ -113,8 +118,12 @@ export default function ChatArea({
   const [showWelcome, setShowWelcome] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showErrorSnackbar, setShowErrorSnackbar] = useState(false);
+  const [streamingEnabled, setStreamingEnabled] = useState(false);
+  const [streamedContent, setStreamedContent] = useState<string>('');
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -124,7 +133,7 @@ export default function ChatArea({
 
   useEffect(() => {
     scrollToBottom();
-  }, [displayMessages]);
+  }, [displayMessages, streamedContent]);
 
   useEffect(() => {
     if (conversationId) {
@@ -141,25 +150,25 @@ export default function ChatArea({
     }
   }, [conversationId]);
 
-  
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+    };
+  }, []);
 
   const loadConversation = async (id: string) => {
     try {
       setIsLoading(true);
       setErrorMessage(null);
-      const response = await fetch(`${CHAT_QNA_URL}/conversation/${id}?db_name=rag_db`);
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to load conversation' }));
-        throw new Error(errorData.message || 'Failed to load conversation');
-      }
-
-      const data = await response.json();
+      const response = await axios.get(`${CHAT_QNA_URL}/conversation/${id}?db_name=rag_db`);
+      const data = response.data;
       console.log('Loaded conversation data:', data);
       
-      if (!data.history || !Array.isArray(data.history)) {
-        console.warn('History is missing or not an array in conversation data', data);
-        setMessages([]);
+      if (!data.history || !Array.isArray(data.history) || data.history.length === 0) {
+        console.warn('History is missing, empty, or not an array in conversation data', data);
         return;
       }
       
@@ -200,14 +209,25 @@ export default function ChatArea({
           });
         }
       });
-
+  
       console.log('Formatted messages:', formattedMessages);
-      setMessages(formattedMessages);
-    } catch (error) {
+      
+      if (formattedMessages.length > 0) {
+        setMessages(formattedMessages);
+      }
+      
+    } catch (error: unknown) {
       console.error('Error loading conversation:', error);
-      setErrorMessage(error instanceof Error ? error.message : 'Error loading conversation data');
+      let errorMessage = 'Error loading conversation data';
+      
+      if (axios.isAxiosError(error)) {
+        errorMessage = error.response?.data?.message || error.message || errorMessage;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      setErrorMessage(errorMessage);
       setShowErrorSnackbar(true);
-      setMessages([]);
     } finally {
       setIsLoading(false);
     }
@@ -222,16 +242,9 @@ export default function ChatArea({
 
   const startNewConversation = async (userMessageContent: string) => {
     try {
-      const response = await fetch(`${CHAT_QNA_URL}/conversation/new?db_name=rag_db`, {
-        method: 'POST'
-      });
+      const response = await axios.post(`${CHAT_QNA_URL}/conversation/new?db_name=rag_db`)
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to create conversation' }));
-        throw new Error(errorData.message || 'Failed to create conversation');
-      }
-      
-      const data = await response.json();
+      const data = await response.data;
       console.log('Created new conversation:', data);
       
       const newConversationId = data.conversation_id;
@@ -262,57 +275,270 @@ export default function ChatArea({
     }
   };
 
+
   const sendMessage = async (messageContent: string, targetConversationId: string) => {
-    try {
-      const response = await fetch(`${CHAT_QNA_URL}/conversation/${targetConversationId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: messageContent.trim(),
-          max_tokens: 1024,
-          temperature: 0.1
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to send message' }));
-        throw new Error(errorData.message || 'Failed to send message');
-      }
-
-      const data = await response.json();
-      console.log('Received response:', data);
-      
-      setLocalMessages([]);
-      
-      if (targetConversationId) {
-        loadConversation(targetConversationId);
-      }
-      
-      if (onConversationUpdated) {
-        onConversationUpdated();
-      }
-      
-    } catch (error) {
-      console.error('Error:', error);
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to get response');
-      setShowErrorSnackbar(true);
-      
-      setLocalMessages(prev => {
-        const updatedMessages = prev.map(msg => 
-          msg.isPending ? { ...msg, isPending: false } : msg
+    if (streamingEnabled) {
+      try {
+        const streamingMessageId = Date.now().toString() + '-streaming';
+        setStreamingMessageId(streamingMessageId);
+        
+        setLocalMessages(prev => [
+          ...prev, 
+          {
+            id: streamingMessageId,
+            role: 'assistant',
+            content: '',
+            timestamp: new Date().toISOString(),
+            isStreaming: true
+          }
+        ]);
+        
+        setStreamedContent('');
+        setIsLoading(true);
+        
+        console.log(`Sending streaming request to: ${CHAT_QNA_URL}/conversation/${targetConversationId}`);
+        const response = await fetch(`${CHAT_QNA_URL}/conversation/${targetConversationId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream'
+          },
+          body: JSON.stringify({
+            question: messageContent.trim(),
+            max_tokens: 1024,
+            temperature: 0.1,
+            stream: true
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
+        }
+        
+        if (!response.body) {
+          throw new Error('ReadableStream not supported in this browser.');
+        }
+        
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          
+          if (done) {
+            console.log('Stream complete');
+            break;
+          }
+          
+          const chunk = decoder.decode(value, { stream: true });
+          buffer += chunk;
+          console.log('Received chunk:', chunk);
+          
+          let unprocessedBuffer = '';
+          const lines = buffer.split('\n');
+          
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            
+            if (line.startsWith('data: ')) {
+              const dataContent = line.substring(6).trim();
+              
+              if (dataContent === '[DONE]') {
+                console.log('End of stream marker received');
+                continue;
+              }
+              
+              try {
+                console.log('Processing data content:', dataContent);
+                
+                if (dataContent.startsWith("b'") && dataContent.endsWith("'")) {
+                  const textContent = dataContent.substring(2, dataContent.length - 1);
+                  console.log('Extracted text content from b\' format:', textContent);
+                  
+                  setStreamedContent(prev => {
+                    const updatedContent = prev + textContent;
+                    
+                    setLocalMessages(messages => 
+                      messages.map(msg => {
+                        if (msg.id === streamingMessageId) {
+                          return {
+                            ...msg,
+                            content: updatedContent
+                          };
+                        }
+                        return msg;
+                      })
+                    );
+                    
+                    return updatedContent;
+                  });
+                } 
+                else {
+                  try {
+                    const byteObj: unknown = JSON.parse(dataContent);
+                    
+                    let byteArray: number[];
+                    if (Array.isArray(byteObj)) {
+                      byteArray = byteObj as number[];
+                    } else if (byteObj && typeof byteObj === 'object') {
+                      byteArray = Object.values(byteObj as Record<string, number>);
+                    } else {
+                      console.warn('Unexpected data format:', byteObj);
+                      byteArray = [];
+                    }
+                    
+                    const textContent = new TextDecoder().decode(new Uint8Array(byteArray));
+                    console.log('Decoded text content from JSON byte array:', textContent);
+                    
+                    setStreamedContent(prev => {
+                      const updatedContent = prev + textContent;
+                      
+                      setLocalMessages(messages => 
+                        messages.map(msg => {
+                          if (msg.id === streamingMessageId) {
+                            return {
+                              ...msg,
+                              content: updatedContent
+                            };
+                          }
+                          return msg;
+                        })
+                      );
+                      
+                      return updatedContent;
+                    });
+                  } catch (jsonError) {
+                    console.warn('Failed to parse as JSON:', jsonError);
+                    
+                    if (typeof dataContent === 'string' && 
+                        !dataContent.startsWith('{') && 
+                        !dataContent.startsWith('[') &&
+                        dataContent.trim().length > 0) {
+                      console.log('Using as plain text:', dataContent);
+                      
+                      setStreamedContent(prev => {
+                        const updatedContent = prev + dataContent;
+                        
+                        setLocalMessages(messages => 
+                          messages.map(msg => {
+                            if (msg.id === streamingMessageId) {
+                              return {
+                                ...msg,
+                                content: updatedContent
+                              };
+                            }
+                            return msg;
+                          })
+                        );
+                        
+                        return updatedContent;
+                      });
+                    }
+                  }
+                }
+              } catch (e) {
+                console.error('Error processing streaming data:', e, dataContent);
+              }
+            } else if (line !== '') {
+              unprocessedBuffer += line + '\n';
+            }
+          }
+          
+          buffer = unprocessedBuffer;
+        }
+        
+        setLocalMessages(prev => 
+          prev.map(msg => {
+            if (msg.id === streamingMessageId) {
+              return {
+                ...msg,
+                isStreaming: false,
+                isPending: false
+              };
+            }
+            return msg;
+          })
         );
         
-        const errorAssistantMessage: Message = {
-          id: Date.now().toString(),
-          role: 'assistant',
-          content: 'Sorry, I encountered an error processing your request. Please try again or start a new conversation.',
-          timestamp: new Date().toISOString(),
-        };
+        setStreamingMessageId(null);
+        setIsLoading(false);
         
-        return [...updatedMessages, errorAssistantMessage];
-      });
-    } finally {
-      setIsLoading(false);
+        if (currentConversationId) {
+          setTimeout(() => {
+            loadConversation(currentConversationId as string);
+          }, 1000);
+        }
+        
+        if (onConversationUpdated) {
+          onConversationUpdated();
+        }
+        
+      } catch (error) {
+        console.error('Streaming error:', error);
+        setErrorMessage(error instanceof Error ? error.message : 'Failed to stream response');
+        setShowErrorSnackbar(true);
+        
+        if (streamingMessageId) {
+          setLocalMessages(prev => 
+            prev.map(msg => {
+              if (msg.id === streamingMessageId) {
+                return {
+                  ...msg,
+                  content: 'Sorry, there was an error streaming the response.',
+                  isStreaming: false,
+                  isPending: false
+                };
+              }
+              return msg;
+            })
+          );
+        }
+        
+        setStreamingMessageId(null);
+        setIsLoading(false);
+      }
+    }
+    else {
+      try {
+        
+        const response = await axios.post(`${CHAT_QNA_URL}/conversation/${targetConversationId}`, {
+          question: messageContent.trim(),
+          max_tokens: 1024,
+          temperature: 0.1,
+          stream: false
+        });
+
+        const data = await response.data;
+        console.log('Received non-streaming response:', data);
+        
+        if (targetConversationId) {
+          await loadConversation(targetConversationId);
+          setLocalMessages([]);
+        }
+        
+        if (onConversationUpdated) {
+          onConversationUpdated();
+        }
+        
+      } catch (error) {
+        console.error('Error:', error);
+        setErrorMessage(error instanceof Error ? error.message : 'Failed to get response');
+        setShowErrorSnackbar(true);
+        
+        setLocalMessages(prev => {
+          const errorAssistantMessage: Message = {
+            id: Date.now().toString(),
+            role: 'assistant',
+            content: 'Sorry, I encountered an error processing your request. Please try again or start a new conversation.',
+            timestamp: new Date().toISOString(),
+          };
+          
+          return [...prev, errorAssistantMessage];
+        });
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -323,10 +549,9 @@ export default function ChatArea({
     
     const messageContent = typeof e === 'string' ? e : input;
     if (!messageContent.trim() || isLoading) return;
-
+  
     setShowWelcome(false);
     setErrorMessage(null);
-    setIsLoading(true);
     
     const userMessageId = Date.now().toString();
     const userMessage: Message = {
@@ -334,17 +559,26 @@ export default function ChatArea({
       role: 'user',
       content: messageContent.trim(),
       timestamp: new Date().toISOString(),
-      isPending: true
+      isPending: false
     };
     
     setLocalMessages(prev => [...prev, userMessage]);
     setInput('');
-
-    if (currentConversationId) {
-      await sendMessage(messageContent.trim(), currentConversationId);
-    } else {
-      setShowNewChatPrompt(false);
-      await startNewConversation(messageContent.trim());
+    
+    setIsLoading(true);
+  
+    try {
+      if (currentConversationId) {
+        await sendMessage(messageContent.trim(), currentConversationId);
+      } else {
+        setShowNewChatPrompt(false);
+        await startNewConversation(messageContent.trim());
+      }
+    } catch (error) {
+      console.error("Failed to handle submission:", error);
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to send message');
+      setShowErrorSnackbar(true);
+      setIsLoading(false);
     }
   };
 
@@ -395,9 +629,8 @@ export default function ChatArea({
     }
   };
 
-  const handleExampleClick = (prompt: string) => {
-    setInput(prompt);
-    handleSubmit(prompt);
+  const toggleStreaming = () => {
+    setStreamingEnabled(!streamingEnabled);
   };
 
   return (
@@ -450,6 +683,37 @@ export default function ChatArea({
           flexDirection: 'column',
         }}
       >
+        {/* <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            p: 1,
+            backgroundColor: 'rgba(255,255,255,0.8)',
+            borderBottom: '1px solid rgba(0,0,0,0.05)',
+            zIndex: 5,
+          }}
+        >
+          <FormControlLabel
+            control={
+              <Switch
+                checked={streamingEnabled}
+                onChange={toggleStreaming}
+                color="primary"
+                size="small"
+              />
+            }
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <BoltIcon fontSize="small" color={streamingEnabled ? "primary" : "action"} />
+                <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                  Streaming Mode
+                </Typography>
+              </Box>
+            }
+          />
+        </Box> */}
+
         <Box
           sx={{
             flexGrow: 1,
@@ -614,10 +878,35 @@ export default function ChatArea({
                             whiteSpace: 'pre-wrap',
                           }}
                         >
+
                           {message.content}
+
+                          {message.isStreaming && message.id === streamingMessageId 
+                            ? streamedContent
+                            : message.content}
+                          
+                          {message.isStreaming && (
+                            <span style={{ display: 'inline-block', width: '0.7em', height: '1em', verticalAlign: 'text-bottom' }}>
+                              <Box
+                                component="span"
+                                sx={{
+                                  display: 'inline-block',
+                                  width: '3px',
+                                  height: '1em',
+                                  backgroundColor: '#0071C5',
+                                  animation: 'blink 1s step-end infinite',
+                                  '@keyframes blink': {
+                                    '0%, 100%': { opacity: 1 },
+                                    '50%': { opacity: 0 }
+                                  },
+                                }}
+                              />
+                            </span>
+                          )}
+
                         </Typography>
 
-                        {message.role === 'assistant' && (
+                        {message.role === 'assistant' && !message.isStreaming && (
                           <Box sx={{ display: 'flex', gap: 1, mt: 2, alignItems: 'center' }}>
                             <Tooltip title="Copy response">
                               <IconButton
@@ -669,16 +958,28 @@ export default function ChatArea({
                             )}
                           </Box>
                         )}
+                        
+                        {copyPopup.open && copyPopup.messageId === message.id && (
+                          <Fade in>
+                            <Box
+                              sx={{
+                                position: 'absolute',
+                                bottom: '100%',
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                color: 'white',
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                                fontSize: '0.75rem',
+                                marginBottom: '4px',
+                              }}
+                            >
+                              Copied!
+                            </Box>
+                          </Fade>
+                        )}
                       </Box>
-
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color: '#666',
-                          ml: 2,
-                        }}
-                      >
-                      </Typography>
 
                       {message.role === 'assistant' && message.sources && (
                         <Collapse in={showReferences[message.id]} sx={{ mt: 1, maxWidth: '100%' }}>
@@ -725,7 +1026,7 @@ export default function ChatArea({
                   </Box>
                 </Fade>
               ))}
-              {isLoading && (
+              {isLoading && !streamingEnabled && !streamingMessageId && (
                 <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
                   <CircularProgress size={24} sx={{ color: '#0071C5' }} />
                 </Box>

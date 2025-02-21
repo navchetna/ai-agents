@@ -1,33 +1,114 @@
 "use client"
 
-import type React from "react"
-import { useState, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
+import { Box, Typography, Button, CircularProgress, Card, CardContent } from "@mui/material"
+import { styled } from "@mui/material/styles"
+import { Launch as LaunchIcon, ErrorOutline as ErrorIcon, Refresh as RefreshIcon } from "@mui/icons-material"
+import type { Paper } from "../types"
 
-interface Reference {
+const PaperCard = styled(Card)(({ theme }) => ({
+  backgroundColor: "rgba(255, 255, 255, 0.95)",
+  backdropFilter: "blur(10px)",
+  borderRadius: "16px",
+  border: "1px solid rgba(255, 255, 255, 0.1)",
+  marginBottom: theme.spacing(2),
+  transition: "transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out",
+  "&:hover": {
+    transform: "translateY(-2px)",
+    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.2)",
+  },
+}))
+
+const StyledCardContent = styled(CardContent)({
+  "& .paper-title": {
+    fontSize: "20px",
+    fontWeight: 600,
+    marginBottom: "0.75rem",
+    color: "#1a1a1a",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+    lineHeight: 1.4,
+  },
+  "& .paper-abstract": {
+    color: "#4b5563",
+    fontSize: "15px",
+    lineHeight: 1.6,
+    fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+    backgroundColor: "rgba(243, 244, 246, 0.8)",
+    padding: "16px",
+    borderRadius: "8px",
+    whiteSpace: "pre-wrap",
+    wordWrap: "break-word",
+    marginTop: "0.5rem",
+  },
+  "& .paper-metadata": {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.75rem",
+    color: "#4b5563",
+    fontSize: "0.875rem",
+    marginTop: "1rem",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+  },
+  "& .paper-url": {
+    color: "#2563eb",
+    wordBreak: "break-all",
+    fontSize: "14px",
+    marginTop: "0.5rem",
+    marginBottom: "1rem",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+    opacity: 0.9,
+    "&:hover": {
+      opacity: 1,
+    },
+  },
+  "& .paper-keywords": {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "0.5rem",
+    marginBottom: "1rem",
+  },
+  "& .keyword-chip": {
+    backgroundColor: "rgba(37, 99, 235, 0.1)",
+    color: "#2563eb",
+    padding: "0.25rem 0.75rem",
+    borderRadius: "16px",
+    fontSize: "0.75rem",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+    border: "1px solid rgba(37, 99, 235, 0.2)",
+  },
+})
+
+interface ReferencesProps {
   paperId: string
-  title: string
-  url: string
-  abstract: string
-  year: number
-  references?: Reference[]
+  depth?: 1 | 2
 }
 
-export default function References() {
-  const [paperId, setPaperId] = useState("")
-  const [depth, setDepth] = useState(1)
-  const [references, setReferences] = useState<Reference[]>([])
+export default function References({ paperId, depth = 1 }: ReferencesProps) {
+  const [papers, setPapers] = useState<Paper[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
+  const [shouldSearch, setShouldSearch] = useState(false)
+  const previousPaperIdRef = useRef(paperId)
 
-  const fetchReferences = useCallback(async () => {
-    if (!paperId) {
-      setError("Please enter a paper ID")
-      return
+  // Reset search state when paperId changes
+  useEffect(() => {
+    if (previousPaperIdRef.current !== paperId) {
+      setShouldSearch(false)
+      setPapers([])
+      setError(null)
+      previousPaperIdRef.current = paperId
     }
+  }, [paperId])
+
+  const loadReferences = useCallback(async () => {
+    if (!paperId) return
+
     setIsLoading(true)
     setError(null)
     try {
-      const response = await fetch(`http://localhost:8000/snowballing`, {
+      const apiUrl = "http://localhost:8000/api"
+      const response = await fetch(`${apiUrl}/download_references`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -37,81 +118,255 @@ export default function References() {
           depth: depth,
         }),
       })
+      const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch references: ${response.status}`)
+        throw new Error(data.message || "Failed to fetch references")
       }
 
-      const data = await response.json()
-      setReferences(data.references)
+      let referencesData = []
+      if (data.references && Array.isArray(data.references)) {
+        referencesData = data.references.map((ref: { citedPaper: any }) => ref.citedPaper || ref)
+      } else if (Array.isArray(data)) {
+        referencesData = data.map((ref) => ref.citedPaper || ref)
+      } else if (data.paper && data.paper.references) {
+        referencesData = data.paper.references.map((ref: { citedPaper: any }) => ref.citedPaper || ref)
+      } else {
+        throw new Error("Invalid response format from server")
+      }
+
+      const processedPapers = referencesData
+        .map((ref: any) => ({
+          id: ref.paperId || ref.id || "",
+          paperId: ref.paperId || ref.id || "",
+          title: ref.title || "Untitled Paper",
+          url: ref.url || `https://www.semanticscholar.org/paper/${ref.paperId || ref.id}`,
+          abstract: ref.abstract || ref.snippet || "No abstract available.",
+          year: ref.year || null,
+          authors: Array.isArray(ref.authors) ? ref.authors : [],
+          venue: ref.venue || "",
+          citationCount: typeof ref.citationCount === "number" ? ref.citationCount : 0,
+        }))
+        .filter((paper: { paperId: any; title: any }) => paper.paperId || paper.title)
+
+      setPapers(processedPapers)
     } catch (err) {
-      console.error("Error fetching references:", err)
-      setError(err instanceof Error ? err.message : "Failed to fetch references")
+      console.error("Error loading references:", err)
+      setError(err instanceof Error ? err.message : "Failed to load references")
     } finally {
       setIsLoading(false)
     }
   }, [paperId, depth])
 
-  const handlePaperIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPaperId(e.target.value)
+  useEffect(() => {
+    if (shouldSearch && paperId) {
+      loadReferences()
+    }
+  }, [shouldSearch, loadReferences, paperId])
+
+  const handleSearch = () => {
+    if (paperId) {
+      setShouldSearch(true)
+    }
   }
 
-  const handleDepthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setDepth(Number(e.target.value))
+  const handleRetry = () => {
+    setRetryCount((prev) => prev + 1)
+    setShouldSearch(true)
   }
 
-  const renderReferences = (refs: Reference[], level = 0) => {
+  if (!paperId) {
     return (
-      <ul className={`pl-${level * 4}`}>
-        {refs.map((ref) => (
-          <li key={ref.paperId} className="mb-4">
-            <h3 className="font-semibold">{ref.title}</h3>
-            <p className="text-sm text-gray-600">
-              {ref.url} ({ref.year})
-            </p>
-            <p className="mt-1">{ref.abstract}</p>
-            {ref.references && (
-              <div className="mt-2">
-                <h4 className="font-medium">Nested References:</h4>
-                {renderReferences(ref.references, level + 1)}
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
+      <Box sx={{ textAlign: "center", color: "white", mt: 4 }}>
+        <Typography>Enter a Paper ID to search for references</Typography>
+      </Box>
+    )
+  }
+
+  if (!shouldSearch) {
+    return (
+      <Box sx={{ textAlign: "center", mt: 4 }}>
+        <Button
+          variant="contained"
+          onClick={handleSearch}
+          sx={{
+            backgroundColor: "rgba(255, 255, 255, 0.1)",
+            color: "white",
+            "&:hover": {
+              backgroundColor: "rgba(255, 255, 255, 0.2)",
+            },
+          }}
+        >
+          New Search
+        </Button>
+      </Box>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
+        <CircularProgress sx={{ color: "white" }} />
+      </Box>
+    )
+  }
+
+  if (error) {
+    return (
+      <Box
+        sx={{
+          mt: 4,
+          p: 4,
+          backgroundColor: "rgba(255, 255, 255, 0.1)",
+          borderRadius: "12px",
+          backdropFilter: "blur(10px)",
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+          <ErrorIcon sx={{ fontSize: 28, color: "white" }} />
+          <Typography
+            variant="h6"
+            sx={{
+              fontSize: "1.5rem",
+              fontWeight: 500,
+              color: "white",
+            }}
+          >
+            Unable to Load Paper Data
+          </Typography>
+        </Box>
+
+        <Typography sx={{ color: "white", mb: 3, opacity: 0.9 }}>{error}</Typography>
+
+        <Typography
+          sx={{
+            color: "white",
+            mb: 2,
+            fontWeight: 500,
+          }}
+        >
+          Technical details:
+        </Typography>
+
+        <Box
+          sx={{
+            color: "white",
+            opacity: 0.9,
+            mb: 4,
+          }}
+        >
+          <Box sx={{ mb: 1 }}>Paper ID: {paperId}</Box>
+          <Box sx={{ mb: 1 }}>Attempt: {retryCount + 1}</Box>
+          <Box>Time: {new Date().toISOString()}</Box>
+        </Box>
+
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <Button
+            variant="contained"
+            onClick={handleRetry}
+            startIcon={<RefreshIcon />}
+            sx={{
+              backgroundColor: "rgba(255, 255, 255, 0.1)",
+              color: "white",
+              "&:hover": {
+                backgroundColor: "rgba(255, 255, 255, 0.2)",
+              },
+            }}
+          >
+            Retry
+          </Button>
+        </Box>
+      </Box>
     )
   }
 
   return (
-    <div className="bg-white shadow-md rounded-lg p-6 mt-6">
-      <h2 className="text-xl font-semibold mb-4">References Snowballing (Semantic Scholar)</h2>
-      <div className="flex gap-4 mb-4">
-        <input
-          type="text"
-          className="flex-grow p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          value={paperId}
-          onChange={handlePaperIdChange}
-          placeholder="Enter Semantic Scholar Paper ID"
-        />
-        <select
-          className="p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          value={depth}
-          onChange={handleDepthChange}
+    <Box sx={{ mt: 4 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+        <Typography variant="h4" sx={{ color: "white" }}>
+          References for Paper ID: {paperId}
+        </Typography>
+        <Button
+          variant="contained"
+          onClick={() => setShouldSearch(false)}
+          sx={{
+            backgroundColor: "rgba(255, 255, 255, 0.1)",
+            color: "white",
+            "&:hover": {
+              backgroundColor: "rgba(255, 255, 255, 0.2)",
+            },
+          }}
         >
-          <option value={1}>Depth 1</option>
-          <option value={2}>Depth 2</option>
-        </select>
-        <button
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-blue-300"
-          onClick={fetchReferences}
-          disabled={isLoading}
-        >
-          {isLoading ? "Fetching..." : "Fetch References"}
-        </button>
-      </div>
-      {error && <p className="text-red-500 mb-4">{error}</p>}
-      {references.length > 0 && renderReferences(references)}
-    </div>
+          New Search
+        </Button>
+      </Box>
+      {papers.length > 0 ? (
+        renderReferences(papers)
+      ) : (
+        <Typography sx={{ color: "white", textAlign: "center" }}>No references found for this paper.</Typography>
+      )}
+    </Box>
+  )
+}
+
+const renderReferences = (references: Paper[]) => {
+  return (
+    <Box>
+      {references.map((paper, index) => (
+        <PaperCard key={index}>
+          <StyledCardContent>
+            <Typography className="paper-title">{paper.title}</Typography>
+            {paper.url && (
+              <Typography className="paper-url">
+                <a href={paper.url} target="_blank" rel="noopener noreferrer">
+                  {paper.url}
+                </a>
+              </Typography>
+            )}
+
+            <div className="paper-keywords">
+              {paper.title
+                .split(" ")
+                .filter((word) => word.length > 4)
+                .slice(0, 5)
+                .map((keyword, idx) => (
+                  <span key={idx} className="keyword-chip">
+                    {keyword.toLowerCase()}
+                  </span>
+                ))}
+            </div>
+
+            <Typography className="paper-abstract">{paper.abstract}</Typography>
+            <div className="paper-metadata">
+              <span>ID: {paper.paperId}</span>
+              {paper.year && <span>Year: {paper.year}</span>}
+              {paper.url && (
+                <Button
+                  variant="contained"
+                  size="small"
+                  href={paper.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  startIcon={<LaunchIcon />}
+                  sx={{
+                    backgroundColor: "#2563eb",
+                    color: "white",
+                    "&:hover": {
+                      backgroundColor: "#1d4ed8",
+                    },
+                    textTransform: "none",
+                    fontWeight: 500,
+                    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+                  }}
+                >
+                  View Paper
+                </Button>
+              )}
+            </div>
+          </StyledCardContent>
+        </PaperCard>
+      ))}
+    </Box>
   )
 }
 

@@ -16,6 +16,7 @@ import {
   DialogContentText,
   DialogActions
 } from '@mui/material';
+import axios from 'axios';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -65,11 +66,9 @@ export default function LeftSidebar({
   const fetchConversations = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${CHAT_QNA_URL}/conversations?db_name=rag_db`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch conversations');
-      }
-      const data = await response.json();
+      const response = await axios.get(`${CHAT_QNA_URL}/conversations?db_name=rag_db`);
+
+      const data = await response.data;
       console.log('Fetched conversations:', data);
       setConversations(data.conversations || []);
     } catch (err) {
@@ -105,12 +104,7 @@ export default function LeftSidebar({
     
     setIsDeleting(true);
     try {
-      const response = await fetch(`${CHAT_QNA_URL}/conversation/${conversationToDelete}?db_name=rag_db`, {
-        method: 'DELETE'
-      });
-      if (!response.ok) {
-        throw new Error('Failed to delete conversation');
-      }
+      const response = await axios.delete(`${CHAT_QNA_URL}/conversation/${conversationToDelete}?db_name=rag_db`)
       
       setConversations(prevConversations => 
         prevConversations.filter(conv => conv.conversation_id !== conversationToDelete)
