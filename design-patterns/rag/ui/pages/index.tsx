@@ -20,6 +20,7 @@ export default function Home() {
   const { messages, isLoading, error } = useChat();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isPDFViewerOpen, setIsPDFViewerOpen] = useState(false);
+  const [refreshCounter, setRefreshCounter] = useState(0);
 
   const handleTogglePDFViewer = () => {
     setIsPDFViewerOpen(!isPDFViewerOpen);
@@ -27,6 +28,10 @@ export default function Home() {
 
   const handleSidebarCollapse = (collapsed: boolean) => {
     setIsSidebarCollapsed(collapsed);
+  };
+
+  const handleConversationUpdated = () => {
+    setRefreshCounter(prev => prev + 1);
   };
 
   const leftSidebarWidth = isSidebarCollapsed ? 60 : 300;
@@ -50,6 +55,7 @@ export default function Home() {
           selectedConversation={selectedConversation}
           isCollapsed={isSidebarCollapsed}
           onCollapseChange={handleSidebarCollapse}
+          refreshTrigger={refreshCounter}
         />
         <Box
           component="main"
@@ -79,6 +85,8 @@ export default function Home() {
               isCollapsed={isSidebarCollapsed}
               onCollapseChange={handleSidebarCollapse}
               onContextChange={setCurrentContext}
+              onSelectConversation={setSelectedConversation}
+              onConversationUpdated={handleConversationUpdated}
             />
           </Box>
         </Box>
