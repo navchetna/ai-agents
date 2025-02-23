@@ -14,18 +14,18 @@ export EMBEDDING_MODEL_ID="BAAI/bge-base-en-v1.5"
 export RERANK_MODEL_ID="BAAI/bge-reranker-base"
 export LLM_MODEL_ID="meta-llama/Meta-Llama-3.1-8B-Instruct"
 export INDEX_NAME="rag-redis"
-export REDIS_URL="redis://localhost:6379"
+export REDIS_URL="redis://redis-vector-db:6379"
 export SERVER_HOST_URL=localhost:9001
 export HUGGINGFACEHUB_API_TOKEN=<token>
 export MEGA_SERVICE_PORT=9001
 export EMBEDDING_SERVER_HOST_IP=localhost
 export EMBEDDING_SERVER_PORT=6006
 export RETRIEVER_SERVICE_HOST_IP=localhost
-export RETRIEVER_SERVICE_PORT=7000
+export RETRIEVER_SERVICE_PORT=5007
 export RERANK_SERVER_HOST_IP=localhost
 export RERANK_SERVER_PORT=8808
 export LLM_SERVER_HOST_IP=localhost
-export LLM_SERVER_PORT=8000
+export LLM_SERVER_PORT=5099
 export GROQ_API_KEY=<GROQ_API_KEY>
 export MONGO_USERNAME=agents
 export MONGO_PASSWORD=agents
@@ -52,7 +52,7 @@ pip install -r requirements.txt # only once
 
 export PYTHONPATH=<path/to/ai-agents/dir>
 export HUGGINGFACEHUB_API_TOKEN=<token>
-export REDIS_URL=redis://localhost:6379
+export REDIS_URL=redis://redis-vector-db:6379
 export no_proxy=127.0.0.1,localhost,.intel.com,10.235.124.11,10.235.124.12,10.235.124.13,10.96.0.0/12,10.235.64.0/18,chatqna-xeon-ui-server,chatqna-xeon-backend-server,dataprep-redis-service,tei-embedding-service,retriever,tei-reranking-service,tgi-service,vllm_service,backend,mongodb,tei-reranking-server,tei-embedding-server,groq-service
 ```
 
@@ -82,7 +82,7 @@ pip install -r requirements.txt # only once
 
 export PYTHONPATH=<path/to/ai-agents/dir>
 export HUGGINGFACEHUB_API_TOKEN=<token>
-export REDIS_URL=redis://localhost:6379
+export REDIS_URL=redis://redis-vector-db:6379
 export INDEX_NAME="rag-redis"
 export no_proxy=127.0.0.1,localhost,.intel.com,10.235.124.11,10.235.124.12,10.235.124.13,10.96.0.0/12,10.235.64.0/18,chatqna-xeon-ui-server,chatqna-xeon-backend-server,dataprep-redis-service,tei-embedding-service,retriever,tei-reranking-service,tgi-service,vllm_service,backend,mongodb,tei-reranking-server,tei-embedding-server,groq-service
 ```
@@ -112,18 +112,18 @@ export EMBEDDING_MODEL_ID="BAAI/bge-base-en-v1.5"
 export RERANK_MODEL_ID="BAAI/bge-reranker-base"
 export LLM_MODEL_ID="meta-llama/Meta-Llama-3.1-8B-Instruct"
 export INDEX_NAME="rag-redis"
-export REDIS_URL="redis://localhost:6379"
+export REDIS_URL="redis://redis-vector-db:6379"
 export SERVER_HOST_URL=localhost:9001
 export HUGGINGFACEHUB_API_TOKEN=<token>
 export MEGA_SERVICE_PORT=9001
 export EMBEDDING_SERVER_HOST_IP=localhost
 export EMBEDDING_SERVER_PORT=6006
 export RETRIEVER_SERVICE_HOST_IP=localhost
-export RETRIEVER_SERVICE_PORT=7000
+export RETRIEVER_SERVICE_PORT=5007
 export RERANK_SERVER_HOST_IP=localhost
 export RERANK_SERVER_PORT=8808
 export LLM_SERVER_HOST_IP=localhost
-export LLM_SERVER_PORT=8000
+export LLM_SERVER_PORT=5099
 export GROQ_API_KEY=<GROQ_API_KEY>
 export MONGO_USERNAME=agents
 export MONGO_PASSWORD=agents
@@ -138,7 +138,7 @@ cd comps/
 
 #### Run the service:
 ```bash
-python3 conversation.py
+python3 main.py
 ```
 The backend will be running on http://localhost:9001
 
@@ -146,29 +146,31 @@ The backend will be running on http://localhost:9001
 ### Test the backend
 #### Start a new conversation:
 ```bash
-curl -X POST "http://localhost:9001/conversation/new"
+curl -X POST "http://localhost:9001/conversation/new" -d '{"db_name": "<db_name>"}'  | jq  
 ```
 
 #### Continue a conversation:
 ```bash
-curl -X POST "http://localhost:9001/conversation/c925a063-ab0a-4c8a-8470-8c97752bd6ed" \
+curl -X POST "http://localhost:9001/conversation/{conversation_id}" \
      -H "Content-Type: application/json" \
-     -d '{"question": "what are straightforward to define and efficient to train, but to the best of our knowledge, there has been no demonstration that they are capable of generating high quality samples?"}' | jq
+     -d '{"db_name": "<db_name>", "question": "what are straightforward to define and efficient to train, but to the best of our knowledge, there has been no demonstration that they are capable of generating high quality samples?"}' | jq
 ### Can add temperature, max_tokens
 ```
 
 #### Get conversation history:
 ```bash
-curl "http://localhost:9001/conversation/13dea296-a093-47f8-bdbf-8fea25a8c31e"
+curl -X GET "http://localhost:9001/conversation/{conversation_id}?db_name='<db_name>'" | jq
 ```
 
 #### Delete conversation:
 ```bash
-curl -X DELETE "http://localhost:9001/conversation/{conversation_id}"
+curl -X DELETE "http://localhost:9003/conversation/{conversation_id}?db_name='<db_name>'" | jq
 ```
 
-
-
+#### List all conversations:
+```bash
+curl -X GET "http://localhost:9003/conversations?limit=3&db_name='<db_name>'" | jq     
+```
 
 ---
 ---

@@ -28,8 +28,13 @@ class TreeParser:
 
     def generate_markdown(self, file, filename):
         if not output_exists(os.path.join(OUTPUT_DIR, filename), filename):
+            config = {
+                "output_format": "markdown",
+                "use_llm": False,
+            }
             converter = PdfConverter(
                 artifact_dict=create_model_dict(),
+                config=config
             )
             rendered = converter(file)
             os.mkdir(os.path.join(OUTPUT_DIR, filename))
@@ -51,6 +56,7 @@ class TreeParser:
 
             for heading in headings:
                 if level_pattern.match(heading['title']):
+                    heading['title'] = heading['title'].replace("\n", " ")
                     heading_number, title = heading['title'].split(" ", 1)
                     level = heading_number.count(".") + 1
                     file_toc.write(f"{level};{heading['title']}\n")
@@ -189,7 +195,7 @@ class TreeParser:
                 elif line[0] == '|':
                     table_list = []
                     table_list.append(line)
-                    while self.peek_next_lines(markdown_file)[0][0] == '|':
+                    while self.peek_next_lines(markdown_file)[0] and self.peek_next_lines(markdown_file)[0][0] == '|':
                         line = markdown_file.readline()
                         table_list.append(line)
                     next_line = self.peek_next_lines(markdown_file)[1].split('>', 1)
