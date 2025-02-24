@@ -25,6 +25,7 @@ export RERANK_SERVER_HOST_IP=tei-reranking-service
 export RERANK_SERVER_PORT=80 
 export SERVER_HOST_URL=<host>:<port>
 export HUGGINGFACEHUB_API_TOKEN=${your_hf_api_token}
+export DATAPREP_OUT_DIR=</path/to/dataprep/out/dir>
 ```
 
 ## Groq Serving (Recommended for PC): 

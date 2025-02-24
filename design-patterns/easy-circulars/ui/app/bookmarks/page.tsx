@@ -41,7 +41,7 @@ export default function BookmarksPage() {
   const removeBookmark = async (id: string) => {
     const updatedCirculars = circulars.filter(circular => circular.circular_id !== id)
     await axios.patch(
-      `${CHAT_QNA_URL}circular/update`,
+      `${CHAT_QNA_URL}/circular/update`,
       {
         circular_id: id,
         bookmark: false,
