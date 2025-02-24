@@ -37,6 +37,7 @@ services:
       - tei-embedding-service
     volumes:
       - "./cache:/.cache"
+      - ${DATAPREP_OUT_DIR}:/home/user/comps/dataprep/out
     ports:
       - "5006:6007"
     ipc: host
