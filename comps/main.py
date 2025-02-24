@@ -27,7 +27,13 @@ from mongo_client import mongo_client
 
 load_dotenv()
 
-MEGA_SERVICE_PORT = int(os.getenv("MEGA_SERVICE_PORT", 8888))
+MONGO_USERNAME = os.getenv("MONGO_USERNAME")
+MONGO_PASSWORD = os.getenv("MONGO_PASSWORD")
+MONGO_HOST = os.getenv("MONGO_HOST", "localhost")
+MONGO_PORT = os.getenv("MONGO_PORT", "27017")
+MONGO_DB = os.getenv("MONGO_DB", "rag_db")
+
+MEGA_SERVICE_PORT = int(os.getenv("MEGA_SERVICE_PORT", 9001))
 GUARDRAIL_SERVICE_HOST_IP = os.getenv("GUARDRAIL_SERVICE_HOST_IP", "0.0.0.0")
 GUARDRAIL_SERVICE_PORT = int(os.getenv("GUARDRAIL_SERVICE_PORT", 80))
 EMBEDDING_SERVER_HOST_IP = os.getenv("EMBEDDING_SERVER_HOST_IP", "0.0.0.0")
@@ -436,7 +442,7 @@ class ChatQnAService:
 
     async def handle_request(self, request: Request):
         data = await request.json()
-        stream_opt = data.get("stream", True)
+        stream_opt = data.get("stream", False)
         chat_request = ChatCompletionRequest.parse_obj(data)
         prompt = handle_message(chat_request.messages)
         
@@ -611,8 +617,12 @@ class ConversationRAGService(ChatQnAService):
         try:
             data = await request.json()
             conversation_request = ConversationRequest.parse_obj(data)
+
+            stream = data.get("stream", False)
+
             db = self.mongo_client[conversation_request.db_name]
             conversations_collection = db["conversations"]
+
             
             if not conversation_request.conversation_id and "conversation_id" in request.path_params:
                 conversation_request.conversation_id = request.path_params["conversation_id"]
@@ -630,7 +640,7 @@ class ConversationRAGService(ChatQnAService):
                 "messages": [{"role": "user", "content": conversation_request.question}],
                 "max_tokens": conversation_request.max_tokens,
                 "temperature": conversation_request.temperature,
-                "stream": False,
+                "stream": stream,
                 "k": conversation_request.top_k or 3,
                 "top_n": conversation_request.top_k or 3
             }
@@ -750,12 +760,10 @@ class ConversationRAGService(ChatQnAService):
     async def handle_get_history(self, request: Request):
         try:
             query_params = dict(request.query_params)
-            print(query_params)
             db_name = query_params.get("db_name")
             db = self.mongo_client[db_name]
             conversations_collection = db["conversations"]
             conversation_id = request.path_params["conversation_id"]
-            print(conversation_id)
             
             if conversation_id in self.active_conversations:
                 stored_conversation = conversations_collection.find_one(
@@ -769,9 +777,6 @@ class ConversationRAGService(ChatQnAService):
             stored_conversation = conversations_collection.find_one(
                 {"conversation_id": conversation_id}
             )
-
-            print(conversations_collection)
-            print(stored_conversation)
             
             if stored_conversation:
                 stored_conversation.pop('_id', None)
