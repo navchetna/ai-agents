@@ -66,7 +66,7 @@ export default function ScheduledThemePage() {
           </div>
           <RadioGroup
             value={mode}
-            onValueChange={setMode}
+            // onValueChange={setMode}
             className="space-y-2"
           >
             <div className="flex items-center space-x-2">

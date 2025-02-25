@@ -130,8 +130,12 @@ export function CollapsibleSidebar() {
                 },
               }}
             >
-              {/* <Image
-                src={mode === "light" ? "/placeholder.svg" : "/placeholder.svg"}
+              <Image
+                src={
+                  mode === "light"
+                    ? "/student-companion.png"
+                    : "/student-companion.png"
+                }
                 alt="Study Buddy Logo"
                 width={isCollapsed ? 70 : 120}
                 height={isCollapsed ? 70 : 120}
@@ -140,7 +144,7 @@ export function CollapsibleSidebar() {
                   transition: isCollapsed
                     ? "width 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
                     : "none",
-                }} */}
+                }}
               />
             </Box>
           </Link>
@@ -187,7 +191,7 @@ export function CollapsibleSidebar() {
           </ListItem>
 
           {/* Categories */}
-          {menuItems.slice(1).map((category) => (
+          {menuItems.slice(1).map((category: any) => (
             <Box key={category.category}>
               {!isCollapsed && (
                 <Typography
@@ -203,7 +207,7 @@ export function CollapsibleSidebar() {
                   {category.category}
                 </Typography>
               )}
-              {category.items.map((item) => (
+              {category.items.map((item: any) => (
                 <ListItem key={item.text} disablePadding>
                   <ListItemButton
                     component={Link}

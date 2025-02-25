@@ -102,7 +102,7 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <div className="flex items-center space-x-4">
                 <Avatar className="h-20 w-20">
-                  {/* <AvatarImage src="/placeholder.svg" alt={name} /> */}
+                  <AvatarImage src="/placeholder.svg" alt={name} />
                   <AvatarFallback>
                     {name
                       .split(" ")

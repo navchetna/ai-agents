@@ -58,18 +58,24 @@ const generateMonthEvents = (baseDate: Date): Event[] => {
       title: "Mathematics",
       type: "class",
       color: "bg-blue-500",
+      start: new Date(year, month, 20, 14, 0),
+      end: new Date(year, month, 20, 17, 0),
       location: "Room 101",
     },
     {
       id: "science",
       title: "Science",
       type: "class",
+      start: new Date(year, month, 20, 14, 0),
+      end: new Date(year, month, 20, 17, 0),
       color: "bg-green-500",
       location: "Room 102",
     },
     {
       id: "english",
       title: "English",
+      start: new Date(year, month, 20, 14, 0),
+      end: new Date(year, month, 20, 17, 0),
       type: "class",
       color: "bg-purple-500",
       location: "Room 103",
@@ -193,7 +199,7 @@ export function IntegratedCalendar() {
   };
 
   const handleFindEvents = () => {
-    const filteredEvents = events.filter((event) => {
+    const filteredEvents = events.filter((event: Event) => {
       const matchesDate = filters.date
         ? isSameDay(event.start, new Date(filters.date))
         : true;

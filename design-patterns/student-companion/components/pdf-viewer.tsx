@@ -42,7 +42,7 @@ import "@react-pdf-viewer/search/lib/styles/index.css";
 type Note = {
   id: string;
   content: string;
-  position: { pageIndex: number; boundingRect: HighlightArea };
+  position: { pageIndex?: number; boundingRect: HighlightArea[] };
 };
 
 type ChatMessage = {
@@ -61,7 +61,7 @@ const PdfViewer: React.FC<{
   const [chatInput, setChatInput] = useState("");
   const [textContent, setTextContent] = useState<string | null>(null);
   const [isTextFile, setIsTextFile] = useState(false);
-  const viewerRef = useRef<PdfJs.PdfJsWrapper | null>(null);
+  const viewerRef = useRef<PdfJs.PdfDocument | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -183,12 +183,12 @@ const PdfViewer: React.FC<{
                 id: `note-${Date.now()}`,
                 content: e.target.value,
                 position: {
-                  pageIndex: props.selectedText.pageIndex,
-                  boundingRect: props.selectedText.boundingRect,
+                  // pageIndex: props.selectedText,
+                  boundingRect: props.highlightAreas,
                 },
               };
               setNotes([...notes, note]);
-              props.onConfirm();
+              props.toggle();
             }}
           />
         </PopoverContent>
@@ -196,28 +196,28 @@ const PdfViewer: React.FC<{
     </div>
   );
 
-  const renderHighlightContent = ({ annotation }: { annotation: Note }) => (
-    <div
-      style={{
-        background: "#fffe82",
-        padding: "8px",
-        position: "absolute",
-        left: `${annotation.position.boundingRect.left}%`,
-        top: `${annotation.position.boundingRect.top}%`,
-        width: `${annotation.position.boundingRect.width}%`,
-        height: `${annotation.position.boundingRect.height}%`,
-        zIndex: 1,
-      }}
-    >
-      {annotation.content}
-    </div>
-  );
+  // const renderHighlightContent = ({ annotation }: { annotation: Note }) => (
+  //   <div
+  //     style={{
+  //       background: "#fffe82",
+  //       padding: "8px",
+  //       position: "absolute",
+  //       left: `${annotation.position.boundingRect.left}%`,
+  //       top: `${annotation.position.boundingRect.top}%`,
+  //       width: `${annotation.position.boundingRect.width}%`,
+  //       height: `${annotation.position.boundingRect.height}%`,
+  //       zIndex: 1,
+  //     }}
+  //   >
+  //     {annotation.content}
+  //   </div>
+  // );
 
   const highlightPluginInstance = highlightPlugin({
     renderHighlightTarget,
-    renderHighlightContent,
+    // renderHighlightContent,
     trigger: Trigger.TextSelection,
-    highlightColor: (props) => (mode === "light" ? "yellow" : "#FFA500"),
+    // renderHighlights: () => (mode === "light" ? "yellow" : "#FFA500"),
   });
 
   const searchPluginInstance = searchPlugin();
@@ -248,9 +248,11 @@ const PdfViewer: React.FC<{
   const handleClip = useCallback(() => {
     if (viewerRef.current) {
       const viewer = viewerRef.current;
-      const canvas = viewer.getPageCanvas(viewer.getCurrentPageIndex());
+      const canvas = null;
+      // viewer.getPageCanvas(viewer.getCurrentPageIndex());
       if (canvas) {
-        const dataUrl = canvas.toDataURL();
+        // const dataUrl = canvas.toDataURL();
+        const dataUrl = canvas;
         const link = document.createElement("a");
         link.href = dataUrl;
         link.download = "clipped-page.png";
@@ -347,28 +349,28 @@ const PdfViewer: React.FC<{
                   highlightPluginInstance,
                   searchPluginInstance,
                 ]}
-                ref={viewerRef}
-                onError={(error) => {
-                  console.error("Error loading PDF:", error);
-                  if (onError) {
-                    onError(error);
-                  }
-                }}
+                // ref={viewerRef}
+                // onError={(error) => {
+                //   console.error("Error loading PDF:", error);
+                //   if (onError) {
+                //     onError(error);
+                //   }
+                // }}
                 defaultScale={SpecialZoomLevel.PageFit}
                 theme={mode === "light" ? "light" : "dark"}
-                styles={{
-                  viewer: {
-                    backgroundColor: mode === "light" ? "#E6F4FE" : "#13151C",
-                  },
-                  pageContainer: {
-                    backgroundColor: "#FFFFFF",
-                    borderRadius: "8px",
-                    boxShadow:
-                      mode === "light"
-                        ? "0 4px 6px rgba(0, 0, 0, 0.1)"
-                        : "0 4px 6px rgba(255, 255, 255, 0.1)",
-                  },
-                }}
+                // styles={{
+                //   viewer: {
+                //     backgroundColor: mode === "light" ? "#E6F4FE" : "#13151C",
+                //   },
+                //   pageContainer: {
+                //     backgroundColor: "#FFFFFF",
+                //     borderRadius: "8px",
+                //     boxShadow:
+                //       mode === "light"
+                //         ? "0 4px 6px rgba(0, 0, 0, 0.1)"
+                //         : "0 4px 6px rgba(255, 255, 255, 0.1)",
+                //   },
+                // }}
               />
             </div>
           </Worker>

@@ -568,13 +568,13 @@ export default function CoursesPage() {
                     {subject.books.map((book) => (
                       <Card key={book.id}>
                         <CardContent sx={{ display: "flex", gap: 2 }}>
-                          {/* <Image
-                            src={book.coverImage || "/placeholder.svg"}
+                          <Image
+                            src={book.coverImage || "/vercel.svg"}
                             alt={book.title}
                             width={100}
                             height={150}
                             style={{ objectFit: "cover" }}
-                          /> */}
+                          />
                           <Box>
                             <Typography variant="h6">{book.title}</Typography>
                             <Typography variant="body2" color="text.secondary">
@@ -624,8 +624,8 @@ export default function CoursesPage() {
                           </Box>
                           <Button
                             variant="outline"
-                            href={note.fileUrl}
-                            download
+                            // src={note.fileUrl}
+                            // download
                           >
                             Download
                           </Button>

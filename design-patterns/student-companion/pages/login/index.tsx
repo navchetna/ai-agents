@@ -58,13 +58,17 @@ export default function LoginPage() {
       >
         <CardContent>
           <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
-            {/* <Image
-              src={mode === "light" ? "/placeholder.svg" : "/placeholder.svg"}
+            <Image
+              src={
+                mode === "light"
+                  ? "/student-companion.png"
+                  : "/student-companion.png"
+              }
               alt="Study Buddy Logo"
               width={120}
               height={120}
               style={{ objectFit: "contain" }}
-            /> */}
+            />
           </Box>
           <Typography
             variant="h5"

@@ -1,7 +1,7 @@
-import Link from "next/link"
-import Image from "next/image"
-import { usePathname } from "next/navigation"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import Link from "next/link";
+import Image from "next/image";
+import { usePathname } from "next/navigation";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Dashboard,
   CalendarToday,
@@ -14,12 +14,12 @@ import {
   Help,
   Settings,
   Logout,
-} from "@mui/icons-material"
+} from "@mui/icons-material";
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { useTheme } from "@/contexts/ThemeContext"
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const menuItems = [
   { text: "Dashboard", icon: Dashboard, href: "/" },
@@ -33,11 +33,11 @@ const menuItems = [
   { text: "Support", icon: Help, href: "/support" },
   { text: "Settings", icon: Settings, href: "/settings" },
   { text: "Logout", icon: Logout, href: "/login" },
-]
+];
 
 export function AppSidebar() {
-  const pathname = usePathname()
-  const { mode, isSidebarCollapsed, toggleSidebar } = useTheme()
+  const pathname = usePathname();
+  const { mode, isSidebarCollapsed, toggleSidebar }: any = useTheme();
 
   return (
     <div
@@ -48,13 +48,17 @@ export function AppSidebar() {
     >
       <div className="flex h-16 items-center justify-between px-3">
         {!isSidebarCollapsed && (
-          // <Image
-          //   src={mode === "light" ? "/placeholder.svg" : "/placeholder.svg"}
-          //   alt="Study Buddy Logo"
-          //   width={120}
-          //   height={120}
-          //   style={{ objectFit: "contain" }}
-          // />
+          <Image
+            src={
+              mode === "light"
+                ? "/student-companion.png"
+                : "/student-companion.png"
+            }
+            alt="Study Buddy Logo"
+            width={120}
+            height={120}
+            style={{ objectFit: "contain" }}
+          />
         )}
         <Button
           variant="ghost"
@@ -97,4 +101,3 @@ export function AppSidebar() {
     </div>
   );
 }
-

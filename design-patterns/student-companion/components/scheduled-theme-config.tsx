@@ -57,7 +57,9 @@ export function ScheduledThemeConfig() {
             Enable Scheduled Theme
           </Label>
         </div>
-        <RadioGroup value={mode} onValueChange={setMode} className="space-y-2">
+        <RadioGroup value={mode}
+          // onValueChange={setMode}
+          className="space-y-2">
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="sunset" id="sunset" />
             <Label htmlFor="sunset">Sunset to Sunrise</Label>

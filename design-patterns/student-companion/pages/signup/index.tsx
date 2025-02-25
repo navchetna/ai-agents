@@ -68,13 +68,17 @@ export default function SignupPage() {
       >
         <CardHeader className="text-center">
           <div className="flex justify-center mb-2">
-            {/* <Image
-              src={mode === "light" ? "/placeholder.svg" : "/placeholder.svg"}
+            <Image
+              src={
+                mode === "light"
+                  ? "/student-companion.png"
+                  : "/student-companion.png"
+              }
               alt="Study Buddy Logo"
               width={120}
               height={120}
               style={{ objectFit: "contain" }}
-            /> */}
+            />
           </div>
           <CardTitle className="text-2xl font-bold text-gray-800 dark:text-gray-100">
             Sign up for Study Buddy
