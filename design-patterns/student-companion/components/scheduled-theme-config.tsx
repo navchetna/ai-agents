@@ -1,27 +1,33 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Switch } from "@/components/ui/switch"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { useTheme } from "@/contexts/ThemeContext"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export function ScheduledThemeConfig() {
-  const { scheduledTheme, updateScheduledTheme } = useTheme()
-  const [enabled, setEnabled] = useState(scheduledTheme.enabled)
-  const [mode, setMode] = useState(scheduledTheme.mode)
-  const [lightModeTime, setLightModeTime] = useState(scheduledTheme.lightModeTime)
-  const [darkModeTime, setDarkModeTime] = useState(scheduledTheme.darkModeTime)
+  const { scheduledTheme, updateScheduledTheme } = useTheme();
+  const [enabled, setEnabled] = useState(scheduledTheme.enabled);
+  const [mode, setMode] = useState(scheduledTheme.mode);
+  const [lightModeTime, setLightModeTime] = useState(
+    scheduledTheme.lightModeTime
+  );
+  const [darkModeTime, setDarkModeTime] = useState(scheduledTheme.darkModeTime);
 
   useEffect(() => {
-    setEnabled(scheduledTheme.enabled)
-    setMode(scheduledTheme.mode)
-    setLightModeTime(scheduledTheme.lightModeTime)
-    setDarkModeTime(scheduledTheme.darkModeTime)
-  }, [scheduledTheme])
+    setEnabled(scheduledTheme.enabled);
+    setMode(scheduledTheme.mode);
+    setLightModeTime(scheduledTheme.lightModeTime);
+    setDarkModeTime(scheduledTheme.darkModeTime);
+  }, [scheduledTheme]);
 
   const handleSave = () => {
     updateScheduledTheme({
@@ -29,19 +35,27 @@ export function ScheduledThemeConfig() {
       mode,
       lightModeTime,
       darkModeTime,
-    })
-  }
+    });
+  };
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Theme Scheduling</CardTitle>
-        <CardDescription>Configure when to switch between light and dark modes</CardDescription>
+        <CardDescription>
+          Configure when to switch between light and dark modes
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex items-center space-x-2">
-          <Switch id="scheduled-theme-enabled" checked={enabled} onCheckedChange={setEnabled} />
-          <Label htmlFor="scheduled-theme-enabled">Enable Scheduled Theme</Label>
+          <Switch
+            id="scheduled-theme-enabled"
+            checked={enabled}
+            onCheckedChange={setEnabled}
+          />
+          <Label htmlFor="scheduled-theme-enabled">
+            Enable Scheduled Theme
+          </Label>
         </div>
         <RadioGroup value={mode} onValueChange={setMode} className="space-y-2">
           <div className="flex items-center space-x-2">
@@ -78,6 +92,5 @@ export function ScheduledThemeConfig() {
         <Button onClick={handleSave}>Save Scheduled Theme Settings</Button>
       </CardContent>
     </Card>
-  )
+  );
 }
-

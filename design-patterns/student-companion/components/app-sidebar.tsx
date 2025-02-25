@@ -43,25 +43,30 @@ export function AppSidebar() {
     <div
       className={cn(
         "relative flex h-screen flex-col border-r bg-background transition-all duration-300 ease-in-out",
-        isSidebarCollapsed ? "w-[60px]" : "w-[240px]",
+        isSidebarCollapsed ? "w-[60px]" : "w-[240px]"
       )}
     >
       <div className="flex h-16 items-center justify-between px-3">
         {!isSidebarCollapsed && (
-          <Image
-            src={
-              mode === "light"
-                ? "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-1h7AsPVzmFcMAVxvF5RDXRnnXO5VhM.png"
-                : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-wt0xz484LuNz7HU6CqgwqvlCX2pJ31.png"
-            }
-            alt="Study Buddy Logo"
-            width={120}
-            height={120}
-            style={{ objectFit: "contain" }}
-          />
+          // <Image
+          //   src={mode === "light" ? "/placeholder.svg" : "/placeholder.svg"}
+          //   alt="Study Buddy Logo"
+          //   width={120}
+          //   height={120}
+          //   style={{ objectFit: "contain" }}
+          // />
         )}
-        <Button variant="ghost" size="icon" onClick={toggleSidebar} className="ml-auto">
-          {isSidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleSidebar}
+          className="ml-auto"
+        >
+          {isSidebarCollapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
         </Button>
       </div>
       <ScrollArea className="flex-1">
@@ -73,10 +78,16 @@ export function AppSidebar() {
                 className={cn(
                   "w-full justify-start",
                   isSidebarCollapsed ? "px-2" : "px-4",
-                  pathname === item.href && "bg-secondary text-secondary-foreground",
+                  pathname === item.href &&
+                    "bg-secondary text-secondary-foreground"
                 )}
               >
-                <item.icon className={cn("h-5 w-5", isSidebarCollapsed ? "mr-0" : "mr-2")} />
+                <item.icon
+                  className={cn(
+                    "h-5 w-5",
+                    isSidebarCollapsed ? "mr-0" : "mr-2"
+                  )}
+                />
                 {!isSidebarCollapsed && <span>{item.text}</span>}
               </Button>
             </Link>
@@ -84,6 +95,6 @@ export function AppSidebar() {
         </div>
       </ScrollArea>
     </div>
-  )
+  );
 }
 

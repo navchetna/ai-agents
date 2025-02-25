@@ -1,9 +1,7 @@
-"use client"
-
-import { useState } from "react"
-import Image from "next/image"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Box,
   List,
@@ -14,7 +12,7 @@ import {
   IconButton,
   Tooltip,
   Typography,
-} from "@mui/material"
+} from "@mui/material";
 import {
   Dashboard as DashboardIcon,
   CalendarToday as CalendarIcon,
@@ -31,11 +29,11 @@ import {
   Brightness7 as Brightness7Icon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
-} from "@mui/icons-material"
-import { useTheme } from "@/contexts/ThemeContext"
+} from "@mui/icons-material";
+import { useTheme } from "@/contexts/ThemeContext";
 
-const drawerWidth = 240
-const collapsedDrawerWidth = 80 // Increased from 56 to accommodate twice the logo size
+const drawerWidth = 240;
+const collapsedDrawerWidth = 80; // Increased from 56 to accommodate twice the logo size
 
 const menuItems = [
   // Dashboard (outside categories)
@@ -47,7 +45,11 @@ const menuItems = [
     items: [
       { text: "Courses", icon: <BookIcon />, href: "/courses" },
       { text: "Assignments", icon: <AssignmentIcon />, href: "/assignments" },
-      { text: "Resource Library", icon: <LibraryIcon />, href: "/resource-library" },
+      {
+        text: "Resource Library",
+        icon: <LibraryIcon />,
+        href: "/resource-library",
+      },
     ],
   },
 
@@ -78,16 +80,16 @@ const menuItems = [
       { text: "Logout", icon: <LogoutIcon />, href: "/login" },
     ],
   },
-]
+];
 
 export function CollapsibleSidebar() {
-  const pathname = usePathname()
-  const { mode, toggleColorMode } = useTheme()
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  const pathname = usePathname();
+  const { mode, toggleColorMode } = useTheme();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const toggleCollapse = () => {
-    setIsCollapsed(!isCollapsed)
-  }
+    setIsCollapsed(!isCollapsed);
+  };
 
   return (
     <Box
@@ -95,7 +97,9 @@ export function CollapsibleSidebar() {
       sx={{
         width: isCollapsed ? collapsedDrawerWidth : drawerWidth,
         flexShrink: 0,
-        transition: isCollapsed ? "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)" : "none",
+        transition: isCollapsed
+          ? "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+          : "none",
       }}
     >
       <Box
@@ -109,7 +113,13 @@ export function CollapsibleSidebar() {
         }}
       >
         <Box
-          sx={{ p: isCollapsed ? 1 : 2, display: "flex", justifyContent: "center", alignItems: "center", height: 120 }}
+          sx={{
+            p: isCollapsed ? 1 : 2,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            height: 120,
+          }}
         >
           <Link href="/" style={{ display: "block", cursor: "pointer" }}>
             <Box
@@ -120,12 +130,8 @@ export function CollapsibleSidebar() {
                 },
               }}
             >
-              <Image
-                src={
-                  mode === "light"
-                    ? "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-1h7AsPVzmFcMAVxvF5RDXRnnXO5VhM.png"
-                    : "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-wt0xz484LuNz7HU6CqgwqvlCX2pJ31.png"
-                }
+              {/* <Image
+                src={mode === "light" ? "/placeholder.svg" : "/placeholder.svg"}
                 alt="Study Buddy Logo"
                 width={isCollapsed ? 70 : 120}
                 height={isCollapsed ? 70 : 120}
@@ -134,7 +140,7 @@ export function CollapsibleSidebar() {
                   transition: isCollapsed
                     ? "width 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
                     : "none",
-                }}
+                }} */}
               />
             </Box>
           </Link>
@@ -159,7 +165,9 @@ export function CollapsibleSidebar() {
                     minWidth: 0,
                     mr: isCollapsed ? 0 : 3,
                     justifyContent: "center",
-                    transition: isCollapsed ? "margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1)" : "none",
+                    transition: isCollapsed
+                      ? "margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+                      : "none",
                   }}
                 >
                   <DashboardIcon />
@@ -170,7 +178,9 @@ export function CollapsibleSidebar() {
                 sx={{
                   opacity: isCollapsed ? 0 : 1,
                   display: isCollapsed ? "none" : "block",
-                  transition: isCollapsed ? "opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)" : "none",
+                  transition: isCollapsed
+                    ? "opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+                    : "none",
                 }}
               />
             </ListItemButton>
@@ -206,13 +216,18 @@ export function CollapsibleSidebar() {
                       py: 1.5,
                     }}
                   >
-                    <Tooltip title={isCollapsed ? item.text : ""} placement="right">
+                    <Tooltip
+                      title={isCollapsed ? item.text : ""}
+                      placement="right"
+                    >
                       <ListItemIcon
                         sx={{
                           minWidth: 0,
                           mr: isCollapsed ? 0 : 3,
                           justifyContent: "center",
-                          transition: isCollapsed ? "margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1)" : "none",
+                          transition: isCollapsed
+                            ? "margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+                            : "none",
                         }}
                       >
                         {item.icon}
@@ -223,7 +238,9 @@ export function CollapsibleSidebar() {
                       sx={{
                         opacity: isCollapsed ? 0 : 1,
                         display: isCollapsed ? "none" : "block",
-                        transition: isCollapsed ? "opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)" : "none",
+                        transition: isCollapsed
+                          ? "opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+                          : "none",
                       }}
                     />
                   </ListItemButton>
@@ -281,6 +298,5 @@ export function CollapsibleSidebar() {
         </Box>
       </Box>
     </Box>
-  )
+  );
 }
-

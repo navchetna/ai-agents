@@ -1,140 +1,40 @@
-# StudyBuddy | School Student Companion
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
 
-## Overview
-StudyBuddy is a comprehensive digital platform designed to assist students in managing their academic life efficiently. It includes features such as a dashboard, schedule management, course materials, grade tracking, study timers, an AI coach, and much more. The application is built with a responsive UI and supports dark mode for better usability.
+## Getting Started
 
-## Features
+First, run the development server:
 
-### 1. Dashboard
-**Location:** `app/page.tsx`
-- Overview of key metrics: Courses, Assignments Due, and Overall Grade
-- Today's Schedule
-- Upcoming Assignments
-- Quick access to main features through metric cards
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
 
-### 2. Schedule
-**Location:** `app/schedule/page.tsx`
-- Integrated Calendar view
-- Today's Events
-- Sports Events
-- Google and Outlook calendar integration options
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-### 3. Courses
-**Location:** `app/courses/page.tsx`
-- List of enrolled courses
-- Course materials (textbooks, notes)
-- Ability to view PDF textbooks
-- Multi-language support (English, Hindi, Urdu, Telugu, Kannada, Tamil, Malayalam)
+You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
 
-### 4. Assignments
-**Location:** `app/assignments/page.tsx`
-- List of assignments categorized by status (Not Started, Pending, In Progress, Completed)
-- Assignment details including due date, priority, and course
-- Ability to add new assignments
-- Status update functionality
+[API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
 
-### 5. Grades
-**Location:** `app/grades/page.tsx`
-- Current term grades
-- Previous term grades
-- Visual indicators for grade improvements or declines
-- Overall grade average
+The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) instead of React pages.
 
-### 6. Study Timer
-**Location:** `app/study-timer/page.tsx`
-- Pomodoro technique timer
-- Customizable study and break durations
-- Focus tracking
-- Session history
+This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-### 7. AI Coach
-**Location:** `app/ai-coach/page.tsx`
-- AI-powered doubt solving
-- Note generation feature
-- Image upload for visual problem-solving
-- Chat interface for interacting with AI
+## Learn More
 
-### 8. Resource Library
-**Location:** `app/resource-library/page.tsx`
-- Categorized educational resources (past papers, notes, videos)
-- Search and filter functionality
-- Grade and subject-specific resources
+To learn more about Next.js, take a look at the following resources:
 
-### 9. Support
-**Location:** `app/support/page.tsx`
-- FAQ section
-- Contact form
-- Live chat (placeholder for future implementation)
-- Community forums and resources
-- Bug reporting system
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn-pages-router) - an interactive Next.js tutorial.
 
-### 10. Settings
-**Location:** `app/settings/page.tsx`
-- Profile settings
-- App preferences (dark mode, font size, language)
-- Study preferences (Pomodoro timer settings)
-- Privacy and data management
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-### 11. Scheduled Theme
-**Location:** `app/settings/scheduled-theme/page.tsx`
-- Automatic theme switching based on time
-- Custom schedule or sunset-to-sunrise option
+## Deploy on Vercel
 
-### 12. Authentication
-**Location:** `app/login/page.tsx` and `app/signup/page.tsx`
-- User login functionality
-- New user registration
-- Password management (implied, not fully implemented)
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-### 13. PDF Viewer
-**Location:** `components/pdf-viewer.tsx` and `components/pdf-viewer-modal.tsx`
-- Integrated PDF viewer for textbooks and resources
-- Highlighting and note-taking features
-- AI-powered chat for asking questions about the content
-
-### 14. Metrics Card
-**Location:** `components/metrics-card.tsx`
-- Reusable component for displaying key metrics
-- Used on the dashboard for quick information display
-
-### 15. Schedule Components
-**Location:** `components/schedule.tsx`, `components/sports-events.tsx`, `components/todays-events.tsx`
-- Display of daily schedule
-- Sports events listing
-- Today's events overview
-
-### 16. Assignments Table
-**Location:** `components/assignments-table.tsx`
-- Reusable component for displaying assignments
-- Used in both dashboard and assignments page
-
-### 17. Integrated Calendar
-**Location:** `components/integrated-calendar.tsx`
-- Full calendar view with events
-- Filtering and search capabilities
-
-### 18. Theme Management
-**Location:** `contexts/ThemeContext.tsx`
-- Dark mode toggle
-- Scheduled theme changes
-
-### 19. Timer Management
-**Location:** `contexts/TimerSettingsContext.tsx`, `contexts/TimerContext.tsx`
-- Pomodoro timer settings
-- Timer state management
-
-### 20. Textbook Context
-**Location:** `contexts/TextbookContext.tsx`
-- Management of textbook viewing state
-
-### 21. Global Styling
-**Location:** `styles/globals.css`
-- Application-wide styles and theme variables
-
-
-
-## Conclusion
-The Student Companion Application is designed to be a comprehensive tool for students, combining organizational features with AI-powered learning assistance. It aims to improve study efficiency, track academic progress, and provide easy access to resources, all within a user-friendly interface.
-
-
-
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.

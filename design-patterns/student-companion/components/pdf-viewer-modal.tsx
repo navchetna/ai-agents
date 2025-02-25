@@ -1,26 +1,29 @@
-"use client"
-
-import type React from "react"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
-import PdfViewer from "@/components/pdf-viewer"
-import { X } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { useTextbook } from "@/contexts/TextbookContext"
+import type React from "react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import PdfViewer from "@/components/pdf-viewer";
+import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useTextbook } from "@/contexts/TextbookContext";
 
 interface PdfViewerModalProps {
-  isOpen: boolean
-  onClose: () => void
-  pdfUrl: string | null
-  bookTitle: string
+  isOpen: boolean;
+  onClose: () => void;
+  pdfUrl: string | null;
+  bookTitle: string;
 }
 
-const PdfViewerModal: React.FC<PdfViewerModalProps> = ({ isOpen, onClose, pdfUrl, bookTitle }) => {
-  const { setIsTextbookOpen } = useTextbook()
+const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
+  isOpen,
+  onClose,
+  pdfUrl,
+  bookTitle,
+}) => {
+  const { setIsTextbookOpen } = useTextbook();
 
   const handleClose = () => {
-    setIsTextbookOpen(false)
-    onClose()
-  }
+    setIsTextbookOpen(false);
+    onClose();
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -44,7 +47,7 @@ const PdfViewerModal: React.FC<PdfViewerModalProps> = ({ isOpen, onClose, pdfUrl
                 <PdfViewer
                   fileUrl={pdfUrl}
                   onError={(error) => {
-                    console.error("Error loading PDF:", error)
+                    console.error("Error loading PDF:", error);
                     // You can add additional error handling here if needed
                   }}
                 />
@@ -58,8 +61,7 @@ const PdfViewerModal: React.FC<PdfViewerModalProps> = ({ isOpen, onClose, pdfUrl
         </div>
       </DialogContent>
     </Dialog>
-  )
-}
+  );
+};
 
-export default PdfViewerModal
-
+export default PdfViewerModal;
