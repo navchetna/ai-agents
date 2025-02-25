@@ -73,6 +73,7 @@ export default function AICoach() {
     //       },
     //     });
     //   };
+  }
 
     return (
       <div className="container mx-auto p-4">
@@ -222,4 +223,3 @@ export default function AICoach() {
       </div>
     );
   }
-}
