@@ -7,6 +7,8 @@ import Navbar from '@/components/Navbar';
 import LeftSidebar from '@/components/LeftSidebar';
 import RightSidebar from '@/components/RightSidebar';
 import ChatArea from '@/components/ChatArea';
+import SearchLanding from '@/components/SearchLanding';
+import SearchResults from '@/components/SearchResults';
 
 const mockUser = {
   name: 'John Doe',
@@ -21,9 +23,22 @@ export default function Home() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isPDFViewerOpen, setIsPDFViewerOpen] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[] | null>(null);
 
   const handleTogglePDFViewer = () => {
     setIsPDFViewerOpen(!isPDFViewerOpen);
+  };
+
+  const handleToggleSearch = () => {
+    setIsSearchOpen(!isSearchOpen);
+    if (isSearchOpen) {
+      setSearchResults(null);
+    }
+  };
+
+  const handleSearch = (results: any[]) => {
+    setSearchResults(results);
   };
 
   const handleSidebarCollapse = (collapsed: boolean) => {
@@ -50,18 +65,20 @@ export default function Home() {
           position: 'relative'
         }}
       >
-        <LeftSidebar
+        {!isSearchOpen && (
+          <LeftSidebar
           onSelectConversation={setSelectedConversation}
           selectedConversation={selectedConversation}
           isCollapsed={isSidebarCollapsed}
           onCollapseChange={handleSidebarCollapse}
           refreshTrigger={refreshCounter}
         />
+      )}
         <Box
           component="main"
           sx={{
             position: 'fixed',
-            left: leftSidebarWidth,
+            left: isSearchOpen ? 0 : leftSidebarWidth,
             right: rightSidebarWidth,
             top: '64px',
             bottom: 0,
@@ -78,7 +95,14 @@ export default function Home() {
               position: 'relative',
             }}
           >
-            <ChatArea
+            {isSearchOpen ? (
+              searchResults ? (
+                <SearchResults />
+              ) : (
+                <SearchLanding onSearch={handleSearch} />
+              )
+            ) : (
+              <ChatArea
               conversationId={selectedConversation}
               onTogglePDFViewer={handleTogglePDFViewer}
               isPDFViewerOpen={isPDFViewerOpen}
@@ -88,6 +112,7 @@ export default function Home() {
               onSelectConversation={setSelectedConversation}
               onConversationUpdated={handleConversationUpdated}
             />
+            )}
           </Box>
         </Box>
         <RightSidebar
@@ -96,6 +121,8 @@ export default function Home() {
           onContextChange={setSelectedConversation}
           onTogglePDFViewer={handleTogglePDFViewer}
           isPDFViewerOpen={isPDFViewerOpen}
+          onToggleSearch={handleToggleSearch}
+          isSearchOpen={isSearchOpen}
         />
       </Box>
     </Box>

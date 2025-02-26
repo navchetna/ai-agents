@@ -1,21 +1,22 @@
 import React, { useState } from 'react';
-import { 
-  Paper, 
-  IconButton, 
-  Typography, 
-  List, 
-  ListItem, 
-  ListItemText, 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
-  DialogActions, 
-  Button, 
-  Menu, 
-  MenuItem, 
-  Box 
+import {
+  Paper,
+  IconButton,
+  Typography,
+  List,
+  ListItem,
+  ListItemText,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Menu,
+  MenuItem,
+  Tooltip,
+  Box
 } from '@mui/material';
-import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
+import SearchIcon from '@mui/icons-material/Search';
 import SummarizeOutlinedIcon from '@mui/icons-material/SummarizeOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
@@ -26,6 +27,8 @@ interface RightSidebarProps {
   onContextChange: (context: string) => void;
   onTogglePDFViewer: () => void;
   isPDFViewerOpen: boolean;
+  onToggleSearch: () => void;
+  isSearchOpen: boolean;
 }
 
 const contextOptions = [
@@ -37,12 +40,14 @@ const contextOptions = [
   'Academic Writing',
 ];
 
-export default function RightSidebar({ 
-  messages, 
-  currentContext, 
-  onContextChange, 
-  onTogglePDFViewer, 
-  isPDFViewerOpen 
+export default function RightSidebar({
+  messages,
+  currentContext,
+  onContextChange,
+  onTogglePDFViewer,
+  isPDFViewerOpen,
+  onToggleSearch,
+  isSearchOpen
 }: RightSidebarProps) {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
@@ -76,7 +81,7 @@ export default function RightSidebar({
   };
 
   return (
-    <Paper 
+    <Paper
       elevation={8}
       sx={{
         width: 76,
@@ -99,37 +104,26 @@ export default function RightSidebar({
         }
       }}
     >
-      <Box sx={{ 
-        p: 1, 
-        display: 'flex', 
-        flexDirection: 'column', 
+      <Box sx={{
+        p: 1,
+        display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
         height: '100%',
         justifyContent: 'flex-start',
       }}>
-        <IconButton
-          onClick={() => document.getElementById('file-upload')?.click()}
-          sx={{
-            backgroundColor: '#0071C5',
-            color: 'white',
-            borderRadius: '8px',
-            width: '3rem',
-            height: '3rem',
-            mb: 2,
-            transition: 'all 0.3s ease',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-            '&:hover': {
-              backgroundColor: '#00C7FD',
-              boxShadow: '0 6px 8px rgba(0, 0, 0, 0.15)',
-            },
-            '&:active': {
-              transform: 'translateY(1px)',
-              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-            },
-          }}
-        >
-          <CloudUploadOutlinedIcon />
-        </IconButton>
+        <Tooltip title={isSearchOpen ? "Back to Chat" : "Search Papers"} arrow>
+          <IconButton
+            onClick={onToggleSearch}
+            sx={{
+              backgroundColor: isSearchOpen ? '#0071C5' : '#0071C5',
+              color: 'white',
+              // ... other styles
+            }}
+          >
+            <SearchIcon />
+          </IconButton>
+        </Tooltip>
         <IconButton
           onClick={generateSummary}
           sx={{
@@ -210,12 +204,12 @@ export default function RightSidebar({
           multiple
         />
 
-        <List sx={{ 
-          overflow: 'auto', 
-          flexGrow: 1, 
-          maxHeight: '30%', 
-          width: '100%', 
-          mt: 2, 
+        <List sx={{
+          overflow: 'auto',
+          flexGrow: 1,
+          maxHeight: '30%',
+          width: '100%',
+          mt: 2,
           fontSize: '0.75rem',
           '&::-webkit-scrollbar': {
             width: '4px',
@@ -230,8 +224,8 @@ export default function RightSidebar({
         }}>
           {uploadedFiles.map((file, index) => (
             <ListItem key={index}>
-              <ListItemText 
-                primary={file.name} 
+              <ListItemText
+                primary={file.name}
                 secondary={`${(file.size / 1024).toFixed(2)} KB`}
                 primaryTypographyProps={{ sx: { fontSize: '0.75rem' } }}
                 secondaryTypographyProps={{ sx: { fontSize: '0.6rem' } }}
@@ -266,8 +260,8 @@ export default function RightSidebar({
           <Typography variant="subtitle2">Current Context: {currentContext}</Typography>
         </MenuItem>
         {contextOptions.map((context) => (
-          <MenuItem 
-            key={context} 
+          <MenuItem
+            key={context}
             onClick={() => handleContextChange(context)}
             selected={context === currentContext}
             sx={{

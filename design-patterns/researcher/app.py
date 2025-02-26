@@ -323,4 +323,4 @@ async def read_root():
     return {"message": "Welcome to the Research Paper Assistant API. Use /docs for interactive API documentation."}
 
 if __name__ == "__main__":
-    uvicorn.run(backend, host="0.0.0.0", port=8000)
+    uvicorn.run(backend, host="0.0.0.0", port=8400)
