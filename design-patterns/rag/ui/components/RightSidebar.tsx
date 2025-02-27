@@ -118,7 +118,21 @@ export default function RightSidebar({
             sx={{
               backgroundColor: isSearchOpen ? '#0071C5' : '#0071C5',
               color: 'white',
-              // ... other styles
+            borderRadius: '8px',
+            width: '3rem',
+            height: '3rem',
+            mb: 2,
+            transition: 'all 0.3s ease',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            '&:hover': {
+              backgroundColor: '#00C7FD',
+              transform: 'translateY(-2px)',
+              boxShadow: '0 6px 8px rgba(0, 0, 0, 0.15)',
+            },
+            '&:active': {
+              transform: 'translateY(1px)',
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+            },
             }}
           >
             <SearchIcon />

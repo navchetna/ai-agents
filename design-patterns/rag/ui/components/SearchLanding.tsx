@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Search } from "lucide-react"
@@ -18,19 +17,21 @@ import {
   FormControl,
   InputLabel,
   Grid,
-  type SelectChangeEvent,
   Paper,
+  type SelectChangeEvent,
 } from "@mui/material"
+import { CircularProgress } from "@mui/material";
 import { getSuggestions } from "@/lib/api"
 import { type ApiType, API_TYPES } from "@/types/api"
+import { SEARCH_URL } from "@/lib/constants"
 import debounce from "lodash/debounce"
-import SearchResults from "./SearchResults"
+import axios from 'axios';
 
 const CURRENT_YEAR = new Date().getFullYear()
 const YEAR_RANGE = 20
 
 interface SearchLandingProps {
-  onSearch: (results: any[]) => void;
+  onSearch: (results: any[], api: ApiType, query: string) => void;
 }
 
 export default function SearchLanding({ onSearch }: SearchLandingProps) {
@@ -40,51 +41,32 @@ export default function SearchLanding({ onSearch }: SearchLandingProps) {
   const [selectedApi, setSelectedApi] = useState<ApiType>("semantic_scholar")
   const [selectedYear, setSelectedYear] = useState<number | 0>(0)
   const [isLoading, setIsLoading] = useState(false)
-  const [searchResults, setSearchResults] = useState<any[] | null>(null)
-  
-
-  const router = useRouter()
 
   const years = Array.from({ length: YEAR_RANGE }, (_, i) => CURRENT_YEAR - i)
 
-  // const handleSearch = (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   if (query.trim()) {
-  //     const searchParams = new URLSearchParams();
-  //     searchParams.set('q', query);
-  //     searchParams.set('api', selectedApi);
-  //     if (selectedYear !== 0) {
-  //       searchParams.set('year', selectedYear.toString());
-  //     }
-  //     router.push(`/search?${searchParams.toString()}`);
-  //   }
-  // };
   const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     if (query.trim()) {
-      setIsLoading(true)
+      setIsLoading(true);
       try {
-        const response = await fetch('/api/search_papers', {
-          method: 'POST',
+        const response = await axios.post(`${SEARCH_URL}/search_papers`, {
+          query,
+          year: selectedYear,
+          api: selectedApi,
+        }, {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            query,
-            year: selectedYear,
-            api: selectedApi,
-          }),
-        })
-        const data = await response.json()
-        setSearchResults(data.papers)
+        });
+        onSearch(response.data.papers, selectedApi, query);
       } catch (error) {
-        console.error('Error searching papers:', error)
-        setError('Failed to search papers. Please try again.')
+        console.error('Error searching papers:', error);
+        setError('Failed to search papers. Please try again.');
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
     }
-  }
+  };
 
   const fetchSuggestions = debounce(async (value: string) => {
     if (value.length >= 3) {
@@ -242,7 +224,6 @@ export default function SearchLanding({ onSearch }: SearchLandingProps) {
                 </FormControl>
               </Grid>
             </Grid>
-
             <Box sx={{ position: "relative" }}>
               <TextField
                 fullWidth
@@ -255,6 +236,7 @@ export default function SearchLanding({ onSearch }: SearchLandingProps) {
                     <Button
                       type="submit"
                       variant="contained"
+                      disabled={isLoading}
                       sx={{
                         borderRadius: "0 4px 4px 0",
                         height: "100%",
@@ -265,7 +247,7 @@ export default function SearchLanding({ onSearch }: SearchLandingProps) {
                         },
                       }}
                     >
-                      <Search />
+                      {isLoading ? <CircularProgress size={24} color="inherit" /> : <Search />}
                     </Button>
                   ),
                 }}

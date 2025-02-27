@@ -13,8 +13,6 @@ import {
   Chip,
   Alert,
   Snackbar,
-  Switch,
-  FormControlLabel
 } from '@mui/material';
 import axios from 'axios';
 import SendIcon from '@mui/icons-material/Send';
@@ -279,7 +277,6 @@ export default function ChatArea({
     }
   };
 
-
   const sendMessage = async (messageContent: string, targetConversationId: string) => {
     if (streamingEnabled) {
       try {
@@ -301,35 +298,26 @@ export default function ChatArea({
         setIsLoading(true);
 
         console.log(`Sending streaming request to: ${CHAT_QNA_URL}/conversation/${targetConversationId}`);
-        const response = await fetch(`${CHAT_QNA_URL}/conversation/${targetConversationId}`, {
-          method: 'POST',
+        const response = await axios.post(`${CHAT_QNA_URL}/conversation/${targetConversationId}`, {
+          question: messageContent.trim(),
+          max_tokens: 1024,
+          temperature: 0.1,
+          stream: true
+        }, {
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'text/event-stream'
           },
-          body: JSON.stringify({
-            question: messageContent.trim(),
-            max_tokens: 1024,
-            temperature: 0.1,
-            stream: true
-          })
+          responseType: 'stream'
         });
-
-        if (!response.ok) {
-          throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
-        }
-
-        if (!response.body) {
-          throw new Error('ReadableStream not supported in this browser.');
-        }
-
-        const reader = response.body.getReader();
+  
+        const reader = response.data.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
-
+  
         while (true) {
           const { done, value } = await reader.read();
-
+  
           if (done) {
             console.log('Stream complete');
             break;
@@ -505,7 +493,6 @@ export default function ChatArea({
     }
     else {
       try {
-
         const response = await axios.post(`${CHAT_QNA_URL}/conversation/${targetConversationId}`, {
           db_name: 'rag_db',
           question: messageContent.trim(),

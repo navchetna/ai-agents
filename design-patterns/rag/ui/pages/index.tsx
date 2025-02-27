@@ -9,6 +9,7 @@ import RightSidebar from '@/components/RightSidebar';
 import ChatArea from '@/components/ChatArea';
 import SearchLanding from '@/components/SearchLanding';
 import SearchResults from '@/components/SearchResults';
+import { ApiType } from '@/types/api';
 
 const mockUser = {
   name: 'John Doe',
@@ -25,6 +26,9 @@ export default function Home() {
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
+  const [selectedApi, setSelectedApi] = useState<ApiType>("semantic_scholar");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+
 
   const handleTogglePDFViewer = () => {
     setIsPDFViewerOpen(!isPDFViewerOpen);
@@ -37,8 +41,11 @@ export default function Home() {
     }
   };
 
-  const handleSearch = (results: any[]) => {
+  const handleSearch = (results: any[], api: ApiType, query: string) => {
     setSearchResults(results);
+    setSelectedApi(api);
+    setSearchQuery(query);
+    setIsSearchOpen(true);
   };
 
   const handleSidebarCollapse = (collapsed: boolean) => {
@@ -90,14 +97,19 @@ export default function Home() {
           <Box
             sx={{
               width: '100%',
-              maxWidth: '1000px',
+              maxWidth: '1700px',
               mx: 'auto',
               position: 'relative',
             }}
           >
             {isSearchOpen ? (
               searchResults ? (
-                <SearchResults />
+                <SearchResults 
+                  results={searchResults} 
+                  api={selectedApi}
+                  query={searchQuery}
+                  onSearch={handleSearch}
+                />
               ) : (
                 <SearchLanding onSearch={handleSearch} />
               )
