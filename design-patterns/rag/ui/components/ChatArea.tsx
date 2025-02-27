@@ -14,7 +14,6 @@ import {
   Alert,
   Snackbar,
   Switch,
-<<<<<<< HEAD
   FormControlLabel,
 } from "@mui/material";
 import axios from "axios";
@@ -28,20 +27,6 @@ import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import BoltIcon from "@mui/icons-material/Bolt";
 import { CHAT_QNA_URL } from "@/lib/constants";
-=======
-  FormControlLabel
-} from '@mui/material';
-import axios from 'axios';
-import SendIcon from '@mui/icons-material/Send';
-import ThumbUpIcon from '@mui/icons-material/ThumbUp';
-import ThumbDownIcon from '@mui/icons-material/ThumbDown';
-import DescriptionIcon from '@mui/icons-material/Description';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import { CHAT_QNA_URL } from '@/lib/constants';
->>>>>>> origin/master
 
 interface Message {
   id: string;
@@ -189,51 +174,24 @@ export default function ChatArea({
       setIsLoading(true);
       setErrorMessage(null);
 
-<<<<<<< HEAD
-      const response = await axios.get(
-        `${CHAT_QNA_URL}/conversations/${id}?db_name=rag_db`
-      );
-      const data = response.data;
-      console.log("Loaded conversation data:", data);
-
-      if (
-        !data.history ||
-        !Array.isArray(data.history) ||
-        data.history.length === 0
-      ) {
-        console.warn(
-          "History is missing, empty, or not an array in conversation data",
-          data
-        );
-=======
       const response = await axios.get(`${CHAT_QNA_URL}/conversation/${id}?db_name=rag_db`);
       const data = response.data;
       console.log('Loaded conversation data:', data);
 
       if (!data.history || !Array.isArray(data.history) || data.history.length === 0) {
         console.warn('History is missing, empty, or not an array in conversation data', data);
->>>>>>> origin/master
         return;
       }
 
       const formattedMessages: Message[] = [];
       data.history.forEach((turn: any, index: number) => {
         if (turn.question) {
-<<<<<<< HEAD
-          const questionContent =
-            typeof turn.question === "string"
-              ? turn.question
-              : turn.question.content || "";
 
-          const timestamp =
-            turn.question.timestamp ||
-=======
           const questionContent = typeof turn.question === 'string'
             ? turn.question
             : turn.question.content || '';
 
           const timestamp = turn.question.timestamp ||
->>>>>>> origin/master
             turn.timestamp ||
             new Date().toISOString();
 
@@ -246,21 +204,12 @@ export default function ChatArea({
         }
 
         if (turn.answer) {
-<<<<<<< HEAD
-          const answerContent =
-            typeof turn.answer === "string"
-              ? turn.answer
-              : turn.answer.content || "";
 
-          const timestamp =
-            turn.answer.timestamp ||
-=======
           const answerContent = typeof turn.answer === 'string'
             ? turn.answer
             : turn.answer.content || '';
 
           const timestamp = turn.answer.timestamp ||
->>>>>>> origin/master
             (Number(new Date(turn.timestamp || 0)) + 1).toString() ||
             new Date().toISOString();
 
@@ -274,26 +223,17 @@ export default function ChatArea({
         }
       });
 
-<<<<<<< HEAD
-      console.log("Formatted messages:", formattedMessages);
-=======
+
       console.log('Formatted messages:', formattedMessages);
->>>>>>> origin/master
 
       if (formattedMessages.length > 0) {
         setMessages(formattedMessages);
         setLocalMessages([]);
       }
-<<<<<<< HEAD
-    } catch (error: unknown) {
-      console.error("Error loading conversation:", error);
-      let errorMessage = "Error loading conversation data";
-=======
 
     } catch (error: unknown) {
       console.error('Error loading conversation:', error);
       let errorMessage = 'Error loading conversation data';
->>>>>>> origin/master
 
       if (axios.isAxiosError(error)) {
         errorMessage =
@@ -318,21 +258,12 @@ export default function ChatArea({
 
   const startNewConversation = async (userMessageContent: string) => {
     try {
-<<<<<<< HEAD
-      const response = await axios.post(
-        `${CHAT_QNA_URL}/conversations/new?db_name=rag_db`
-      );
-
-      const data = await response.data;
-      console.log("Created new conversation:", data);
-=======
       const response = await axios.post(`${CHAT_QNA_URL}/conversation/new`, {
         db_name: 'rag_db'
       })
 
       const data = await response.data;
       console.log('Created new conversation:', data);
->>>>>>> origin/master
 
       const newConversationId = data.conversation_id;
       setCurrentConversationId(newConversationId);
@@ -355,15 +286,10 @@ export default function ChatArea({
       setShowErrorSnackbar(true);
       setShowNewChatPrompt(true);
 
-<<<<<<< HEAD
-      setLocalMessages((prev) =>
-        prev.map((msg) => (msg.isPending ? { ...msg, isPending: false } : msg))
-=======
       setLocalMessages(prev =>
         prev.map(msg =>
           msg.isPending ? { ...msg, isPending: false } : msg
         )
->>>>>>> origin/master
       );
 
       setIsLoading(false);
@@ -371,54 +297,20 @@ export default function ChatArea({
     }
   };
 
-  const sendMessage = async (
-    messageContent: string,
-    targetConversationId: string
-  ) => {
+
+  const sendMessage = async (messageContent: string, targetConversationId: string) => {
     if (streamingEnabled) {
       try {
         const streamingMessageId = Date.now().toString() + "-streaming";
         setStreamingMessageId(streamingMessageId);
 
-<<<<<<< HEAD
-        setLocalMessages((prev) => [
-=======
         setLocalMessages(prev => [
->>>>>>> origin/master
           ...prev,
           {
             id: streamingMessageId,
             role: "assistant",
             content: "",
             timestamp: new Date().toISOString(),
-<<<<<<< HEAD
-            isStreaming: true,
-          },
-        ]);
-
-        setStreamedContent("");
-        setIsLoading(true);
-
-        console.log(
-          `Sending streaming request to: ${CHAT_QNA_URL}/conversations/${targetConversationId}`
-        );
-        const response = await fetch(
-          `${CHAT_QNA_URL}/conversations/${targetConversationId}`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "text/event-stream",
-            },
-            body: JSON.stringify({
-              question: messageContent.trim(),
-              max_tokens: 1024,
-              temperature: 0.1,
-              stream: true,
-            }),
-          }
-        );
-=======
             isStreaming: true
           }
         ]);
@@ -427,20 +319,20 @@ export default function ChatArea({
         setIsLoading(true);
 
         console.log(`Sending streaming request to: ${CHAT_QNA_URL}/conversation/${targetConversationId}`);
-        const response = await fetch(`${CHAT_QNA_URL}/conversation/${targetConversationId}`, {
-          method: 'POST',
+        const response = await axios.post(`${CHAT_QNA_URL}/conversation/${targetConversationId}`, {
+          question: messageContent.trim(),
+          max_tokens: 1024,
+          temperature: 0.1,
+          stream: true
+        }, {
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'text/event-stream'
           },
-          body: JSON.stringify({
-            question: messageContent.trim(),
-            max_tokens: 1024,
-            temperature: 0.1,
-            stream: true
-          })
+          responseType: 'stream'
         });
->>>>>>> origin/master
+
+        const reader = response.data.getReader();
 
         if (!response.ok) {
           throw new Error(
@@ -454,15 +346,12 @@ export default function ChatArea({
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-<<<<<<< HEAD
+
         let buffer = "";
-=======
-        let buffer = '';
->>>>>>> origin/master
 
         while (true) {
           const { done, value } = await reader.read();
-
+  
           if (done) {
             console.log("Stream complete");
             break;
@@ -470,39 +359,36 @@ export default function ChatArea({
 
           const chunk = decoder.decode(value, { stream: true });
           buffer += chunk;
-<<<<<<< HEAD
+
           console.log("Received chunk:", chunk);
 
           let unprocessedBuffer = "";
           const lines = buffer.split("\n");
-=======
+
           console.log('Received chunk:', chunk);
 
           let unprocessedBuffer = '';
           const lines = buffer.split('\n');
->>>>>>> origin/master
 
           for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
 
-<<<<<<< HEAD
             if (line.startsWith("data: ")) {
               const dataContent = line.substring(6).trim();
 
               if (dataContent === "[DONE]") {
                 console.log("End of stream marker received");
-=======
+
             if (line.startsWith('data: ')) {
               const dataContent = line.substring(6).trim();
 
               if (dataContent === '[DONE]') {
                 console.log('End of stream marker received');
->>>>>>> origin/master
                 continue;
               }
 
               try {
-<<<<<<< HEAD
+
                 console.log("Processing data content:", dataContent);
 
                 if (dataContent.startsWith("b'") && dataContent.endsWith("'")) {
@@ -520,7 +406,7 @@ export default function ChatArea({
 
                     setLocalMessages((messages) =>
                       messages.map((msg) => {
-=======
+
                 console.log('Processing data content:', dataContent);
 
                 if (dataContent.startsWith("b'") && dataContent.endsWith("'")) {
@@ -532,7 +418,7 @@ export default function ChatArea({
 
                     setLocalMessages(messages =>
                       messages.map(msg => {
->>>>>>> origin/master
+
                         if (msg.id === streamingMessageId) {
                           return {
                             ...msg,
@@ -545,12 +431,8 @@ export default function ChatArea({
 
                     return updatedContent;
                   });
-<<<<<<< HEAD
+
                 } else {
-=======
-                }
-                else {
->>>>>>> origin/master
                   try {
                     const byteObj: unknown = JSON.parse(dataContent);
 
@@ -566,21 +448,7 @@ export default function ChatArea({
                       byteArray = [];
                     }
 
-<<<<<<< HEAD
-                    const textContent = new TextDecoder().decode(
-                      new Uint8Array(byteArray)
-                    );
-                    console.log(
-                      "Decoded text content from JSON byte array:",
-                      textContent
-                    );
 
-                    setStreamedContent((prev) => {
-                      const updatedContent = prev + textContent;
-
-                      setLocalMessages((messages) =>
-                        messages.map((msg) => {
-=======
                     const textContent = new TextDecoder().decode(new Uint8Array(byteArray));
                     console.log('Decoded text content from JSON byte array:', textContent);
 
@@ -589,7 +457,6 @@ export default function ChatArea({
 
                       setLocalMessages(messages =>
                         messages.map(msg => {
->>>>>>> origin/master
                           if (msg.id === streamingMessageId) {
                             return {
                               ...msg,
@@ -603,23 +470,6 @@ export default function ChatArea({
                       return updatedContent;
                     });
                   } catch (jsonError) {
-<<<<<<< HEAD
-                    console.warn("Failed to parse as JSON:", jsonError);
-
-                    if (
-                      typeof dataContent === "string" &&
-                      !dataContent.startsWith("{") &&
-                      !dataContent.startsWith("[") &&
-                      dataContent.trim().length > 0
-                    ) {
-                      console.log("Using as plain text:", dataContent);
-
-                      setStreamedContent((prev) => {
-                        const updatedContent = prev + dataContent;
-
-                        setLocalMessages((messages) =>
-                          messages.map((msg) => {
-=======
                     console.warn('Failed to parse as JSON:', jsonError);
 
                     if (typeof dataContent === 'string' &&
@@ -633,7 +483,6 @@ export default function ChatArea({
 
                         setLocalMessages(messages =>
                           messages.map(msg => {
->>>>>>> origin/master
                             if (msg.id === streamingMessageId) {
                               return {
                                 ...msg,
@@ -664,13 +513,8 @@ export default function ChatArea({
           buffer = unprocessedBuffer;
         }
 
-<<<<<<< HEAD
-        setLocalMessages((prev) =>
-          prev.map((msg) => {
-=======
         setLocalMessages(prev =>
           prev.map(msg => {
->>>>>>> origin/master
             if (msg.id === streamingMessageId) {
               return {
                 ...msg,
@@ -694,10 +538,6 @@ export default function ChatArea({
         if (onConversationUpdated) {
           onConversationUpdated();
         }
-<<<<<<< HEAD
-=======
-
->>>>>>> origin/master
       } catch (error) {
         console.error("Streaming error:", error);
         setErrorMessage(
@@ -706,13 +546,9 @@ export default function ChatArea({
         setShowErrorSnackbar(true);
 
         if (streamingMessageId) {
-<<<<<<< HEAD
-          setLocalMessages((prev) =>
-            prev.map((msg) => {
-=======
+
           setLocalMessages(prev =>
             prev.map(msg => {
->>>>>>> origin/master
               if (msg.id === streamingMessageId) {
                 return {
                   ...msg,
@@ -731,7 +567,7 @@ export default function ChatArea({
       }
     } else {
       try {
-<<<<<<< HEAD
+
         const response = await axios.post(
           `${CHAT_QNA_URL}/conversations/${targetConversationId}`,
           {
@@ -744,7 +580,6 @@ export default function ChatArea({
 
         const data = await response.data;
         console.log("Received non-streaming response:", data);
-=======
 
         const response = await axios.post(`${CHAT_QNA_URL}/conversation/${targetConversationId}`, {
           db_name: 'rag_db',
@@ -756,7 +591,6 @@ export default function ChatArea({
 
         const data = await response.data;
         console.log('Received non-streaming response:', data);
->>>>>>> origin/master
 
         if (targetConversationId) {
           await loadConversation(targetConversationId);
@@ -766,10 +600,7 @@ export default function ChatArea({
         if (onConversationUpdated) {
           onConversationUpdated();
         }
-<<<<<<< HEAD
-=======
 
->>>>>>> origin/master
       } catch (error) {
         console.error("Error:", error);
         setErrorMessage(
@@ -777,11 +608,7 @@ export default function ChatArea({
         );
         setShowErrorSnackbar(true);
 
-<<<<<<< HEAD
-        setLocalMessages((prev) => {
-=======
         setLocalMessages(prev => {
->>>>>>> origin/master
           const errorAssistantMessage: Message = {
             id: Date.now().toString(),
             role: "assistant",
