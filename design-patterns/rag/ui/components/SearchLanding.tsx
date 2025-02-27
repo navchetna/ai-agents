@@ -104,7 +104,8 @@ export default function SearchLanding({ onSearch }: SearchLandingProps) {
         minHeight: "100vh",
         display: "flex",
         flexDirection: "column",
-        background: "linear-gradient(135deg, #0071c5 0%, #004f8a 100%)",
+        // background: "linear-gradient(135deg, #0071c5 0%, #004f8a 100%)",
+        background: "linear-gradient(103deg, #2155BF 0%, #29D9FF 100.37%)",
         pt: { xs: 4, md: 8 },
         pb: { xs: 20, md: 24 },
         px: 2,
@@ -174,14 +175,10 @@ export default function SearchLanding({ onSearch }: SearchLandingProps) {
             <Grid container spacing={2} sx={{ mb: 2 }}>
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
-                  <InputLabel id="api-select-label" sx={{ color: "white" }}>
-                    Select API
-                  </InputLabel>
                   <Select
-                    labelId="api-select-label"
                     value={selectedApi}
-                    label="Select API"
                     onChange={handleApiChange}
+                    displayEmpty
                     sx={{
                       backgroundColor: "rgba(255, 255, 255, 0.9)",
                       "&:hover": {
@@ -189,6 +186,9 @@ export default function SearchLanding({ onSearch }: SearchLandingProps) {
                       },
                     }}
                   >
+                    <MenuItem value="">
+                      <em>Select API</em>
+                    </MenuItem>
                     {API_TYPES.map((api) => (
                       <MenuItem key={api} value={api}>
                         {api.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
@@ -199,13 +199,9 @@ export default function SearchLanding({ onSearch }: SearchLandingProps) {
               </Grid>
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
-                  <InputLabel id="year-select-label" sx={{ color: "grey" }}>
-                    Publication Year
-                  </InputLabel>
                   <Select
-                    labelId="year-select-label"
+                    displayEmpty
                     value={selectedYear}
-                    label="Publication Year"
                     onChange={(e) => setSelectedYear(e.target.value as number | 0)}
                     sx={{
                       backgroundColor: "rgba(255, 255, 255, 0.9)",
@@ -214,7 +210,9 @@ export default function SearchLanding({ onSearch }: SearchLandingProps) {
                       },
                     }}
                   >
-                    <MenuItem value="">Any Year</MenuItem>
+                    <MenuItem value={0}>
+                      <em>Select Publication Year</em>
+                    </MenuItem>
                     {years.map((year) => (
                       <MenuItem key={year} value={year}>
                         {year}
