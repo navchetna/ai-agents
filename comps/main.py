@@ -859,13 +859,13 @@ class ConversationRAGService(ChatQnAService):
             output_datatype=ConversationResponse,
         )
 
-        self.service.add_route("/conversation/new", self.handle_new_conversation, methods=["POST"])
-        self.service.add_route("/conversation/{conversation_id}", self.handle_chat_request, methods=["POST"])
-        self.service.add_route("/conversation/{conversation_id}", self.handle_get_history, methods=["GET"])
-        self.service.add_route("/conversation/{conversation_id}", self.handle_delete_conversation, methods=["DELETE"])
-        self.service.add_route("/conversations", self.handle_list_conversations, methods=["GET"])
-        self.service.add_route("/circular/update", handle_circular_update, methods=["PATCH"])
-        self.service.add_route("/circular/get", handle_circular_get, methods=["GET"])
+        self.service.add_route("/api/conversations/new", self.handle_new_conversation, methods=["POST"])
+        self.service.add_route("/api/conversations/{conversation_id}", self.handle_chat_request, methods=["POST"])
+        self.service.add_route("/api/conversations/{conversation_id}", self.handle_get_history, methods=["GET"])
+        self.service.add_route("/api/conversations/{conversation_id}", self.handle_delete_conversation, methods=["DELETE"])
+        self.service.add_route("/api/conversations", self.handle_list_conversations, methods=["GET"])
+        self.service.add_route("/api/circulars", handle_circular_update, methods=["PATCH"])
+        self.service.add_route("/api/circulars", handle_circular_get, methods=["GET"])
         self.service.start()
 
 if __name__ == "__main__":

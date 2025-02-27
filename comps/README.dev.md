@@ -146,12 +146,12 @@ The backend will be running on http://localhost:9001
 ### Test the backend
 #### Start a new conversation:
 ```bash
-curl -X POST "http://localhost:9001/conversation/new" -d '{"db_name": "<db_name>"}'  | jq  
+curl -X POST "http://localhost:9001/api/conversations/new" -d '{"db_name": "<db_name>"}'  | jq  
 ```
 
 #### Continue a conversation:
 ```bash
-curl -X POST "http://localhost:9001/conversation/{conversation_id}" \
+curl -X POST "http://localhost:9001/api/conversations/{conversation_id}" \
      -H "Content-Type: application/json" \
      -d '{"db_name": "<db_name>", "question": "what are straightforward to define and efficient to train, but to the best of our knowledge, there has been no demonstration that they are capable of generating high quality samples?"}' | jq
 ### Can add temperature, max_tokens
@@ -159,12 +159,12 @@ curl -X POST "http://localhost:9001/conversation/{conversation_id}" \
 
 #### Get conversation history:
 ```bash
-curl -X GET "http://localhost:9001/conversation/{conversation_id}?db_name='<db_name>'" | jq
+curl -X GET "http://localhost:9001/api/conversations/{conversation_id}?db_name='<db_name>'" | jq
 ```
 
 #### Delete conversation:
 ```bash
-curl -X DELETE "http://localhost:9003/conversation/{conversation_id}?db_name='<db_name>'" | jq
+curl -X DELETE "http://localhost:9003/api/conversations/{conversation_id}?db_name='<db_name>'" | jq
 ```
 
 #### List all conversations:
