@@ -24,6 +24,12 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { CHAT_QNA_URL } from '@/lib/constants';
+import SecurityIcon from '@mui/icons-material/Security';
+import BiotechIcon from '@mui/icons-material/Biotech';
+import PsychologyIcon from '@mui/icons-material/Psychology';
+import MemoryIcon from '@mui/icons-material/Memory';
+import CloudIcon from '@mui/icons-material/Cloud';
+import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing';
 
 interface Message {
   id: string;
@@ -50,13 +56,6 @@ interface ChatAreaProps {
   onSelectConversation: (id: string) => void;
   onConversationUpdated?: () => void;
 }
-
-import SecurityIcon from '@mui/icons-material/Security';
-import BiotechIcon from '@mui/icons-material/Biotech';
-import PsychologyIcon from '@mui/icons-material/Psychology';
-import MemoryIcon from '@mui/icons-material/Memory';
-import CloudIcon from '@mui/icons-material/Cloud';
-import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing';
 
 export const topics = [
   {
