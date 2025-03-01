@@ -104,7 +104,6 @@ export default function SearchLanding({ onSearch }: SearchLandingProps) {
         minHeight: "100vh",
         display: "flex",
         flexDirection: "column",
-        // background: "linear-gradient(135deg, #0071c5 0%, #004f8a 100%)",
         background: "linear-gradient(103deg, #2155BF 0%, #29D9FF 100.37%)",
         pt: { xs: 4, md: 8 },
         pb: { xs: 20, md: 24 },
@@ -115,7 +114,6 @@ export default function SearchLanding({ onSearch }: SearchLandingProps) {
         maxWidth="md"
         sx={{
           position: "relative",
-          mt: { xs: 4, md: 8 },
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -131,35 +129,22 @@ export default function SearchLanding({ onSearch }: SearchLandingProps) {
           }}
         >
           <Typography
-            variant="h2"
-            component="h1"
-            align="center"
-            gutterBottom
-            sx={{
-              fontWeight: 700,
-              letterSpacing: "-0.02em",
-              fontSize: { xs: "2.5rem", md: "3.75rem" },
-              mb: 2,
-              color: "#ffffff",
-              textShadow: "0 2px 4px rgba(0,0,0,0.1)",
-            }}
-          >
-            Research Paper Assistant
-          </Typography>
-          <Typography
             variant="h5"
             align="center"
             sx={{
               fontWeight: 400,
-              mb: 6,
+              mb: 2,
               fontSize: { xs: "1.25rem", md: "1.5rem" },
               color: "#ffffff",
-              opacity: 0.9,
+              fontStyle: "italic",
+              width: "100%",
+              textAlign: "center",
+              position: "relative",
+              cursor: "default"
             }}
           >
-            Discover and explore academic papers with ease
+            {" Discover and explore academic papers."}
           </Typography>
-
           <Box
             component="form"
             onSubmit={handleSearch}
