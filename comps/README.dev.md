@@ -15,26 +15,27 @@ export RERANK_MODEL_ID="BAAI/bge-reranker-base"
 export LLM_MODEL_ID="meta-llama/Meta-Llama-3.1-8B-Instruct"
 export INDEX_NAME="rag-redis"
 export REDIS_URL="redis://redis-vector-db:6379"
-export SERVER_HOST_URL=localhost:9001
-export HUGGINGFACEHUB_API_TOKEN=<token>
-export MEGA_SERVICE_PORT=9001
-export EMBEDDING_SERVER_HOST_IP=localhost
-export EMBEDDING_SERVER_PORT=6006
-export RETRIEVER_SERVICE_HOST_IP=localhost
-export RETRIEVER_SERVICE_PORT=5007
-export RERANK_SERVER_HOST_IP=localhost
-export RERANK_SERVER_PORT=8808
-export LLM_SERVER_HOST_IP=localhost
-export LLM_SERVER_PORT=5099
-export GROQ_API_KEY=<GROQ_API_KEY>
+export SERVER_HOST_URL=localhost:9000
+export MEGA_SERVICE_PORT=9000
+export EMBEDDING_SERVER_HOST_IP=tei-embedding-service
+export EMBEDDING_SERVER_PORT=80
+export RETRIEVER_SERVICE_HOST_IP=retriever
+export RETRIEVER_SERVICE_PORT=7000
+export RERANK_SERVER_HOST_IP=tei-reranking-service
+export RERANK_SERVER_PORT=80
+export LLM_SERVER_HOST_IP=groq-service
+export LLM_SERVER_PORT=8000
 export MONGO_USERNAME=agents
 export MONGO_PASSWORD=agents
-export MONGO_HOST=localhost
+export MONGO_HOST=mongodb
 export MONGO_PORT=27017
 export MONGO_DB=rag_db
+export GROQ_API_KEY=<GROQ_API_KEY>
+export HUGGINGFACEHUB_API_TOKEN=<token>
 ```
 Run the compose file:
 ```bash
+cd ai-agents/
 docker compose -f install/docker/docker-compose-dev.yaml up
 ```
 
@@ -107,15 +108,15 @@ curl http://localhost:7000/v1/retrieval \
 ## Backend service (new terminal)
 ```bash
 export PYTHONPATH=<path/to/ai-agents/dir>
+
 export no_proxy=127.0.0.1,localhost,.intel.com,10.235.124.11,10.235.124.12,10.235.124.13,10.96.0.0/12,10.235.64.0/18,chatqna-xeon-ui-server,chatqna-xeon-backend-server,dataprep-redis-service,tei-embedding-service,retriever,tei-reranking-service,tgi-service,vllm_service,backend,mongodb,tei-reranking-server,tei-embedding-server,groq-service
 export EMBEDDING_MODEL_ID="BAAI/bge-base-en-v1.5"
 export RERANK_MODEL_ID="BAAI/bge-reranker-base"
 export LLM_MODEL_ID="meta-llama/Meta-Llama-3.1-8B-Instruct"
 export INDEX_NAME="rag-redis"
 export REDIS_URL="redis://redis-vector-db:6379"
-export SERVER_HOST_URL=localhost:9001
-export HUGGINGFACEHUB_API_TOKEN=<token>
-export MEGA_SERVICE_PORT=9001
+export SERVER_HOST_URL=localhost:9000
+export MEGA_SERVICE_PORT=9000
 export EMBEDDING_SERVER_HOST_IP=localhost
 export EMBEDDING_SERVER_PORT=6006
 export RETRIEVER_SERVICE_HOST_IP=localhost
@@ -124,52 +125,55 @@ export RERANK_SERVER_HOST_IP=localhost
 export RERANK_SERVER_PORT=8808
 export LLM_SERVER_HOST_IP=localhost
 export LLM_SERVER_PORT=5099
-export GROQ_API_KEY=<GROQ_API_KEY>
 export MONGO_USERNAME=agents
 export MONGO_PASSWORD=agents
 export MONGO_HOST=localhost
 export MONGO_PORT=27017
 export MONGO_DB=rag_db
+export GROQ_API_KEY=<GROQ_API_KEY>
+export HUGGINGFACEHUB_API_TOKEN=<token>
 
 # Activate the environment
 source venv/bin/activate
 cd comps/
+pip install -r requirements.txt # only once
 ```
 
 #### Run the service:
 ```bash
 python3 main.py
 ```
-The backend will be running on http://localhost:9001
+The backend will be running on http://localhost:9000
 
 
 ### Test the backend
 #### Start a new conversation:
 ```bash
-curl -X POST "http://localhost:9001/api/conversations/new" -d '{"db_name": "<db_name>"}'  | jq  
+curl -X POST "http://localhost:9000/api/conversations/new" -d '{"db_name": "<DB_NAME>"}'  | jq  
 ```
 
 #### Continue a conversation:
 ```bash
-curl -X POST "http://localhost:9001/api/conversations/{conversation_id}" \
+curl -X POST "http://localhost:9000/api/conversations/{conversation_id}" \
      -H "Content-Type: application/json" \
-     -d '{"db_name": "<db_name>", "question": "what are straightforward to define and efficient to train, but to the best of our knowledge, there has been no demonstration that they are capable of generating high quality samples?"}' | jq
+     -d '{"db_name": "<DB_NAME>", "question": "what are straightforward to define and efficient to train, but to the best of our knowledge, there has been no demonstration that they are capable of generating high quality samples?"}' | jq
+
 ### Can add temperature, max_tokens
 ```
 
 #### Get conversation history:
 ```bash
-curl -X GET "http://localhost:9001/api/conversations/{conversation_id}?db_name='<db_name>'" | jq
+curl -X GET "http://localhost:9000/api/conversations/{conversation_id}?db_name='<DB_NAME>'" | jq
 ```
 
 #### Delete conversation:
 ```bash
-curl -X DELETE "http://localhost:9003/api/conversations/{conversation_id}?db_name='<db_name>'" | jq
+curl -X DELETE "http://localhost:9000/api/conversations/{conversation_id}?db_name='<DB_NAME>'" | jq
 ```
 
 #### List all conversations:
 ```bash
-curl -X GET "http://localhost:9003/conversations?limit=3&db_name='<db_name>'" | jq     
+curl -X GET "http://localhost:9000/conversations?limit=3&db_name='<DB_NAME>'" | jq     
 ```
 
 ---
@@ -177,8 +181,8 @@ curl -X GET "http://localhost:9003/conversations?limit=3&db_name='<db_name>'" | 
 ## UI (new terminal)
 ```bash
 export no_proxy=127.0.0.1,localhost,.intel.com,10.235.124.11,10.235.124.12,10.235.124.13,10.96.0.0/12,10.235.64.0/18,chatqna-xeon-ui-server,chatqna-xeon-backend-server,dataprep-redis-service,tei-embedding-service,retriever,tei-reranking-service,tgi-service,vllm_service,backend,mongodb,tei-reranking-server,tei-embedding-server,groq-service
-export SERVER_HOST_URL=localhost:9001
-export NEXT_PUBLIC_SERVER_URL=localhost:9001
+export SERVER_HOST_URL=localhost:9000
+export NEXT_PUBLIC_SERVER_URL=localhost:9000
 
 # Install dependencies
 cd design-patterns/rag/ui
