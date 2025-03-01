@@ -20,6 +20,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import SummarizeOutlinedIcon from '@mui/icons-material/SummarizeOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 
 interface RightSidebarProps {
   messages: { role: string; content: string }[];
@@ -86,7 +87,6 @@ export default function RightSidebar({
       sx={{
         width: 76,
         backgroundColor: '#C0C0C0',
-        borderRadius: '16px 0 0 16px',
         display: 'flex',
         flexDirection: 'column',
         position: 'fixed',
@@ -114,28 +114,30 @@ export default function RightSidebar({
       }}>
         <Tooltip title={isSearchOpen ? "Back to Chat" : "Search Papers"} arrow>
           <IconButton
-            onClick={onToggleSearch}
+            onClick={() => {
+              onToggleSearch();
+            }}
             sx={{
-              backgroundColor: isSearchOpen ? '#0071C5' : '#0071C5',
+              backgroundColor: '#0071C5',
               color: 'white',
-            borderRadius: '8px',
-            width: '3rem',
-            height: '3rem',
-            mb: 2,
-            transition: 'all 0.3s ease',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-            '&:hover': {
-              backgroundColor: '#00C7FD',
-              transform: 'translateY(-2px)',
-              boxShadow: '0 6px 8px rgba(0, 0, 0, 0.15)',
-            },
-            '&:active': {
-              transform: 'translateY(1px)',
-              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-            },
+              borderRadius: '8px',
+              width: '3rem',
+              height: '3rem',
+              mb: 2,
+              transition: 'all 0.3s ease',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+              '&:hover': {
+                backgroundColor: '#00C7FD',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 6px 8px rgba(0, 0, 0, 0.15)',
+              },
+              '&:active': {
+                transform: 'translateY(1px)',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+              },
             }}
           >
-            <SearchIcon />
+            {isSearchOpen ? <AutoAwesomeIcon /> : <SearchIcon />}
           </IconButton>
         </Tooltip>
         <IconButton

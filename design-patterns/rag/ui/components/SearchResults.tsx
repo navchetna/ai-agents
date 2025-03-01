@@ -135,7 +135,7 @@ export default function SearchResults({ results, api, query, onSearch }: SearchR
     <Box className="min-h-screen flex flex-col bg-white" sx={{ height: 'calc(100vh - 64px)', overflow: 'auto' }}>
       <Container maxWidth="lg" sx={{ paddingLeft: 4, paddingRight: 4, height: '100%', display: 'flex', flexDirection: 'column' }}>
         <Typography
-          variant="h4"
+          variant="h6"
           component="h1"
           gutterBottom
           sx={{ fontWeight: 500, color: "#000000", mt: 4 }}

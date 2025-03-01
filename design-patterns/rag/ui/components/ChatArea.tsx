@@ -30,6 +30,7 @@ import PsychologyIcon from '@mui/icons-material/Psychology';
 import MemoryIcon from '@mui/icons-material/Memory';
 import CloudIcon from '@mui/icons-material/Cloud';
 import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing';
+import { FormControlLabel } from '@mui/material';
 
 interface Message {
   id: string;
@@ -674,7 +675,7 @@ export default function ChatArea({
           flexDirection: 'column',
         }}
       >
-        {/* <Box
+        <Box
           sx={{
             display: 'flex',
             justifyContent: 'flex-end',
@@ -685,7 +686,7 @@ export default function ChatArea({
             zIndex: 5,
           }}
         >
-          <FormControlLabel
+          {/* <FormControlLabel
             control={
               <Switch
                 checked={streamingEnabled}
@@ -696,14 +697,15 @@ export default function ChatArea({
             }
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <BoltIcon fontSize="small" color={streamingEnabled ? "primary" : "action"} />
+                {/* <BoltIcon fontSize="small" color={streamingEnabled ? "primary" : "action"} /> 
                 <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
                   Streaming Mode
                 </Typography>
               </Box>
             }
           />
-        </Box> */}
+           */}
+        </Box>
 
         <Box
           sx={{
