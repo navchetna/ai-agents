@@ -32,4 +32,4 @@ USER user
 RUN pip install --no-cache-dir --upgrade pip setuptools && \
   pip install --no-cache-dir -r $HOME/comps/requirements.txt
 
-ENTRYPOINT ["python", "comps/app.py"]
+ENTRYPOINT ["python", "comps/main.py"]
