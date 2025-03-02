@@ -27,3 +27,4 @@ motor
 redis
 pymongo
 groq
+nltk

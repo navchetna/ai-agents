@@ -13,6 +13,7 @@ import {
   Chip,
   Alert,
   Snackbar,
+  Avatar
 } from '@mui/material';
 import axios from 'axios';
 import SendIcon from '@mui/icons-material/Send';
@@ -310,14 +311,14 @@ export default function ChatArea({
           },
           responseType: 'stream'
         });
-  
+
         const reader = response.data.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
-  
+
         while (true) {
           const { done, value } = await reader.read();
-  
+
           if (done) {
             console.log('Stream complete');
             break;
@@ -633,41 +634,14 @@ export default function ChatArea({
         height: '100%',
         width: '100%',
         position: 'relative',
-        backgroundColor: '#0071C5',
+        backgroundColor: '#f5f5f5',
       }}
     >
       <Box
         sx={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: '#ffffff',
-          zIndex: 0,
-        }}
-      />
-
-      <Snackbar
-        open={showErrorSnackbar}
-        autoHideDuration={6000}
-        onClose={() => setShowErrorSnackbar(false)}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setShowErrorSnackbar(false)}
-          severity="error"
-          sx={{ width: '100%' }}
-        >
-          {errorMessage}
-        </Alert>
-      </Snackbar>
-
-      <Box
-        sx={{
           position: 'relative',
           zIndex: 1,
-          maxWidth: '1000px',
+          maxWidth: '1200px',
           width: '100%',
           mx: 'auto',
           height: '100%',
@@ -677,38 +651,6 @@ export default function ChatArea({
       >
         <Box
           sx={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            alignItems: 'center',
-            p: 1,
-            backgroundColor: 'rgba(255,255,255,0.8)',
-            borderBottom: '1px solid rgba(0,0,0,0.05)',
-            zIndex: 5,
-          }}
-        >
-          {/* <FormControlLabel
-            control={
-              <Switch
-                checked={streamingEnabled}
-                onChange={toggleStreaming}
-                color="primary"
-                size="small"
-              />
-            }
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                {/* <BoltIcon fontSize="small" color={streamingEnabled ? "primary" : "action"} /> 
-                <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                  Streaming Mode
-                </Typography>
-              </Box>
-            }
-          />
-           */}
-        </Box>
-
-        <Box
-          sx={{
             flexGrow: 1,
             display: 'flex',
             flexDirection: 'column',
@@ -716,333 +658,241 @@ export default function ChatArea({
             px: { xs: 2, sm: 4 },
             pt: 4,
             pb: 2,
-            gap: 2,
-            '&::-webkit-scrollbar': {
-              width: '8px',
-            },
-            '&::-webkit-scrollbar-track': {
-              background: 'transparent',
-            },
-            '&::-webkit-scrollbar-thumb': {
-              background: '#bbb',
-              borderRadius: '4px',
-              '&:hover': {
-                background: '#999',
-              },
-            },
-            paddingBottom: '100px'
+            gap: 3,
           }}
         >
-          {errorMessage && !showWelcome && displayMessages.length === 0 && (
-            <Fade in>
-              <Box sx={{ my: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <ErrorOutlineIcon sx={{ fontSize: 48, color: '#d32f2f', mb: 2 }} />
-                <Typography variant="h6" align="center" sx={{ mb: 2 }}>
-                  Something went wrong
-                </Typography>
-                <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 3 }}>
-                  We couldn't load the conversation data. You can try again or start a new chat.
-                </Typography>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={() => onSelectConversation('')}
-                  sx={{ mt: 2 }}
+          {displayMessages.map((message) => (
+  <Fade in key={message.id}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'row',
+        gap: 2,
+        opacity: message.isPending ? 0.7 : 1,
+      }}
+    >
+      {message.role === 'user' ? (
+        <AccountCircleIcon
+          sx={{
+            fontSize: 32,
+            color: '#0071C5',
+            alignSelf: 'flex-start',
+            mt: 2
+          }}
+        />
+      ) : (
+        <Box
+          sx={{
+            width: 32,
+            height: 32,
+            borderRadius: '50%',
+            backgroundColor: 'white',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            alignSelf: 'flex-start',
+            mt: 2,
+          }}
+        >
+          <AutoAwesomeIcon
+            sx={{
+              fontSize: 24,
+              color: '#0071C5',
+            }}
+          />
+        </Box>
+      )}
+
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-start',
+          width: '100%',
+          alignSelf: 'flex-start',
+        }}
+      >
+        <Box
+          sx={{
+            backgroundColor: message.role === 'user' ? '#0071C5' : '#f8f9fa',
+            borderRadius: 2,
+            p: 2,
+            maxWidth: '100%',
+            width: 'auto',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+            position: 'relative',
+          }}
+        >
+          <Typography
+            variant="body1"
+            sx={{
+              color: message.role === 'user' ? '#ffffff' : '#2c2c2c',
+              lineHeight: 1.5,
+              whiteSpace: 'pre-wrap',
+            }}
+          >
+            {message.isStreaming && message.id === streamingMessageId
+              ? streamedContent
+              : message.content}
+
+            {message.isStreaming && (
+              <span style={{ display: 'inline-block', width: '0.7em', height: '1em', verticalAlign: 'text-bottom' }}>
+                <Box
+                  component="span"
+                  sx={{
+                    display: 'inline-block',
+                    width: '3px',
+                    height: '1em',
+                    backgroundColor: '#0071C5',
+                    animation: 'blink 1s step-end infinite',
+                    '@keyframes blink': {
+                      '0%, 100%': { opacity: 1 },
+                      '50%': { opacity: 0 }
+                    },
+                  }}
+                />
+              </span>
+            )}
+          </Typography>
+
+          {message.role === 'assistant' && !message.isStreaming && (
+            <Box sx={{ display: 'flex', gap: 1, mt: 2, alignItems: 'center' }}>
+              <Tooltip title="Copy response">
+                <IconButton
+                  onClick={() => handleCopyContent(message.content, message.id)}
+                  size="small"
+                  sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}
                 >
-                  Start New Chat
-                </Button>
+                  <ContentCopyIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                <Tooltip title="Helpful">
+                  <IconButton
+                    size="small"
+                    onClick={() => handleQualityChange(message.id, 'good')}
+                    sx={{
+                      opacity: message.quality === 'good' ? 1 : 0.6,
+                      '&:hover': { opacity: 1 },
+                      color: message.quality === 'good' ? '#2e7d32' : 'inherit',
+                    }}
+                  >
+                    <ThumbUpIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Not helpful">
+                  <IconButton
+                    size="small"
+                    onClick={() => handleQualityChange(message.id, 'bad')}
+                    sx={{
+                      opacity: message.quality === 'bad' ? 1 : 0.6,
+                      '&:hover': { opacity: 1 },
+                      color: message.quality === 'bad' ? '#d32f2f' : 'inherit',
+                    }}
+                  >
+                    <ThumbDownIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               </Box>
-            </Fade>
+              {message.sources && message.sources.length > 0 && (
+                <Tooltip title="View sources">
+                  <IconButton
+                    size="small"
+                    onClick={() => toggleReferences(message.id)}
+                    sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}
+                  >
+                    <DescriptionIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Box>
           )}
 
-          {showWelcome && !currentConversationId && displayMessages.length === 0 ? (
+          {copyPopup.open && copyPopup.messageId === message.id && (
             <Fade in>
               <Box
                 sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  minHeight: '60vh',
-                  gap: 3,
-                  textAlign: 'center',
-                  p: 2
+                  position: 'absolute',
+                  bottom: '100%',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                  color: 'white',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  fontSize: '0.75rem',
+                  marginBottom: '4px',
                 }}
               >
-                <AutoAwesomeIcon sx={{ fontSize: 48, color: '#0071C5' }} />
-                <Typography variant="h5" sx={{ fontWeight: 600, color: '#2c2c2c' }}>
-                  Select a Topic to Begin
-                </Typography>
-                <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 460, mb: 4 }}>
-                  Choose your area of interest:
-                </Typography>
-
-                <Box sx={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 2,
-                  justifyContent: 'center',
-                  maxWidth: 600,
-                  mx: 'auto'
-                }}>
-                  {topics.map((topic) => (
-                    <Chip
-                      key={topic.name}
-                      icon={topic.icon}
-                      label={topic.name}
-                      onClick={() => handleTopicSelect(topic.name)}
-                      sx={{
-                        bgcolor: `${topic.color}15`,
-                        color: topic.color,
-                        border: `1px solid ${topic.color}30`,
-                        p: 2,
-                        fontSize: '1rem',
-                        '& .MuiChip-icon': {
-                          color: topic.color
-                        },
-                        '&:hover': {
-                          bgcolor: `${topic.color}25`,
-                          transform: 'scale(1.05)',
-                        },
-                        transition: 'all 0.2s ease',
-                        cursor: 'pointer'
-                      }}
-                    />
-                  ))}
-                </Box>
+                Copied!
               </Box>
             </Fade>
-          ) : (
-            <>
-              {displayMessages.map((message) => (
-                <Fade in key={message.id}>
-                  <Box
+          )}
+        </Box>
+
+        {message.role === 'assistant' && message.sources && (
+          <Collapse in={showReferences[message.id]} sx={{ mt: 1, maxWidth: '100%' }}>
+            <Box
+              sx={{
+                backgroundColor: '#f8f9fa',
+                borderRadius: 2,
+                p: 2,
+                border: '1px solid #e0e0e0',
+              }}
+            >
+              <Typography variant="subtitle2" sx={{ mb: 1, color: '#2c2c2c' }}>
+                Sources
+              </Typography>
+              {message.sources?.map((source, index) => (
+                <Box key={index} sx={{ mb: 2, '&:last-child': { mb: 0 } }}>
+                  <Typography
+                    variant="subtitle2"
                     sx={{
-                      display: 'flex',
-                      flexDirection: 'row',
-                      gap: 2,
-                      opacity: message.isPending ? 0.7 : 1,
+                      color: '#1976d2',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      mb: 0.5
                     }}
                   >
-                    {message.role === 'user' ? (
-                      <AccountCircleIcon
-                        sx={{
-                          fontSize: 32,
-                          color: '#0071C5',
-                          alignSelf: 'flex-start',
-                          mt: 2
-                        }}
-                      />
-                    ) : (
-                      <AutoAwesomeIcon
-                        sx={{
-                          fontSize: 32,
-                          color: '#0071C5',
-                          alignSelf: 'flex-start',
-                          mt: 2
-                        }}
-                      />
-                    )}
-
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'flex-start',
-                        width: '95%',
-                        alignSelf: 'flex-start',
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          backgroundColor: message.role === 'user' ? '#0071C5' : '#f8f9fa',
-                          borderRadius: 2,
-                          p: 2,
-                          maxWidth: '100%',
-                          boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-                          position: 'relative',
-                        }}
-                      >
-                        <Typography
-                          variant="body1"
-                          sx={{
-                            color: message.role === 'user' ? '#ffffff' : '#2c2c2c',
-                            lineHeight: 1.5,
-                            whiteSpace: 'pre-wrap',
-                          }}
-                        >
-                          {message.isStreaming && message.id === streamingMessageId
-                            ? streamedContent
-                            : message.content}
-
-                          {message.isStreaming && (
-                            <span style={{ display: 'inline-block', width: '0.7em', height: '1em', verticalAlign: 'text-bottom' }}>
-                              <Box
-                                component="span"
-                                sx={{
-                                  display: 'inline-block',
-                                  width: '3px',
-                                  height: '1em',
-                                  backgroundColor: '#0071C5',
-                                  animation: 'blink 1s step-end infinite',
-                                  '@keyframes blink': {
-                                    '0%, 100%': { opacity: 1 },
-                                    '50%': { opacity: 0 }
-                                  },
-                                }}
-                              />
-                            </span>
-                          )}
-                        </Typography>
-
-                        {message.role === 'assistant' && !message.isStreaming && (
-                          <Box sx={{ display: 'flex', gap: 1, mt: 2, alignItems: 'center' }}>
-                            <Tooltip title="Copy response">
-                              <IconButton
-                                onClick={() => handleCopyContent(message.content, message.id)}
-                                size="small"
-                                sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}
-                              >
-                                <ContentCopyIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Box sx={{ display: 'flex', gap: 0.5 }}>
-                              <Tooltip title="Helpful">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleQualityChange(message.id, 'good')}
-                                  sx={{
-                                    opacity: message.quality === 'good' ? 1 : 0.6,
-                                    '&:hover': { opacity: 1 },
-                                    color: message.quality === 'good' ? '#2e7d32' : 'inherit',
-                                  }}
-                                >
-                                  <ThumbUpIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title="Not helpful">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleQualityChange(message.id, 'bad')}
-                                  sx={{
-                                    opacity: message.quality === 'bad' ? 1 : 0.6,
-                                    '&:hover': { opacity: 1 },
-                                    color: message.quality === 'bad' ? '#d32f2f' : 'inherit',
-                                  }}
-                                >
-                                  <ThumbDownIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            </Box>
-                            {message.sources && message.sources.length > 0 && (
-                              <Tooltip title="View sources">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => toggleReferences(message.id)}
-                                  sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}
-                                >
-                                  <DescriptionIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                          </Box>
-                        )}
-
-                        {copyPopup.open && copyPopup.messageId === message.id && (
-                          <Fade in>
-                            <Box
-                              sx={{
-                                position: 'absolute',
-                                bottom: '100%',
-                                left: '50%',
-                                transform: 'translateX(-50%)',
-                                backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                                color: 'white',
-                                padding: '4px 8px',
-                                borderRadius: '4px',
-                                fontSize: '0.75rem',
-                                marginBottom: '4px',
-                              }}
-                            >
-                              Copied!
-                            </Box>
-                          </Fade>
-                        )}
-                      </Box>
-
-                      {message.role === 'assistant' && message.sources && (
-                        <Collapse in={showReferences[message.id]} sx={{ mt: 1, maxWidth: '100%' }}>
-                          <Box
-                            sx={{
-                              backgroundColor: '#f8f9fa',
-                              borderRadius: 2,
-                              p: 2,
-                              border: '1px solid #e0e0e0',
-                            }}
-                          >
-                            <Typography variant="subtitle2" sx={{ mb: 1, color: '#2c2c2c' }}>
-                              Sources
-                            </Typography>
-                            {message.sources?.map((source, index) => (
-                              <Box key={index} sx={{ mb: 2, '&:last-child': { mb: 0 } }}>
-                                <Typography
-                                  variant="subtitle2"
-                                  sx={{
-                                    color: '#1976d2',
-                                    fontSize: '0.8rem',
-                                    fontWeight: 600,
-                                    mb: 0.5
-                                  }}
-                                >
-                                  {source.source} (Score: {source.relevance_score.toFixed(2)})
-                                </Typography>
-                                <Typography
-                                  variant="body2"
-                                  sx={{
-                                    color: '#666',
-                                    fontSize: '0.8rem',
-                                    lineHeight: 1.4
-                                  }}
-                                >
-                                  {source.content}
-                                </Typography>
-                              </Box>
-                            ))}
-                          </Box>
-                        </Collapse>
-                      )}
-                    </Box>
-                  </Box>
-                </Fade>
-              ))}
-              {isLoading && !streamingEnabled && !streamingMessageId && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                  <CircularProgress size={24} sx={{ color: '#0071C5' }} />
+                    {source.source} (Score: {source.relevance_score.toFixed(7)})
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: '#666',
+                      fontSize: '0.8rem',
+                      lineHeight: 1.4
+                    }}
+                  >
+                    {source.content}
+                  </Typography>
                 </Box>
-              )}
-              <div ref={messagesEndRef} />
-            </>
+              ))}
+            </Box>
+          </Collapse>
+        )}
+      </Box>
+    </Box>
+  </Fade>
+))}
+          {isLoading && !streamingEnabled && !streamingMessageId && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+              <CircularProgress size={24} />
+            </Box>
           )}
+          <div ref={messagesEndRef} />
         </Box>
 
         <Box
           component="form"
           onSubmit={handleSubmit}
           sx={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
             p: 3,
-            backgroundColor: '#ffffff',
+            backgroundColor: '#fff',
             borderTop: '1px solid rgba(0, 0, 0, 0.1)',
             display: 'flex',
             gap: 2,
-            alignItems: 'flex-end',
-            width: '100%',
-            maxWidth: '100%',
-            mx: 'auto',
-            boxSizing: 'border-box',
+            alignItems: 'center',
           }}
         >
           <TextField
@@ -1050,24 +900,15 @@ export default function ChatArea({
             onChange={(e) => setInput(e.target.value)}
             placeholder={isLoading ? "Please wait..." : "Type your message..."}
             variant="outlined"
-            multiline
-            maxRows={4}
             fullWidth
             disabled={isLoading}
             sx={{
-              backgroundColor: '#ffffff',
-              maxWidth: '100%',
               '& .MuiOutlinedInput-root': {
-                borderRadius: 2,
-                fontSize: '0.95rem',
-                '& fieldset': {
-                  borderColor: 'rgba(0, 0, 0, 0.1)',
-                },
-                '&:hover fieldset': {
-                  borderColor: 'rgba(0, 0, 0, 0.2)',
-                },
-                '&.Mui-focused fieldset': {
-                  borderColor: '#0071C5',
+                borderRadius: 3,
+                '&.Mui-focused': {
+                  '& fieldset': {
+                    borderColor: '#1976d2',
+                  },
                 },
               },
             }}
@@ -1077,17 +918,13 @@ export default function ChatArea({
               type="submit"
               disabled={isLoading || !input.trim()}
               sx={{
-                backgroundColor: '#0071C5',
+                backgroundColor: '#1976d2',
                 color: 'white',
-                width: 44,
-                height: 44,
-                flexShrink: 0,
                 '&:hover': {
-                  backgroundColor: '#00C7FD',
+                  backgroundColor: '#1565c0',
                 },
                 '&.Mui-disabled': {
                   backgroundColor: 'rgba(0, 0, 0, 0.12)',
-                  color: 'black',
                 },
               }}
             >

@@ -3,13 +3,13 @@
 import React, { useState } from 'react';
 import { useChat } from 'ai/react';
 import { Box } from '@mui/material';
+import { ApiType } from '@/types/api';
 import Navbar from '@/components/Navbar';
 import LeftSidebar from '@/components/LeftSidebar';
 import RightSidebar from '@/components/RightSidebar';
 import ChatArea from '@/components/ChatArea';
 import SearchLanding from '@/components/SearchLanding';
 import SearchResults from '@/components/SearchResults';
-import { ApiType } from '@/types/api';
 
 const mockUser = {
   name: 'John Doe',
