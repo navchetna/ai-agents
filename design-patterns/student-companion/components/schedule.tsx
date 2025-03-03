@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@/components/badge";
 
 const scheduleData = [
   { time: "09:00 AM", course: "English", room: "Room 101" },
@@ -7,8 +7,12 @@ const scheduleData = [
   { time: "12:00 PM", course: "Lunch Break", room: "Cafeteria" },
   { time: "01:00 PM", course: "Environmental Studies", room: "Room 104" },
   { time: "02:00 PM", course: "Arts Education", room: "Art Room" },
-  { time: "03:00 PM", course: "Health and Physical Education", room: "Playground" },
-]
+  {
+    time: "03:00 PM",
+    course: "Health and Physical Education",
+    room: "Playground",
+  },
+];
 
 export function Schedule() {
   return (
@@ -23,6 +27,5 @@ export function Schedule() {
         </div>
       ))}
     </div>
-  )
+  );
 }
-

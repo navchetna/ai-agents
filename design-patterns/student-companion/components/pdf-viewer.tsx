@@ -13,15 +13,11 @@ import type {
   HighlightArea,
   RenderHighlightTargetProps,
 } from "@react-pdf-viewer/highlight";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Button } from "@/components/button";
+import { Input } from "@/components/input";
+import { Textarea } from "@/components/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/popover";
 import {
   Scissors,
   Highlighter,
@@ -31,7 +27,7 @@ import {
   MessageSquare,
   Send,
 } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea } from "@/components/scroll-area";
 import { useTheme } from "@/contexts/ThemeContext";
 
 import "@react-pdf-viewer/core/lib/styles/index.css";

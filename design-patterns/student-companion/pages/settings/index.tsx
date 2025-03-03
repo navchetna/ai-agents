@@ -1,25 +1,25 @@
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/components/button";
+import { Input } from "@/components/input";
+import { Label } from "@/components/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from "@/components/select";
+import { Slider } from "@/components/slider";
+import { Switch } from "@/components/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+} from "@/components/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar";
 import { Clock } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useTimerSettings } from "@/contexts/TimerSettingsContext";

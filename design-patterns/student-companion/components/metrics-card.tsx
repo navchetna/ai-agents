@@ -1,29 +1,35 @@
-import { Card } from "@/components/ui/card"
-import type React from "react"
-import Link from "next/link"
+import { Card } from "@/components/card";
+import type React from "react";
+import Link from "next/link";
 
 interface MetricsCardProps {
-  title: string
-  value: string
+  title: string;
+  value: string;
   change?: {
-    value: string
-    isPositive: boolean
-  }
-  icon: React.ReactNode
-  href?: string
+    value: string;
+    isPositive: boolean;
+  };
+  icon: React.ReactNode;
+  href?: string;
 }
 
-export function MetricsCard({ title, value, change, icon, href }: MetricsCardProps) {
+export function MetricsCard({
+  title,
+  value,
+  change,
+  icon,
+  href,
+}: MetricsCardProps) {
   const CardWrapper = ({ children }: { children: React.ReactNode }) => {
     if (href) {
       return (
         <Link href={href} className="block h-full">
           {children}
         </Link>
-      )
+      );
     }
-    return <>{children}</>
-  }
+    return <>{children}</>;
+  };
 
   return (
     <CardWrapper>
@@ -37,7 +43,11 @@ export function MetricsCard({ title, value, change, icon, href }: MetricsCardPro
             <p className="text-2xl font-bold">{value}</p>
             {change && (
               <div className="flex items-center gap-1 mt-1">
-                <span className={`text-sm ${change.isPositive ? "text-green-500" : "text-red-500"}`}>
+                <span
+                  className={`text-sm ${
+                    change.isPositive ? "text-green-500" : "text-red-500"
+                  }`}
+                >
                   {change.value}
                 </span>
               </div>
@@ -46,6 +56,5 @@ export function MetricsCard({ title, value, change, icon, href }: MetricsCardPro
         </div>
       </Card>
     </CardWrapper>
-  )
+  );
 }
-

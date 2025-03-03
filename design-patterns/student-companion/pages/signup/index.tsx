@@ -2,16 +2,16 @@ import type React from "react";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/button";
+import { Input } from "@/components/input";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/card";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/components/select";
 import Link from "next/link";
 import { DoodleBackground } from "@/components/doodle-background";
 import Image from "next/image";

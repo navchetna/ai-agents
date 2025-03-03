@@ -1,6 +1,13 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { MoreHorizontal, Check, X, Clock } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/table";
+import { MoreHorizontal, Check, X, Clock } from "lucide-react";
+import { Button } from "@/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,23 +15,29 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/dropdown-menu";
 
 export type Assignment = {
-  id: string
-  course: string
-  title: string
-  dueDate: string
-  status: "Not Started" | "Pending" | "In Progress" | "Completed"
-  priority: "High" | "Medium" | "Low"
-}
+  id: string;
+  course: string;
+  title: string;
+  dueDate: string;
+  status: "Not Started" | "Pending" | "In Progress" | "Completed";
+  priority: "High" | "Medium" | "Low";
+};
 
 interface AssignmentsTableProps {
-  assignments: Assignment[]
-  onStatusChange: (id: string, newStatus: "Not Started" | "Pending" | "In Progress" | "Completed") => void
+  assignments: Assignment[];
+  onStatusChange: (
+    id: string,
+    newStatus: "Not Started" | "Pending" | "In Progress" | "Completed"
+  ) => void;
 }
 
-export function AssignmentsTable({ assignments, onStatusChange }: AssignmentsTableProps) {
+export function AssignmentsTable({
+  assignments,
+  onStatusChange,
+}: AssignmentsTableProps) {
   return (
     <Table>
       <TableHeader>
@@ -49,10 +62,10 @@ export function AssignmentsTable({ assignments, onStatusChange }: AssignmentsTab
                   assignment.status === "Completed"
                     ? "status-completed"
                     : assignment.status === "In Progress"
-                      ? "status-in-progress"
-                      : assignment.status === "Pending"
-                        ? "status-pending"
-                        : "status-not-started"
+                    ? "status-in-progress"
+                    : assignment.status === "Pending"
+                    ? "status-pending"
+                    : "status-not-started"
                 }`}
               >
                 {assignment.status}
@@ -64,8 +77,8 @@ export function AssignmentsTable({ assignments, onStatusChange }: AssignmentsTab
                   assignment.priority === "High"
                     ? "bg-red-500 text-red-950 dark:bg-red-600 dark:text-red-100"
                     : assignment.priority === "Medium"
-                      ? "bg-yellow-500 text-yellow-950 dark:bg-yellow-600 dark:text-yellow-100"
-                      : "bg-green-500 text-green-950 dark:bg-green-600 dark:text-green-100"
+                    ? "bg-yellow-500 text-yellow-950 dark:bg-yellow-600 dark:text-yellow-100"
+                    : "bg-green-500 text-green-950 dark:bg-green-600 dark:text-green-100"
                 }`}
               >
                 {assignment.priority}
@@ -81,16 +94,25 @@ export function AssignmentsTable({ assignments, onStatusChange }: AssignmentsTab
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => onStatusChange(assignment.id, "Not Started")}>
+                  <DropdownMenuItem
+                    onClick={() => onStatusChange(assignment.id, "Not Started")}
+                  >
                     <X className="mr-2 h-4 w-4" /> Mark as Not Started
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onStatusChange(assignment.id, "Pending")}>
+                  <DropdownMenuItem
+                    onClick={() => onStatusChange(assignment.id, "Pending")}
+                  >
                     <Clock className="mr-2 h-4 w-4" /> Mark as Pending
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onStatusChange(assignment.id, "In Progress")}>
-                    <MoreHorizontal className="mr-2 h-4 w-4" /> Mark as In Progress
+                  <DropdownMenuItem
+                    onClick={() => onStatusChange(assignment.id, "In Progress")}
+                  >
+                    <MoreHorizontal className="mr-2 h-4 w-4" /> Mark as In
+                    Progress
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onStatusChange(assignment.id, "Completed")}>
+                  <DropdownMenuItem
+                    onClick={() => onStatusChange(assignment.id, "Completed")}
+                  >
                     <Check className="mr-2 h-4 w-4" /> Mark as Completed
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -102,6 +124,5 @@ export function AssignmentsTable({ assignments, onStatusChange }: AssignmentsTab
         ))}
       </TableBody>
     </Table>
-  )
+  );
 }
-

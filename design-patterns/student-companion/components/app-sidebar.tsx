@@ -17,8 +17,8 @@ import {
 } from "@mui/icons-material";
 
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/button";
+import { ScrollArea } from "@/components/scroll-area";
 import { useTheme } from "@/contexts/ThemeContext";
 
 const menuItems = [

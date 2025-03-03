@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Box, Typography, Card, CardContent } from "@mui/material";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
+import { Button } from "@/components/button";
 import Image from "next/image";
 import PdfViewerModal from "@/components/pdf-viewer-modal";
 import { useTextbook } from "@/contexts/TextbookContext";

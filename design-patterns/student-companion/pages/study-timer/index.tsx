@@ -1,9 +1,9 @@
 import { useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
+import { Progress } from "@/components/progress";
 import { PlayCircle, PauseCircle, RotateCcw, Eye } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/alert";
 import { useTimer } from "@/contexts/TimerContext";
 
 export default function StudyTimerPage() {

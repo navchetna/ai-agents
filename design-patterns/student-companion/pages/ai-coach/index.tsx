@@ -1,12 +1,12 @@
 import type React from "react";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/components/button";
+import { Textarea } from "@/components/textarea";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
+import { Input } from "@/components/input";
+import { Label } from "@/components/label";
 import CircularProgress from "@mui/material/CircularProgress";
 import axios from "axios";
 import { BACKEND_URL, DB_NAME } from "@/lib/utils";
@@ -18,12 +18,11 @@ export default function AICoach() {
   const [question, setQuestion] = useState<string | null>("");
   const [loading, setLoading] = useState<boolean | null>(false);
 
-
   const handleQuestionSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log(BACKEND_URL)
+    console.log(BACKEND_URL);
     let url = BACKEND_URL;
-    let createConversationURL = url + "/conversation/new";
+    let createConversationURL = url + "/api/conversations/new";
     setLoading(true);
     axios
       .post(createConversationURL, {
@@ -35,28 +34,32 @@ export default function AICoach() {
         };
         let conversation = resp.data as conversationI;
         let id = conversation.conversation_id;
-        let conversationURL = url + `/conversation/${id}`;
-        axios.post(conversationURL, {
-          "db_name": DB_NAME,
-          "question": question,
-        }).then((resp) => {
-          type conversationResponseI = {
-            conversation_id: string;
-            answer: string;
-            sources: string[];
-          }
-          setLoading(false);
-          let conversationResponse = resp.data as conversationResponseI;
-          setMessage(conversationResponse.answer);
-        }).catch((err) => {
-          setLoading(false);
-          console.error(err);
-        })
-      }).catch((err) => {
+        let conversationURL = url + `/api/conversations/${id}`;
+        axios
+          .post(conversationURL, {
+            db_name: DB_NAME,
+            question: question,
+          })
+          .then((resp) => {
+            type conversationResponseI = {
+              conversation_id: string;
+              answer: string;
+              sources: string[];
+            };
+            setLoading(false);
+            let conversationResponse = resp.data as conversationResponseI;
+            setMessage(conversationResponse.answer);
+          })
+          .catch((err) => {
+            setLoading(false);
+            console.error(err);
+          });
+      })
+      .catch((err) => {
         setLoading(false);
         console.log(err);
       });
-  }
+  };
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">AI Coach</h1>

@@ -1,13 +1,13 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
+import { Badge } from "@/components/badge";
 
 type SportEvent = {
-  id: string
-  title: string
-  type: "practice" | "match"
-  time: string
-  location: string
-}
+  id: string;
+  title: string;
+  type: "practice" | "match";
+  time: string;
+  location: string;
+};
 
 const sportsEvents: SportEvent[] = [
   {
@@ -31,7 +31,7 @@ const sportsEvents: SportEvent[] = [
     time: "5:00 PM - 6:00 PM",
     location: "Pool Area",
   },
-]
+];
 
 export function SportsEvents() {
   return (
@@ -45,11 +45,15 @@ export function SportsEvents() {
             <div key={event.id} className="flex items-center justify-between">
               <div>
                 <p className="font-medium">{event.title}</p>
-                <p className="text-sm text-muted-foreground">{event.location}</p>
+                <p className="text-sm text-muted-foreground">
+                  {event.location}
+                </p>
               </div>
               <div className="text-right">
                 <p className="text-sm">{event.time}</p>
-                <Badge variant={event.type === "practice" ? "secondary" : "default"}>
+                <Badge
+                  variant={event.type === "practice" ? "secondary" : "default"}
+                >
                   {event.type === "practice" ? "Practice" : "Match"}
                 </Badge>
               </div>
@@ -58,6 +62,5 @@ export function SportsEvents() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
-

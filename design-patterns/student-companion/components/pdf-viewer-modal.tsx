@@ -1,8 +1,8 @@
 import type React from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/dialog";
 import PdfViewer from "@/components/pdf-viewer";
 import { X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/button";
 import { useTextbook } from "@/contexts/TextbookContext";
 
 interface PdfViewerModalProps {
