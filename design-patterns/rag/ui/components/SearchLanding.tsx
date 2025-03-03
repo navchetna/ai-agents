@@ -49,7 +49,7 @@ export default function SearchLanding({ onSearch }: SearchLandingProps) {
     if (query.trim()) {
       setIsLoading(true);
       try {
-        const response = await axios.post(`${SEARCH_URL}/search_papers`, {
+        const response = await axios.post(`${SEARCH_URL}/api/search_papers`, {
           query,
           year: selectedYear,
           api: selectedApi,

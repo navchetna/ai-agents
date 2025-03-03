@@ -155,7 +155,7 @@ class DOAJAPI:
         papers = DOAJAPI.fetch_papers(query)
         return [paper['title'] for paper in papers]
 
-@backend.post("/search_papers")
+@backend.post("/api/search_papers")
 async def search_papers(search_query: SearchQuery):
     query = search_query.query
     year = search_query.year
@@ -180,7 +180,7 @@ async def search_papers(search_query: SearchQuery):
         logging.error(f"Error processing search_papers request: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-@backend.get("/suggest")
+@backend.get("/api/suggest")
 async def suggest(q: str = Query(..., min_length=3, description="The user's input query to get suggestions for"), api: str = "semantic_scholar"):
     try:
         if api == "semantic_scholar":
@@ -200,7 +200,7 @@ async def suggest(q: str = Query(..., min_length=3, description="The user's inpu
         logging.error(f"Error processing suggest request: {e}")
         raise HTTPException(status_code=500, detail="Failed to get suggestions")
 
-@backend.post("/download_references")
+@backend.post("/api/download_references")
 async def download_references(paper: PaperID, depth: int = 1):
     try:
         if paper.api == "semantic_scholar":
@@ -225,7 +225,7 @@ async def download_references(paper: PaperID, depth: int = 1):
         logging.error(f"Error processing download_references request: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-@backend.get("/")
+@backend.get("/api/")
 async def read_root():
     return {"message": "Welcome to the Research Paper Assistant API. Use /docs for interactive API documentation."}
 

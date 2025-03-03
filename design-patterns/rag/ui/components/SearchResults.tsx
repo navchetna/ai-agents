@@ -70,7 +70,7 @@ export default function SearchResults({ results, api, query, onSearch }: SearchR
     if (searchQuery.trim()) {
       setLoading(true)
       try {
-        const response = await axios.post(`${SEARCH_URL}/search_papers`, {
+        const response = await axios.post(`${SEARCH_URL}/api/search_papers`, {
           query: searchQuery,
           api: api,
         }, {
@@ -91,7 +91,7 @@ export default function SearchResults({ results, api, query, onSearch }: SearchR
 
   const handleDownloadReferences = async (paperId: string) => {
     try {
-      const response = await axios.post(`${SEARCH_URL}/download_references`,
+      const response = await axios.post(`${SEARCH_URL}/api/download_references`,
         {
           paper_id: paperId,
           api: api

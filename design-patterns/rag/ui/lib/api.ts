@@ -4,7 +4,7 @@ import { SEARCH_URL } from './constants';
 
 export async function searchPapers(query: string, year?: number, api: string = 'semantic_scholar'): Promise<SearchResponse> {
   try {
-    const response = await axios.post<SearchResponse>(`${SEARCH_URL}/search_papers`, 
+    const response = await axios.post<SearchResponse>(`${SEARCH_URL}/api/search_papers`, 
       { query, year, api },
       {
         headers: {
@@ -25,7 +25,7 @@ export async function searchPapers(query: string, year?: number, api: string = '
 
 export async function getSuggestions(query: string, api: ApiType = 'semantic_scholar'): Promise<SuggestResponse> {
   try {
-    const response = await axios.get<SuggestResponse>(`${SEARCH_URL}/suggest`, {
+    const response = await axios.get<SuggestResponse>(`${SEARCH_URL}/api/suggest`, {
       params: { q: query, api }
     });
 
@@ -40,7 +40,7 @@ export async function getSuggestions(query: string, api: ApiType = 'semantic_sch
 
 export async function downloadReferences(paperId: string, api: string = 'semantic_scholar'): Promise<Blob> {
   try {
-    const response = await axios.post(`${SEARCH_URL}/download_references`, 
+    const response = await axios.post(`${SEARCH_URL}/api/download_references`, 
       { paper_id: paperId, api },
       {
         responseType: 'blob',
