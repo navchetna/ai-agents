@@ -1,7 +1,7 @@
 import re
 import os
 import json
-import pymongo
+import redis
 from datetime import datetime
 from typing import List, Dict, Optional
 from uuid import uuid4
@@ -24,6 +24,20 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from mongo_client import mongo_client
 
+from comps import (
+    CustomLogger,
+    EmbedDoc,
+    EmbedMultimodalDoc,
+    SearchedDoc,
+    SearchedMultimodalDoc,
+    ServiceType,
+    TextDoc,
+    opea_microservices,
+    register_microservice,
+    register_statistics,
+    statistics_dict,
+)
+
 
 load_dotenv()
 
@@ -45,6 +59,8 @@ RERANK_SERVER_PORT = int(os.getenv("RERANK_SERVER_PORT", 80))
 LLM_SERVER_HOST_IP = os.getenv("LLM_SERVER_HOST_IP", "0.0.0.0")
 LLM_SERVER_PORT = int(os.getenv("LLM_SERVER_PORT", 80))
 LLM_MODEL = os.getenv("LLM_MODEL", "Intel/neural-chat-7b-v3-3")
+REDIS_URL = os.getenv("REDIS_URL")
+
 
 def align_inputs(self, inputs, cur_node, runtime_graph, llm_parameters_dict, **kwargs):
     if self.services[cur_node].service_type == ServiceType.EMBEDDING:
@@ -70,45 +86,44 @@ def align_inputs(self, inputs, cur_node, runtime_graph, llm_parameters_dict, **k
         inputs = next_inputs
     return inputs
 
+def get_file_name_for_chunk(chunk_id):
+    r = redis.Redis.from_url(REDIS_URL)
+    client = r.ft('file-keys')
+    
+    results = client.search("*")
+    
+    for doc in results.docs:
+        key_ids = doc.key_ids.split("#")
+        if chunk_id in key_ids:
+            return doc.file_name
+    
+    return "Unknown"
+
 def align_outputs(self, data, cur_node, inputs, runtime_graph, llm_parameters_dict, **kwargs):
     next_data = {}
     if self.services[cur_node].service_type == ServiceType.EMBEDDING:
         assert isinstance(data, list)
         next_data = {"text": inputs["inputs"], "embedding": data[0]}
     elif self.services[cur_node].service_type == ServiceType.RETRIEVER:
-        if "retrieved_docs" in data:
-            enhanced_docs = []
-            for doc in data["retrieved_docs"]:
-                enhanced_doc = doc.copy()
-                if "source" not in enhanced_doc and "id" in enhanced_doc:
-                    enhanced_doc["source"] = enhanced_doc["id"]
-                if "content" not in enhanced_doc and "text" in enhanced_doc:
-                    enhanced_doc["content"] = enhanced_doc["text"]
-                enhanced_docs.append(enhanced_doc)
-                
-            next_data["source_docs"] = enhanced_docs
+        enhanced_docs = []
+        for doc, metadata in zip(data["retrieved_docs"], data["metadata"]):
+            enhanced_doc = {
+                "content": doc["text"],
+                "source": metadata["file_name"],
+                "id": metadata["id"]
+            }
+            enhanced_docs.append(enhanced_doc)
+        
+        next_data["source_docs"] = enhanced_docs
             
         docs = [doc["text"] for doc in data["retrieved_docs"]]
 
         with_rerank = runtime_graph.downstream(cur_node)[0].startswith("rerank")
         if with_rerank and docs:
-            # forward to rerank
-            # prepare inputs for rerank
             next_data["query"] = data["initial_query"]
             next_data["texts"] = [doc["text"] for doc in data["retrieved_docs"]]
             next_data["doc_metadata"] = data["retrieved_docs"]
         else:
-            # forward to llm
-            if not docs and with_rerank:
-                # delete the rerank from retriever -> rerank -> llm
-                for ds in reversed(runtime_graph.downstream(cur_node)):
-                    for nds in runtime_graph.downstream(ds):
-                        runtime_graph.add_edge(cur_node, nds)
-                    runtime_graph.delete_node_if_exists(ds)
-
-            # handle template
-            # if user provides template, then format the prompt with it
-            # otherwise, use the default template
             prompt = data["initial_query"]
             chat_template = llm_parameters_dict["chat_template"]
             if chat_template:
@@ -134,14 +149,13 @@ def align_outputs(self, data, cur_node, inputs, runtime_graph, llm_parameters_di
             next_data["selected_sources"] = enhanced_sources
 
     elif self.services[cur_node].service_type == ServiceType.RERANK:
-        # rerank the inputs with the scores
         reranker_parameters = kwargs.get("reranker_parameters", None)
         top_n = reranker_parameters.top_n if reranker_parameters else 1
         docs = inputs["texts"]
         reranked_docs = []
         selected_sources = []
         
-        doc_metadata = inputs.get("doc_metadata", [])
+        doc_metadata = inputs.get("source_docs", [])
         
         for best_response in data[:top_n]:
             idx = best_response["index"]
@@ -156,12 +170,13 @@ def align_outputs(self, data, cur_node, inputs, runtime_graph, llm_parameters_di
                 if "content" not in source_info and "text" in source_info:
                     source_info["content"] = source_info["text"]
                 
+                chunk_id = source_info.get("id")
+                if chunk_id:
+                    file_name = get_file_name_for_chunk(chunk_id)
+                    source_info["file_name"] = file_name
+                
                 selected_sources.append(source_info)
-                print(f"DEBUG: Added reranked source: {source_info.get('source', 'unknown')} with score {source_info.get('relevance_score', 0.0)}")
 
-        # handle template
-        # if user provides template, then format the prompt with it
-        # otherwise, use the default template
         prompt = inputs["query"]
         chat_template = llm_parameters_dict["chat_template"]
         if chat_template:
@@ -190,6 +205,9 @@ def align_outputs(self, data, cur_node, inputs, runtime_graph, llm_parameters_di
             next_data["selected_sources"] = inputs["selected_sources"]
 
     return next_data
+
+
+
 
 def align_generator(self, gen, **kwargs):
     # store words in a buffer and concat them
@@ -497,7 +515,6 @@ class ChatQnAService:
                         sources = node_data["selected_sources"]
                         print(f"DEBUG: Found {len(sources)} sources in node {node_name}")
                         break
-                
             choices = []
             usage = UsageInfo()
             choices.append(
@@ -589,7 +606,6 @@ class ConversationRAGService(ChatQnAService):
 
         serialized_turn = self.serialize_datetime(turn)
         
-        # Save to MongoDB
         conversations_collection.update_one(
             {"conversation_id": conversation_id},
             {
@@ -602,11 +618,10 @@ class ConversationRAGService(ChatQnAService):
         )
 
     def prepare_source_info_list(self, sources_data: List[Dict]) -> List[SourceInfo]:
-        """Convert raw source data to SourceInfo objects"""
         source_info_list = []
         for source in sources_data:
             source_info = SourceInfo(
-                source=source.get("source", source.get("id", "unknown")),
+                source=source.get("file_name", source.get("source", source.get("id", "unknown"))),
                 content=source.get("content", source.get("text", "")),
                 relevance_score=float(source.get("relevance_score", source.get("score", 0.0)))
             )
@@ -622,8 +637,6 @@ class ConversationRAGService(ChatQnAService):
 
             db = self.mongo_client[conversation_request.db_name]
             conversations_collection = db["conversations"]
-
-            
             if not conversation_request.conversation_id and "conversation_id" in request.path_params:
                 conversation_request.conversation_id = request.path_params["conversation_id"]
             
@@ -679,17 +692,10 @@ class ConversationRAGService(ChatQnAService):
                 processed_sources = []
                 for source in sources:
                     if isinstance(source, dict):
-                        if not source.get("source") and source.get("id"):
-                            source["source"] = source.get("id")
-                        if not source.get("content") and source.get("text"):
-                            source["content"] = source.get("text")
-                        if not source.get("relevance_score") and source.get("score"):
-                            source["relevance_score"] = float(source.get("score"))
-                            
                         processed_source = {
-                            "source": source.get("source", "unknown"),
+                            "source": source.get("file_name", source.get("source", "unknown")),
                             "content": source.get("content", source.get("text", "")),
-                            "relevance_score": float(source.get("relevance_score", 0.0))
+                            "relevance_score": float(source.get("relevance_score", source.get("score", 0.0)))
                         }
                         processed_sources.append(processed_source)
                 
@@ -716,7 +722,7 @@ class ConversationRAGService(ChatQnAService):
                 if sources:
                     for source in sources:
                         processed_source = {
-                            "source": source.get("source", "unknown"),
+                            "source": source.get("file_name", source.get("source", "unknown")),
                             "content": source.get("content", source.get("text", "")),
                             "relevance_score": float(source.get("relevance_score", 0.0))
                         }
@@ -725,6 +731,7 @@ class ConversationRAGService(ChatQnAService):
                 self.save_conversation_turn(
                     conversation_request.conversation_id,
                     conversation_request.question,
+                    conversations_collection,
                     answer,
                     processed_sources
                 )
