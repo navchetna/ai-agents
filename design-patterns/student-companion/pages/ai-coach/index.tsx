@@ -7,20 +7,19 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import { Input } from "@/components/input";
 import { Label } from "@/components/label";
-import CircularProgress from "@mui/material/CircularProgress";
+import { Loader2 } from "lucide-react";
 import axios from "axios";
 import { BACKEND_URL, DB_NAME } from "@/lib/utils";
 
 export default function AICoach() {
   const [subject, setSubject] = useState("");
-  const [conversation, setConversation] = useState<string | null>("");
-  const [message, setMessage] = useState<string | null>("");
-  const [question, setQuestion] = useState<string | null>("");
-  const [loading, setLoading] = useState<boolean | null>(false);
+  const [conversation, setConversation] = useState<string>("");
+  const [message, setMessage] = useState<string>("");
+  const [question, setQuestion] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
 
   const handleQuestionSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log(BACKEND_URL);
     let url = BACKEND_URL;
     let createConversationURL = url + "/api/conversations/new";
     setLoading(true);
@@ -111,7 +110,7 @@ export default function AICoach() {
                 <Button type="submit" disabled={loading}>
                   {loading ? (
                     <>
-                      <CircularProgress />
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Processing...
                     </>
                   ) : (

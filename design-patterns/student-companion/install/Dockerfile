@@ -12,7 +12,7 @@ RUN npm install
 # Bundle app source
 COPY ui/ .
 
-ENV NEXT_PUBLIC_SERVER_URL=$SERVER_URL
+ENV NEXT_PUBLIC_BACKEND_URL=$SERVER_URL
 # Build your Next.js app for production
 RUN npm run build
 

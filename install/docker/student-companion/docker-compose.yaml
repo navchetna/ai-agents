@@ -1,14 +1,96 @@
-# Copyright (C) 2024 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
-
 version: "3.8"
 
 services:
+  redis-vector-db:
+    image: redis/redis-stack:7.2.0-v9
+    container_name: thebeginner86-redis-vector-db
+    ports:
+      - "5379:6379"
+      - "7001:8001"
+  dataprep-redis:
+    image: ai-agents/dataprep:latest
+    container_name: thebeginner86-dataprep-redis-server
+    depends_on:
+      - redis-vector-db
+      - tei-embedding-service
+    volumes:
+      - /mnt/hf_cache:/.cache
+    ports:
+      - "4006:6007"
+    ipc: host
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      REDIS_URL: ${REDIS_URL}
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      LOGFLAG: ${LOGFLAG}
+      TEI_ENDPOINT: http://tei-embedding-service:80
+      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+      SERVER_HOST_IP: ${LLM_SERVER_HOST_IP}
+      SERVER_PORT: ${LLM_SERVER_PORT}
+    restart: unless-stopped
+  mongodb:
+    image: mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: agents
+      MONGO_INITDB_ROOT_PASSWORD: agents
+    ports:
+      - "17017:27017"
+  groq-service:
+    image: thebeginner86intel/ai-agents-groq:latest
+    container_name: thebeginner86-groq-service
+    ports:
+      - "4099:8000"
+    volumes:
+      - /mnt/hf_cache:/root/.cache
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+  tei-reranking-service:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+    container_name: thebeginner86-tei-reranking-server
+    ports:
+      - "7808:80"
+    volumes:
+      - /mnt/hf_cache:/data
+    shm_size: 1g
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+      HF_HUB_DISABLE_PROGRESS_BARS: 1
+      HF_HUB_ENABLE_HF_TRANSFER: 0
+    command: --model-id ${RERANK_MODEL_ID} --auto-truncate
+  tei-embedding-service:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+    container_name: thebeginner86-tei-embedding-server
+    ports:
+      - "5006:80"
+    volumes:
+      - /mnt/hf_cache:/data
+    shm_size: 1g
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+    command: --model-id ${EMBEDDING_MODEL_ID} --auto-truncate
   retriever:
     image: ai-agents/retriever:latest
-    container_name: retriever-redis-server
+    container_name: thebeginner86-retriever-redis-server
     ports:
-      - "5007:7000"
+      - "4007:7000"
     ipc: host
     depends_on:
       - redis-vector-db
@@ -18,105 +100,28 @@ services:
       https_proxy: ${https_proxy}
       REDIS_URL: ${REDIS_URL}
       INDEX_NAME: ${INDEX_NAME}
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
       TEI_EMBEDDING_ENDPOINT: http://tei-embedding-service:80
       HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
     restart: unless-stopped
-  redis-vector-db:
-    image: redis/redis-stack:7.2.0-v9
-    container_name: redis-vector-db
-    ports:
-      - "6379:6379"
-      - "8001:8001"
-  dataprep-redis:
-    image: ai-agents/dataprep:latest
-    container_name: dataprep-redis-server
-    depends_on:
-      - redis-vector-db
-      - tei-embedding-service
-    volumes:
-      - "./cache:/.cache"
-      - ${DATAPREP_OUT_DIR}:/home/user/comps/dataprep/out
-    ports:
-      - "5006:6007"
-    ipc: host
-    environment:
-      no_proxy: ${no_proxy}
-      http_proxy: ${http_proxy}
-      https_proxy: ${https_proxy}
-      REDIS_URL: ${REDIS_URL}
-      LOGFLAG: ${LOGFLAG}
-      TEI_ENDPOINT: http://tei-embedding-service:80
-      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
-    restart: unless-stopped
-  vllm-service:
-    image: ${REGISTRY:-opea}/vllm:${TAG:-latest}
-    container_name: vllm-service
-    ports:
-      - "9009:80"
-    volumes:
-      - "./cache:/root/.cache"
-    shm_size: 128g
-    environment:
-      no_proxy: ${no_proxy}
-      http_proxy: ${http_proxy}
-      https_proxy: ${https_proxy}
-      HF_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
-      LLM_MODEL_ID: ${LLM_MODEL_ID}
-      VLLM_CPU_KVCACHE_SPACE: 4
-      VLLM_TORCH_PROFILER_DIR: "/mnt"
-    command: --model $LLM_MODEL_ID --host 0.0.0.0 --port 80
-  tei-reranking-service:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
-    container_name: tei-reranking-server
-    ports:
-      - "8808:80"
-    volumes:
-      - "./data:/data"
-    shm_size: 1g
-    environment:
-      no_proxy: ${no_proxy}
-      http_proxy: ${http_proxy}
-      https_proxy: ${https_proxy}
-      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
-      HF_HUB_DISABLE_PROGRESS_BARS: 1
-      HF_HUB_ENABLE_HF_TRANSFER: 0
-    command: --model-id ${RERANK_MODEL_ID} --auto-truncate
-  tei-embedding-service:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
-    container_name: tei-embedding-server
-    ports:
-      - "6006:80"
-    volumes:
-      - "./data:/data"
-    shm_size: 1g
-    environment:
-      no_proxy: ${no_proxy}
-      http_proxy: ${http_proxy}
-      https_proxy: ${https_proxy}
-    command: --model-id ${EMBEDDING_MODEL_ID} --auto-truncate
-  mongodb:
-    image: mongo
-    restart: always
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: agents
-      MONGO_INITDB_ROOT_PASSWORD: agents
-    ports:
-      - "27017:27017"
   backend:
-    image: ai-agents/rag/backend:latest
+    image: ai-agents-rag-backend:latest
     depends_on:
       - redis-vector-db
       - tei-embedding-service
       - retriever
       - tei-reranking-service
-      - vllm-service
     ports:
-      - "5008:8888"
+      - "4008:5008"
     environment:
       - no_proxy=${no_proxy}
       - https_proxy=${https_proxy}
       - http_proxy=${http_proxy}
-      - MEGA_SERVICE_HOST_IP=${SERVER_HOST}
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - MEGA_SERVICE_HOST_IP=127.0.0.1
+      - MEGA_SERVICE_PORT=${MEGA_SERVICE_PORT}
       - EMBEDDING_SERVER_HOST_IP=${EMBEDDING_SERVER_HOST_IP}
       - EMBEDDING_SERVER_PORT=${EMBEDDING_SERVER_PORT:-80}
       - RETRIEVER_SERVICE_HOST_IP=${RETRIEVER_SERVICE_HOST_IP}
@@ -127,6 +132,9 @@ services:
       - LLM_SERVER_PORT=${LLM_SERVER_PORT:-80}
       - LLM_MODEL=${LLM_MODEL_ID}
       - LOGFLAG=${LOGFLAG}
+      - MONGO_HOST=${MONGO_HOST}
+      - MONGO_USERNAME=agents
+      - MONGO_PASSWORD=agents
     ipc: host
     restart: always
   ui:
@@ -136,7 +144,7 @@ services:
     ports:
       - "5009:3000"
     restart: always
-
+    
 networks:
   default:
     driver: bridge
