@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import CircularProgress from "@mui/material/CircularProgress";
 import axios from "axios";
 import { BACKEND_URL, DB_NAME } from "@/lib/utils";
 
@@ -108,7 +108,7 @@ export default function AICoach() {
                 <Button type="submit" disabled={loading}>
                   {loading ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <CircularProgress />
                       Processing...
                     </>
                   ) : (
