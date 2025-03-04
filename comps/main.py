@@ -1,7 +1,6 @@
 import re
 import os
 import json
-import redis
 from datetime import datetime
 from typing import List, Dict, Optional
 from uuid import uuid4
@@ -19,24 +18,17 @@ from comps.proto.docarray import LLMParams, RerankerParms, RetrieverParms
 from comps.circulars.metadata_operations import handle_circular_update, handle_circular_get
 from fastapi.responses import StreamingResponse
 from fastapi import Request, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from mongo_client import mongo_client
+import requests
 
-from comps import (
-    CustomLogger,
-    EmbedDoc,
-    EmbedMultimodalDoc,
-    SearchedDoc,
-    SearchedMultimodalDoc,
-    ServiceType,
-    TextDoc,
-    opea_microservices,
-    register_microservice,
-    register_statistics,
-    statistics_dict,
-)
+SEMANTIC_SCHOLAR_SEARCH_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
+SEMANTIC_SCHOLAR_REFERENCES_URL = "https://api.semanticscholar.org/graph/v1/paper/{paper_id}/references"
+ARXIV_SEARCH_URL = "http://export.arxiv.org/api/query"
+DOAJ_SEARCH_URL = "https://doaj.org/api/v1/search/articles/{query}"
+DOAJ_API_KEY = os.getenv('DOAJ_API_KEY')
 
 
 load_dotenv()
@@ -59,8 +51,6 @@ RERANK_SERVER_PORT = int(os.getenv("RERANK_SERVER_PORT", 80))
 LLM_SERVER_HOST_IP = os.getenv("LLM_SERVER_HOST_IP", "0.0.0.0")
 LLM_SERVER_PORT = int(os.getenv("LLM_SERVER_PORT", 80))
 LLM_MODEL = os.getenv("LLM_MODEL", "Intel/neural-chat-7b-v3-3")
-REDIS_URL = os.getenv("REDIS_URL")
-
 
 def align_inputs(self, inputs, cur_node, runtime_graph, llm_parameters_dict, **kwargs):
     if self.services[cur_node].service_type == ServiceType.EMBEDDING:
@@ -86,44 +76,45 @@ def align_inputs(self, inputs, cur_node, runtime_graph, llm_parameters_dict, **k
         inputs = next_inputs
     return inputs
 
-def get_file_name_for_chunk(chunk_id):
-    r = redis.Redis.from_url(REDIS_URL)
-    client = r.ft('file-keys')
-    
-    results = client.search("*")
-    
-    for doc in results.docs:
-        key_ids = doc.key_ids.split("#")
-        if chunk_id in key_ids:
-            return doc.file_name
-    
-    return "Unknown"
-
 def align_outputs(self, data, cur_node, inputs, runtime_graph, llm_parameters_dict, **kwargs):
     next_data = {}
     if self.services[cur_node].service_type == ServiceType.EMBEDDING:
         assert isinstance(data, list)
         next_data = {"text": inputs["inputs"], "embedding": data[0]}
     elif self.services[cur_node].service_type == ServiceType.RETRIEVER:
-        enhanced_docs = []
-        for doc, metadata in zip(data["retrieved_docs"], data["metadata"]):
-            enhanced_doc = {
-                "content": doc["text"],
-                "source": metadata["file_name"],
-                "id": metadata["id"]
-            }
-            enhanced_docs.append(enhanced_doc)
-        
-        next_data["source_docs"] = enhanced_docs
+        if "retrieved_docs" in data:
+            enhanced_docs = []
+            for doc in data["retrieved_docs"]:
+                enhanced_doc = doc.copy()
+                if "source" not in enhanced_doc and "id" in enhanced_doc:
+                    enhanced_doc["source"] = enhanced_doc["id"]
+                if "content" not in enhanced_doc and "text" in enhanced_doc:
+                    enhanced_doc["content"] = enhanced_doc["text"]
+                enhanced_docs.append(enhanced_doc)
+                
+            next_data["source_docs"] = enhanced_docs
             
         docs = [doc["text"] for doc in data["retrieved_docs"]]
 
         with_rerank = runtime_graph.downstream(cur_node)[0].startswith("rerank")
         if with_rerank and docs:
+            # forward to rerank
+            # prepare inputs for rerank
             next_data["query"] = data["initial_query"]
             next_data["texts"] = [doc["text"] for doc in data["retrieved_docs"]]
             next_data["doc_metadata"] = data["retrieved_docs"]
         else:
+            # forward to llm
+            if not docs and with_rerank:
+                # delete the rerank from retriever -> rerank -> llm
+                for ds in reversed(runtime_graph.downstream(cur_node)):
+                    for nds in runtime_graph.downstream(ds):
+                        runtime_graph.add_edge(cur_node, nds)
+                    runtime_graph.delete_node_if_exists(ds)
+
+            # handle template
+            # if user provides template, then format the prompt with it
+            # otherwise, use the default template
             prompt = data["initial_query"]
             chat_template = llm_parameters_dict["chat_template"]
             if chat_template:
@@ -149,13 +140,14 @@ def align_outputs(self, data, cur_node, inputs, runtime_graph, llm_parameters_di
             next_data["selected_sources"] = enhanced_sources
 
     elif self.services[cur_node].service_type == ServiceType.RERANK:
+        # rerank the inputs with the scores
         reranker_parameters = kwargs.get("reranker_parameters", None)
         top_n = reranker_parameters.top_n if reranker_parameters else 1
         docs = inputs["texts"]
         reranked_docs = []
         selected_sources = []
         
-        doc_metadata = inputs.get("source_docs", [])
+        doc_metadata = inputs.get("doc_metadata", [])
         
         for best_response in data[:top_n]:
             idx = best_response["index"]
@@ -170,13 +162,12 @@ def align_outputs(self, data, cur_node, inputs, runtime_graph, llm_parameters_di
                 if "content" not in source_info and "text" in source_info:
                     source_info["content"] = source_info["text"]
                 
-                chunk_id = source_info.get("id")
-                if chunk_id:
-                    file_name = get_file_name_for_chunk(chunk_id)
-                    source_info["file_name"] = file_name
-                
                 selected_sources.append(source_info)
+                print(f"DEBUG: Added reranked source: {source_info.get('source', 'unknown')} with score {source_info.get('relevance_score', 0.0)}")
 
+        # handle template
+        # if user provides template, then format the prompt with it
+        # otherwise, use the default template
         prompt = inputs["query"]
         chat_template = llm_parameters_dict["chat_template"]
         if chat_template:
@@ -205,9 +196,6 @@ def align_outputs(self, data, cur_node, inputs, runtime_graph, llm_parameters_di
             next_data["selected_sources"] = inputs["selected_sources"]
 
     return next_data
-
-
-
 
 def align_generator(self, gen, **kwargs):
     # store words in a buffer and concat them
@@ -273,11 +261,122 @@ def align_generator(self, gen, **kwargs):
         yield f"data: {repr(buffer.encode('utf-8'))}\n\n"
     yield "data: [DONE]\n\n"
 
+class SearchQuery(BaseModel):
+    query: str
+    year: int = None
+    api: str = "semantic_scholar"
+
+
+class PaperID(BaseModel):
+    paper_id: str
+    api: str = "semantic_scholar"
+
+
+class SemanticScholarAPI:
+    @staticmethod
+    def construct_query(query: str) -> str:
+        terms = query.split()
+        search_terms = []
+        operator = None
+        for term in terms:
+            if term.upper() in ["AND", "OR"]:
+                operator = term.upper()
+            else:
+                if operator:
+                    if operator == "AND":
+                        search_terms.append(f"{search_terms.pop()} AND {term}")
+                    elif operator == "OR":
+                        search_terms.append(f"{search_terms.pop()} OR {term}")
+                    operator = None
+                else:
+                    search_terms.append(term)
+        return " AND ".join(search_terms)
+
+    @staticmethod
+    def search_papers(query: str, year: int = None):
+        semantic_query = SemanticScholarAPI.construct_query(query)
+        url = f"{SEMANTIC_SCHOLAR_SEARCH_URL}?query={semantic_query}&fields=title,url,abstract,year&limit=10"
+        response = requests.get(url)
+        search_results = response.json().get('data', [])
+        if year:
+            search_results = [result for result in search_results if result.get('year') == year]
+        return [{"title": result['title'], "url": result['url'], "snippet": result.get('abstract', '')} for result in search_results]
+
+    @staticmethod
+    def get_suggestions(query: str):
+        semantic_query = SemanticScholarAPI.construct_query(query)
+        url = f"{SEMANTIC_SCHOLAR_SEARCH_URL}?query={semantic_query}&fields=title,url,abstract"
+        response = requests.get(url)
+        results = response.json().get('data', [])
+        return [result['title'] for result in results]
+
+    @staticmethod
+    def fetch_references(paper_id: str):
+        url = SEMANTIC_SCHOLAR_REFERENCES_URL.format(paper_id=paper_id)
+        response = requests.get(url)
+        return response.json().get('data', [])
+
+
+class ArxivAPI:
+    @staticmethod
+    def search_papers(query: str, year: int = None):
+        url = f"{ARXIV_SEARCH_URL}?search_query={query}&start=0&max_results=10"
+        response = requests.get(url)
+        entries = response.text.split("<entry>")
+        papers = []
+        for entry in entries[1:]:
+            title = entry.split("<title>")[1].split("</title>")[0]
+            url = entry.split("<id>")[1].split("</id>")[0]
+            snippet = entry.split("<summary>")[1].split("</summary>")[0]
+            year_published = entry.split("<published>")[1].split("</published>")[0][:4]
+            if year and int(year_published) != year:
+                continue
+            papers.append({"title": title, "url": url, "snippet": snippet})
+        return papers
+
+    @staticmethod
+    def fetch_references(paper_id: str):
+        url =  f"{ARXIV_SEARCH_URL}?search_query=id:{paper_id}"
+        response = requests.get(url)
+        entries = response.text.split("<entry>")
+        references = []
+        for entry in entries[1:]:
+            title = entry.split("<title>")[1].split("</title>")[0]
+            url = entry.split("<id>")[1].split("</id>")[0]
+            year = entry.split("<published>")[1].split("</published>")[0][:4]
+            references.append({"title": title, "url": url, "year": int(year)})
+        return references
+
+
+class DOAJAPI:
+    @staticmethod
+    def fetch_papers(query: str, year: int = None):
+        url = DOAJ_SEARCH_URL.format(query=query)
+        params = {
+            "api_key": DOAJ_API_KEY,
+            "pageSize": 10
+        }
+        response = requests.get(url, params=params)
+        if response.status_code != 200:
+            print(f"Failed to fetch DOAJ papers: Status Code: {response.status_code}, Raw Response: {response.text}")
+            return []
+        articles = response.json().get('results', [])
+        papers = [{"title": article['bibjson']['title'], "url": article['bibjson']['link'][0]['url'], "snippet": article.get('bibjson', {}).get('abstract', ''), "year": article.get('bibjson', {}).get('year')} for article in articles]
+        if year:
+            papers = [paper for paper in papers if paper.get('year') and int(paper.get('year')) == int(year)]
+        return papers
+
+    @staticmethod
+    def get_suggestions(query: str):
+        papers = DOAJAPI.fetch_papers(query)
+        return [paper['title'] for paper in papers]
+
 
 class SourceInfo(BaseModel):
     source: str
     content: str
     relevance_score: float
+
 
 class ConversationRequest(BaseModel):
     question: str
@@ -287,10 +386,12 @@ class ConversationRequest(BaseModel):
     temperature: Optional[float] = 0.1
     top_k: Optional[int] = 3
 
+
 class ConversationResponse(BaseModel):
     conversation_id: str
     answer: str
     sources: List[SourceInfo]
+
 
 class ChatTemplate:
     @staticmethod
@@ -621,7 +722,7 @@ class ConversationRAGService(ChatQnAService):
         source_info_list = []
         for source in sources_data:
             source_info = SourceInfo(
-                source=source.get("file_name", source.get("source", source.get("id", "unknown"))),
+                source=source.get("source", source.get("id", "unknown")),
                 content=source.get("content", source.get("text", "")),
                 relevance_score=float(source.get("relevance_score", source.get("score", 0.0)))
             )
@@ -636,7 +737,7 @@ class ConversationRAGService(ChatQnAService):
             stream = data.get("stream", False)
 
             db = self.mongo_client[conversation_request.db_name]
-            conversations_collection = db["conversations"]
+            conversations_collection = db["conversations"]  
             if not conversation_request.conversation_id and "conversation_id" in request.path_params:
                 conversation_request.conversation_id = request.path_params["conversation_id"]
             
@@ -692,10 +793,17 @@ class ConversationRAGService(ChatQnAService):
                 processed_sources = []
                 for source in sources:
                     if isinstance(source, dict):
+                        if not source.get("source") and source.get("id"):
+                            source["source"] = source.get("id")
+                        if not source.get("content") and source.get("text"):
+                            source["content"] = source.get("text")
+                        if not source.get("relevance_score") and source.get("score"):
+                            source["relevance_score"] = float(source.get("score"))
+                            
                         processed_source = {
-                            "source": source.get("file_name", source.get("source", "unknown")),
+                            "source": source.get("source", "unknown"),
                             "content": source.get("content", source.get("text", "")),
-                            "relevance_score": float(source.get("relevance_score", source.get("score", 0.0)))
+                            "relevance_score": float(source.get("relevance_score", 0.0))
                         }
                         processed_sources.append(processed_source)
                 
@@ -722,7 +830,7 @@ class ConversationRAGService(ChatQnAService):
                 if sources:
                     for source in sources:
                         processed_source = {
-                            "source": source.get("file_name", source.get("source", "unknown")),
+                            "source": source.get("source", "unknown"),
                             "content": source.get("content", source.get("text", "")),
                             "relevance_score": float(source.get("relevance_score", 0.0))
                         }
@@ -731,7 +839,6 @@ class ConversationRAGService(ChatQnAService):
                 self.save_conversation_turn(
                     conversation_request.conversation_id,
                     conversation_request.question,
-                    conversations_collection,
                     answer,
                     processed_sources
                 )
@@ -855,6 +962,79 @@ class ConversationRAGService(ChatQnAService):
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
+    async def handle_search_papers(self, request: Request):
+        try:
+            data = await request.json()
+            search_query = SearchQuery.parse_obj(data)
+            query = search_query.query
+            year = search_query.year
+            api = search_query.api.lower()
+
+            if not query:
+                raise HTTPException(status_code=400, detail="No query provided")
+
+            if api == "semantic_scholar":
+                papers = SemanticScholarAPI.search_papers(query, year)
+            elif api == "arxiv_papers":
+                papers = ArxivAPI.search_papers(query, year)
+            elif api == "doaj":
+                papers = DOAJAPI.fetch_papers(query, year)
+            else:
+                raise HTTPException(status_code=400, detail="Unsupported API")
+
+            return JSONResponse(content={"papers": papers})
+        except Exception as e:
+            print(f"Error processing search_papers request: {e}")
+            raise HTTPException(status_code=500, detail="Internal Server Error")
+
+    async def handle_suggest(self, request: Request):
+        try:
+            q = request.query_params.get("q")
+            api = request.query_params.get("api", "semantic_scholar")
+
+            if not q or len(q) < 3:
+                raise HTTPException(status_code=400, detail="Query must be at least 3 characters long")
+
+            if api == "semantic_scholar":
+                suggestions = SemanticScholarAPI.get_suggestions(q)
+            elif api == "doaj":
+                suggestions = DOAJAPI.get_suggestions(q)
+            elif api == "arxiv_papers":
+                return JSONResponse(content={"suggestions": [], "message": "arXiv API does not support suggestions. Please try Semantic Scholar or DOAJ."})
+            else:
+                raise HTTPException(status_code=400, detail="Unsupported API")
+
+            return JSONResponse(content={"suggestions": suggestions})
+        except Exception as e:
+            print(f"Error processing suggest request: {e}")
+            raise HTTPException(status_code=500, detail="Failed to get suggestions")
+
+    async def handle_download_references(self, request: Request):
+        try:
+            data = await request.json()
+            paper = PaperID.parse_obj(data)
+            depth = data.get("depth", 1)
+
+            if paper.api == "semantic_scholar":
+                references = SemanticScholarAPI.fetch_references(paper.paper_id)
+            elif paper.api == "arxiv_papers":
+                references = ArxivAPI.fetch_references(paper.paper_id)
+            elif paper.api == "doaj":
+                references = []
+            else:
+                raise HTTPException(status_code=400, detail="Unsupported API")
+
+            if not references:
+                raise HTTPException(status_code=500, detail="Failed to fetch references")
+
+            with open("references.json", "w") as file:
+                json.dump(references, file)
+            return FileResponse("references.json", media_type='application/json')
+        except Exception as e:
+            print(f"Error processing download_references request: {e}")
+            raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
     def start(self):
         self.service = MicroService(
             self.__class__.__name__,
@@ -871,6 +1051,9 @@ class ConversationRAGService(ChatQnAService):
         self.service.add_route("/api/conversations/{conversation_id}", self.handle_get_history, methods=["GET"])
         self.service.add_route("/api/conversations/{conversation_id}", self.handle_delete_conversation, methods=["DELETE"])
         self.service.add_route("/api/conversations", self.handle_list_conversations, methods=["GET"])
+        self.service.add_route("/api/search_papers", self.handle_search_papers, methods=["POST"])
+        self.service.add_route("/api/suggest", self.handle_suggest, methods=["GET"])
+        self.service.add_route("/api/download_references", self.handle_download_references, methods=["POST"])
         self.service.add_route("/api/circulars", handle_circular_update, methods=["PATCH"])
         self.service.add_route("/api/circulars", handle_circular_get, methods=["GET"])
         self.service.start()
