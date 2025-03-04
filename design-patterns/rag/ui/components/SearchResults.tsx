@@ -18,7 +18,7 @@ import {
 } from "@mui/material"
 import { type PaperResult, type ApiType } from "@/types/api"
 import { getSuggestions } from "@/lib/api"
-import { SEARCH_URL } from "@/lib/constants"
+import { CHAT_QNA_URL } from "@/lib/constants"
 import axios from "axios"
 import debounce from "lodash/debounce"
 
@@ -70,7 +70,7 @@ export default function SearchResults({ results, api, query, onSearch }: SearchR
     if (searchQuery.trim()) {
       setLoading(true)
       try {
-        const response = await axios.post(`${SEARCH_URL}/api/search_papers`, {
+        const response = await axios.post(`${CHAT_QNA_URL}/api/search_papers`, {
           query: searchQuery,
           api: api,
         }, {
@@ -91,7 +91,7 @@ export default function SearchResults({ results, api, query, onSearch }: SearchR
 
   const handleDownloadReferences = async (paperId: string) => {
     try {
-      const response = await axios.post(`${SEARCH_URL}/api/download_references`,
+      const response = await axios.post(`${CHAT_QNA_URL}/api/download_references`,
         {
           paper_id: paperId,
           api: api

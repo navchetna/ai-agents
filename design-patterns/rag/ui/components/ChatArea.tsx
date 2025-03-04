@@ -302,6 +302,7 @@ export default function ChatArea({
 
         console.log(`Sending streaming request to: ${CHAT_QNA_URL}/api/conversations/${targetConversationId}`);
         const response = await axios.post(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}`, {
+          db_name: 'rag_db',
           question: messageContent.trim(),
           max_tokens: 1024,
           temperature: 0.1,
