@@ -1,9 +1,10 @@
 import re
 import os
 import json
+import requests
+from uuid import uuid4
 from datetime import datetime
 from typing import List, Dict, Optional
-from uuid import uuid4
 from langchain_core.prompts import PromptTemplate
 from comps import MegaServiceEndpoint, MicroService, ServiceOrchestrator, ServiceRoleType, ServiceType
 from comps.core.utils import handle_message
@@ -14,15 +15,13 @@ from comps.proto.api_protocol import (
     ChatMessage,
     UsageInfo,
 )
-from comps.proto.docarray import LLMParams, RerankerParms, RetrieverParms
-from comps.circulars.metadata_operations import handle_circular_update, handle_circular_get
-from fastapi.responses import StreamingResponse
-from fastapi import Request, HTTPException
-from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from comps.proto.docarray import LLMParams, RerankerParms, RetrieverParms
+from comps.circulars.metadata_operations import handle_circular_update, handle_circular_get
+from fastapi import Request, HTTPException
+from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
 from mongo_client import mongo_client
-import requests
 
 SEMANTIC_SCHOLAR_SEARCH_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
 SEMANTIC_SCHOLAR_REFERENCES_URL = "https://api.semanticscholar.org/graph/v1/paper/{paper_id}/references"
@@ -30,15 +29,12 @@ ARXIV_SEARCH_URL = "http://export.arxiv.org/api/query"
 DOAJ_SEARCH_URL = "https://doaj.org/api/v1/search/articles/{query}"
 DOAJ_API_KEY = os.getenv('DOAJ_API_KEY')
 
-
 load_dotenv()
-
 MONGO_USERNAME = os.getenv("MONGO_USERNAME")
 MONGO_PASSWORD = os.getenv("MONGO_PASSWORD")
 MONGO_HOST = os.getenv("MONGO_HOST", "localhost")
 MONGO_PORT = os.getenv("MONGO_PORT", "27017")
 MONGO_DB = os.getenv("MONGO_DB", "rag_db")
-
 MEGA_SERVICE_PORT = int(os.getenv("MEGA_SERVICE_PORT", 9001))
 GUARDRAIL_SERVICE_HOST_IP = os.getenv("GUARDRAIL_SERVICE_HOST_IP", "0.0.0.0")
 GUARDRAIL_SERVICE_PORT = int(os.getenv("GUARDRAIL_SERVICE_PORT", 80))
@@ -1059,6 +1055,6 @@ class ConversationRAGService(ChatQnAService):
         self.service.start()
 
 if __name__ == "__main__":
-    conversation_service = ConversationRAGService(port=int(os.getenv("MEGA_SERVICE_PORT", 9001)))
+    conversation_service = ConversationRAGService(port=int(os.getenv("MEGA_SERVICE_PORT", 9000)))
     conversation_service.add_remote_service()
     conversation_service.start()
