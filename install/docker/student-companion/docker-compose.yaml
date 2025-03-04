@@ -3,13 +3,13 @@ version: "3.8"
 services:
   redis-vector-db:
     image: redis/redis-stack:7.2.0-v9
-    container_name: thebeginner86-redis-vector-db
+    container_name: redis-vector-db
     ports:
       - "5379:6379"
       - "7001:8001"
   dataprep-redis:
     image: ai-agents/dataprep:latest
-    container_name: thebeginner86-dataprep-redis-server
+    container_name: dataprep-redis-server
     depends_on:
       - redis-vector-db
       - tei-embedding-service
@@ -41,7 +41,7 @@ services:
       - "17017:27017"
   groq-service:
     image: thebeginner86intel/ai-agents-groq:latest
-    container_name: thebeginner86-groq-service
+    container_name: groq-service
     ports:
       - "4099:8000"
     volumes:
@@ -55,7 +55,7 @@ services:
       HTTPS_PROXY: ${HTTPS_PROXY}
   tei-reranking-service:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
-    container_name: thebeginner86-tei-reranking-server
+    container_name: tei-reranking-server
     ports:
       - "7808:80"
     volumes:
@@ -73,7 +73,7 @@ services:
     command: --model-id ${RERANK_MODEL_ID} --auto-truncate
   tei-embedding-service:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
-    container_name: thebeginner86-tei-embedding-server
+    container_name: tei-embedding-server
     ports:
       - "5006:80"
     volumes:
@@ -88,7 +88,7 @@ services:
     command: --model-id ${EMBEDDING_MODEL_ID} --auto-truncate
   retriever:
     image: ai-agents/retriever:latest
-    container_name: thebeginner86-retriever-redis-server
+    container_name: retriever-redis-server
     ports:
       - "4007:7000"
     ipc: host
