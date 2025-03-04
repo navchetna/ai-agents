@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
-  List, 
+import {
+  Box,
+  List,
   ListItemButton,
-  IconButton, 
-  Paper, 
+  IconButton,
+  Paper,
   Tooltip,
   Button,
   Typography,
@@ -44,10 +44,10 @@ interface LeftSidebarProps {
   refreshTrigger?: number;
 }
 
-export default function LeftSidebar({ 
-  onSelectConversation, 
-  selectedConversation, 
-  isCollapsed, 
+export default function LeftSidebar({
+  onSelectConversation,
+  selectedConversation,
+  isCollapsed,
   onCollapseChange,
   refreshTrigger = 0
 }: LeftSidebarProps) {
@@ -67,7 +67,6 @@ export default function LeftSidebar({
     try {
       setIsLoading(true);
       const response = await axios.get(`${CHAT_QNA_URL}/api/conversations?db_name=rag_db`);
-
       const data = await response.data;
       console.log('Fetched conversations:', data);
       setConversations(data.conversations || []);
@@ -82,13 +81,11 @@ export default function LeftSidebar({
 
   const openDeleteDialog = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    
     const conversation = conversations.find(conv => conv.conversation_id === id);
     if (conversation) {
       const preview = getConversationPreview(conversation);
       setDeletePreview(preview.question);
     }
-    
     setConversationToDelete(id);
     setDeleteDialogOpen(true);
   };
@@ -101,19 +98,15 @@ export default function LeftSidebar({
 
   const confirmDelete = async () => {
     if (!conversationToDelete) return;
-    
     setIsDeleting(true);
     try {
-      const response = await axios.delete(`${CHAT_QNA_URL}/api/conversations/${conversationToDelete}?db_name=rag_db`)
-      
-      setConversations(prevConversations => 
+      await axios.delete(`${CHAT_QNA_URL}/api/conversations/${conversationToDelete}?db_name=rag_db`);
+      setConversations(prevConversations =>
         prevConversations.filter(conv => conv.conversation_id !== conversationToDelete)
       );
-      
       if (selectedConversation === conversationToDelete) {
         onSelectConversation('');
       }
-      
       closeDeleteDialog();
     } catch (err) {
       console.error('Error deleting conversation:', err);
@@ -124,22 +117,13 @@ export default function LeftSidebar({
 
   const getConversationPreview = (conversation: Conversation) => {
     if (!conversation.history || !Array.isArray(conversation.history) || conversation.history.length === 0) {
-      return {
-        context: 'General',
-        question: 'Empty conversation'
-      };
+      return { context: 'General', question: 'Empty conversation' };
     }
-    
     const lastTurn = conversation.history[conversation.history.length - 1];
-    
-    const questionContent = lastTurn.question?.content || 
-                          (typeof lastTurn.question === 'string' ? lastTurn.question : '') ||
-                          'Empty question';
-    
-    return {
-      context: conversation.context || 'General',
-      question: questionContent
-    };
+    const questionContent = lastTurn.question?.content ||
+      (typeof lastTurn.question === 'string' ? lastTurn.question : '') ||
+      'Empty question';
+    return { context: conversation.context || 'General', question: questionContent };
   };
 
   const formatDate = (dateString: string) => {
@@ -155,9 +139,9 @@ export default function LeftSidebar({
   };
 
   const renderEmptyState = () => (
-    <Box sx={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
+    <Box sx={{
+      display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       height: '100%',
@@ -179,7 +163,7 @@ export default function LeftSidebar({
 
   return (
     <>
-      <Paper 
+      <Paper
         elevation={3}
         sx={{
           width: isCollapsed ? 60 : 300,
@@ -218,9 +202,9 @@ export default function LeftSidebar({
           {isCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
         </IconButton>
 
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
+        <Box sx={{
+          display: 'flex',
+          flexDirection: 'column',
           height: '100%',
           opacity: isCollapsed ? 0 : 1,
           transition: 'opacity 0.2s',
@@ -229,9 +213,9 @@ export default function LeftSidebar({
           {hasConversations && (
             <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
               <Tooltip title="Start a new chat" arrow>
-                <IconButton 
+                <IconButton
                   onClick={() => onSelectConversation('')}
-                  sx={{ 
+                  sx={{
                     backgroundColor: '#0071C5',
                     color: 'white',
                     width: '100%',
@@ -255,21 +239,21 @@ export default function LeftSidebar({
             </Box>
           ) : error ? (
             <Box sx={{ p: 2 }}>
-              <Alert 
-                severity="error" 
-                sx={{ 
+              <Alert
+                severity="error"
+                sx={{
                   mb: 2,
                   '& .MuiAlert-message': { width: '100%' }
                 }}
               >
                 {error}
               </Alert>
-              <Button 
-                variant="outlined" 
+              <Button
+                variant="outlined"
                 onClick={fetchConversations}
-                sx={{ 
-                  mb: 2, 
-                  mx: 'auto', 
+                sx={{
+                  mb: 2,
+                  mx: 'auto',
                   display: 'block',
                   borderColor: '#0071C5',
                   color: '#0071C5'
@@ -282,7 +266,7 @@ export default function LeftSidebar({
           ) : conversations.length === 0 ? (
             renderEmptyState()
           ) : (
-            <List sx={{ 
+            <List sx={{
               overflow: 'auto',
               flexGrow: 1,
               pt: 2,
@@ -318,32 +302,40 @@ export default function LeftSidebar({
                       alignItems: 'flex-start',
                       border: '1px solid #e0e0e0',
                       backgroundColor: '#ffffff',
-                      transition: 'all 0.2s ease',
+                      transition: 'all 0.3s ease, color 0.2s ease',
+                      '&:hover': {
+                        background: 'linear-gradient(45deg, rgba(33, 85, 191, 0.2), rgba(41, 217, 255, 0.3))',
+                        transform: 'translateX(4px)',
+                        boxShadow: '0 4px 12px rgba(41, 217, 255, 0.2)',
+                        color: '#0071C5',
+                      },
                       minHeight: '60px',
                       maxHeight: '80px',
-                      '&:hover': {
-                        backgroundColor: 'aliceblue',
-                        transform: 'translateY(-1px)',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                      },
                       '&.Mui-selected': {
-                        backgroundColor: 'aliceblue',
+                        backgroundColor: 'rgba(33, 85, 191, 0.1)',
                         borderColor: '#0071C5',
                         '&:hover': {
-                          backgroundColor: 'aliceblue',
+                          background: 'linear-gradient(45deg, rgba(33, 85, 191, 0.3), rgba(41, 217, 255, 0.4))',
                         }
-                      }
+                      },
+                      '& .MuiTypography-root': {
+                        transition: 'color 0.2s ease',
+                      },
+                      '&:hover .MuiTypography-root': {
+                        color: '#0071C5',
+                      },
                     }}
                   >
-                    <Box sx={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
+
+                    <Box sx={{
+                      display: 'flex',
+                      alignItems: 'center',
                       width: '100%',
                       gap: 1,
                       mb: 0.5
                     }}>
-                      <Typography 
-                        sx={{ 
+                      <Typography
+                        sx={{
                           fontSize: '0.75rem',
                           color: '#666',
                           flexShrink: 0,
@@ -363,7 +355,7 @@ export default function LeftSidebar({
                           flexShrink: 0,
                         }}
                       >
-                        <Typography sx={{ 
+                        <Typography sx={{
                           fontSize: '0.65rem',
                           fontWeight: 500,
                           letterSpacing: '0.02em',
@@ -388,9 +380,9 @@ export default function LeftSidebar({
                         <DeleteIcon sx={{ fontSize: '0.9rem' }} />
                       </IconButton>
                     </Box>
-                    
+
                     <Typography
-                      sx={{ 
+                      sx={{
                         fontSize: '0.85rem',
                         color: '#333',
                         width: '100%',
@@ -410,7 +402,7 @@ export default function LeftSidebar({
         </Box>
 
         {isCollapsed && (
-          <Box sx={{ 
+          <Box sx={{
             position: 'absolute',
             top: '64px',
             left: 0,
@@ -428,7 +420,7 @@ export default function LeftSidebar({
                   onCollapseChange(false);
                   onSelectConversation('');
                 }}
-                sx={{ 
+                sx={{
                   backgroundColor: '#0071C5',
                   color: 'white',
                   '&:hover': {
@@ -457,9 +449,9 @@ export default function LeftSidebar({
             Are you sure you want to delete this conversation? This action cannot be undone.
             {deletePreview && (
               <Box sx={{ mt: 2, p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
+                <Typography
+                  variant="body2"
+                  sx={{
                     fontStyle: 'italic',
                     color: '#555',
                     overflow: 'hidden',
@@ -476,8 +468,8 @@ export default function LeftSidebar({
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button 
-            onClick={closeDeleteDialog} 
+          <Button
+            onClick={closeDeleteDialog}
             color="primary"
             disabled={isDeleting}
           >

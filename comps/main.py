@@ -1,10 +1,10 @@
 import re
 import os
 import json
-import pymongo
+import requests
+from uuid import uuid4
 from datetime import datetime
 from typing import List, Dict, Optional
-from uuid import uuid4
 from langchain_core.prompts import PromptTemplate
 from comps import MegaServiceEndpoint, MicroService, ServiceOrchestrator, ServiceRoleType, ServiceType
 from comps.core.utils import handle_message
@@ -15,24 +15,26 @@ from comps.proto.api_protocol import (
     ChatMessage,
     UsageInfo,
 )
-from comps.proto.docarray import LLMParams, RerankerParms, RetrieverParms
-from comps.circulars.metadata_operations import handle_circular_update, handle_circular_get
-from fastapi.responses import StreamingResponse
-from fastapi import Request, HTTPException
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from comps.proto.docarray import LLMParams, RerankerParms, RetrieverParms
+from comps.circulars.metadata_operations import handle_circular_update, handle_circular_get
+from fastapi import Request, HTTPException
+from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
 from mongo_client import mongo_client
 
+SEMANTIC_SCHOLAR_SEARCH_URL = "https://api.semanticscholar.org/graph/v1/paper/search"
+SEMANTIC_SCHOLAR_REFERENCES_URL = "https://api.semanticscholar.org/graph/v1/paper/{paper_id}/references"
+ARXIV_SEARCH_URL = "http://export.arxiv.org/api/query"
+DOAJ_SEARCH_URL = "https://doaj.org/api/v1/search/articles/{query}"
+DOAJ_API_KEY = os.getenv('DOAJ_API_KEY')
 
 load_dotenv()
-
 MONGO_USERNAME = os.getenv("MONGO_USERNAME")
 MONGO_PASSWORD = os.getenv("MONGO_PASSWORD")
 MONGO_HOST = os.getenv("MONGO_HOST", "localhost")
 MONGO_PORT = os.getenv("MONGO_PORT", "27017")
 MONGO_DB = os.getenv("MONGO_DB", "rag_db")
-
 MEGA_SERVICE_PORT = int(os.getenv("MEGA_SERVICE_PORT", 9001))
 GUARDRAIL_SERVICE_HOST_IP = os.getenv("GUARDRAIL_SERVICE_HOST_IP", "0.0.0.0")
 GUARDRAIL_SERVICE_PORT = int(os.getenv("GUARDRAIL_SERVICE_PORT", 80))
@@ -255,11 +257,122 @@ def align_generator(self, gen, **kwargs):
         yield f"data: {repr(buffer.encode('utf-8'))}\n\n"
     yield "data: [DONE]\n\n"
 
+class SearchQuery(BaseModel):
+    query: str
+    year: int = None
+    api: str = "semantic_scholar"
+
+
+class PaperID(BaseModel):
+    paper_id: str
+    api: str = "semantic_scholar"
+
+
+class SemanticScholarAPI:
+    @staticmethod
+    def construct_query(query: str) -> str:
+        terms = query.split()
+        search_terms = []
+        operator = None
+        for term in terms:
+            if term.upper() in ["AND", "OR"]:
+                operator = term.upper()
+            else:
+                if operator:
+                    if operator == "AND":
+                        search_terms.append(f"{search_terms.pop()} AND {term}")
+                    elif operator == "OR":
+                        search_terms.append(f"{search_terms.pop()} OR {term}")
+                    operator = None
+                else:
+                    search_terms.append(term)
+        return " AND ".join(search_terms)
+
+    @staticmethod
+    def search_papers(query: str, year: int = None):
+        semantic_query = SemanticScholarAPI.construct_query(query)
+        url = f"{SEMANTIC_SCHOLAR_SEARCH_URL}?query={semantic_query}&fields=title,url,abstract,year&limit=10"
+        response = requests.get(url)
+        search_results = response.json().get('data', [])
+        if year:
+            search_results = [result for result in search_results if result.get('year') == year]
+        return [{"title": result['title'], "url": result['url'], "snippet": result.get('abstract', '')} for result in search_results]
+
+    @staticmethod
+    def get_suggestions(query: str):
+        semantic_query = SemanticScholarAPI.construct_query(query)
+        url = f"{SEMANTIC_SCHOLAR_SEARCH_URL}?query={semantic_query}&fields=title,url,abstract"
+        response = requests.get(url)
+        results = response.json().get('data', [])
+        return [result['title'] for result in results]
+
+    @staticmethod
+    def fetch_references(paper_id: str):
+        url = SEMANTIC_SCHOLAR_REFERENCES_URL.format(paper_id=paper_id)
+        response = requests.get(url)
+        return response.json().get('data', [])
+
+
+class ArxivAPI:
+    @staticmethod
+    def search_papers(query: str, year: int = None):
+        url = f"{ARXIV_SEARCH_URL}?search_query={query}&start=0&max_results=10"
+        response = requests.get(url)
+        entries = response.text.split("<entry>")
+        papers = []
+        for entry in entries[1:]:
+            title = entry.split("<title>")[1].split("</title>")[0]
+            url = entry.split("<id>")[1].split("</id>")[0]
+            snippet = entry.split("<summary>")[1].split("</summary>")[0]
+            year_published = entry.split("<published>")[1].split("</published>")[0][:4]
+            if year and int(year_published) != year:
+                continue
+            papers.append({"title": title, "url": url, "snippet": snippet})
+        return papers
+
+    @staticmethod
+    def fetch_references(paper_id: str):
+        url =  f"{ARXIV_SEARCH_URL}?search_query=id:{paper_id}"
+        response = requests.get(url)
+        entries = response.text.split("<entry>")
+        references = []
+        for entry in entries[1:]:
+            title = entry.split("<title>")[1].split("</title>")[0]
+            url = entry.split("<id>")[1].split("</id>")[0]
+            year = entry.split("<published>")[1].split("</published>")[0][:4]
+            references.append({"title": title, "url": url, "year": int(year)})
+        return references
+
+
+class DOAJAPI:
+    @staticmethod
+    def fetch_papers(query: str, year: int = None):
+        url = DOAJ_SEARCH_URL.format(query=query)
+        params = {
+            "api_key": DOAJ_API_KEY,
+            "pageSize": 10
+        }
+        response = requests.get(url, params=params)
+        if response.status_code != 200:
+            print(f"Failed to fetch DOAJ papers: Status Code: {response.status_code}, Raw Response: {response.text}")
+            return []
+        articles = response.json().get('results', [])
+        papers = [{"title": article['bibjson']['title'], "url": article['bibjson']['link'][0]['url'], "snippet": article.get('bibjson', {}).get('abstract', ''), "year": article.get('bibjson', {}).get('year')} for article in articles]
+        if year:
+            papers = [paper for paper in papers if paper.get('year') and int(paper.get('year')) == int(year)]
+        return papers
+
+    @staticmethod
+    def get_suggestions(query: str):
+        papers = DOAJAPI.fetch_papers(query)
+        return [paper['title'] for paper in papers]
+
 
 class SourceInfo(BaseModel):
     source: str
     content: str
     relevance_score: float
+
 
 class ConversationRequest(BaseModel):
     question: str
@@ -269,10 +382,12 @@ class ConversationRequest(BaseModel):
     temperature: Optional[float] = 0.1
     top_k: Optional[int] = 3
 
+
 class ConversationResponse(BaseModel):
     conversation_id: str
     answer: str
     sources: List[SourceInfo]
+
 
 class ChatTemplate:
     @staticmethod
@@ -497,7 +612,6 @@ class ChatQnAService:
                         sources = node_data["selected_sources"]
                         print(f"DEBUG: Found {len(sources)} sources in node {node_name}")
                         break
-                
             choices = []
             usage = UsageInfo()
             choices.append(
@@ -589,7 +703,6 @@ class ConversationRAGService(ChatQnAService):
 
         serialized_turn = self.serialize_datetime(turn)
         
-        # Save to MongoDB
         conversations_collection.update_one(
             {"conversation_id": conversation_id},
             {
@@ -602,7 +715,6 @@ class ConversationRAGService(ChatQnAService):
         )
 
     def prepare_source_info_list(self, sources_data: List[Dict]) -> List[SourceInfo]:
-        """Convert raw source data to SourceInfo objects"""
         source_info_list = []
         for source in sources_data:
             source_info = SourceInfo(
@@ -621,9 +733,7 @@ class ConversationRAGService(ChatQnAService):
             stream = data.get("stream", False)
 
             db = self.mongo_client[conversation_request.db_name]
-            conversations_collection = db["conversations"]
-
-            
+            conversations_collection = db["conversations"]  
             if not conversation_request.conversation_id and "conversation_id" in request.path_params:
                 conversation_request.conversation_id = request.path_params["conversation_id"]
             
@@ -848,6 +958,79 @@ class ConversationRAGService(ChatQnAService):
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
+    async def handle_search_papers(self, request: Request):
+        try:
+            data = await request.json()
+            search_query = SearchQuery.parse_obj(data)
+            query = search_query.query
+            year = search_query.year
+            api = search_query.api.lower()
+
+            if not query:
+                raise HTTPException(status_code=400, detail="No query provided")
+
+            if api == "semantic_scholar":
+                papers = SemanticScholarAPI.search_papers(query, year)
+            elif api == "arxiv_papers":
+                papers = ArxivAPI.search_papers(query, year)
+            elif api == "doaj":
+                papers = DOAJAPI.fetch_papers(query, year)
+            else:
+                raise HTTPException(status_code=400, detail="Unsupported API")
+
+            return JSONResponse(content={"papers": papers})
+        except Exception as e:
+            print(f"Error processing search_papers request: {e}")
+            raise HTTPException(status_code=500, detail="Internal Server Error")
+
+    async def handle_suggest(self, request: Request):
+        try:
+            q = request.query_params.get("q")
+            api = request.query_params.get("api", "semantic_scholar")
+
+            if not q or len(q) < 3:
+                raise HTTPException(status_code=400, detail="Query must be at least 3 characters long")
+
+            if api == "semantic_scholar":
+                suggestions = SemanticScholarAPI.get_suggestions(q)
+            elif api == "doaj":
+                suggestions = DOAJAPI.get_suggestions(q)
+            elif api == "arxiv_papers":
+                return JSONResponse(content={"suggestions": [], "message": "arXiv API does not support suggestions. Please try Semantic Scholar or DOAJ."})
+            else:
+                raise HTTPException(status_code=400, detail="Unsupported API")
+
+            return JSONResponse(content={"suggestions": suggestions})
+        except Exception as e:
+            print(f"Error processing suggest request: {e}")
+            raise HTTPException(status_code=500, detail="Failed to get suggestions")
+
+    async def handle_download_references(self, request: Request):
+        try:
+            data = await request.json()
+            paper = PaperID.parse_obj(data)
+            depth = data.get("depth", 1)
+
+            if paper.api == "semantic_scholar":
+                references = SemanticScholarAPI.fetch_references(paper.paper_id)
+            elif paper.api == "arxiv_papers":
+                references = ArxivAPI.fetch_references(paper.paper_id)
+            elif paper.api == "doaj":
+                references = []
+            else:
+                raise HTTPException(status_code=400, detail="Unsupported API")
+
+            if not references:
+                raise HTTPException(status_code=500, detail="Failed to fetch references")
+
+            with open("references.json", "w") as file:
+                json.dump(references, file)
+            return FileResponse("references.json", media_type='application/json')
+        except Exception as e:
+            print(f"Error processing download_references request: {e}")
+            raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
     def start(self):
         self.service = MicroService(
             self.__class__.__name__,
@@ -864,11 +1047,14 @@ class ConversationRAGService(ChatQnAService):
         self.service.add_route("/api/conversations/{conversation_id}", self.handle_get_history, methods=["GET"])
         self.service.add_route("/api/conversations/{conversation_id}", self.handle_delete_conversation, methods=["DELETE"])
         self.service.add_route("/api/conversations", self.handle_list_conversations, methods=["GET"])
+        self.service.add_route("/api/search_papers", self.handle_search_papers, methods=["POST"])
+        self.service.add_route("/api/suggest", self.handle_suggest, methods=["GET"])
+        self.service.add_route("/api/download_references", self.handle_download_references, methods=["POST"])
         self.service.add_route("/api/circulars", handle_circular_update, methods=["PATCH"])
         self.service.add_route("/api/circulars", handle_circular_get, methods=["GET"])
         self.service.start()
 
 if __name__ == "__main__":
-    conversation_service = ConversationRAGService(port=int(os.getenv("MEGA_SERVICE_PORT", 9001)))
+    conversation_service = ConversationRAGService(port=int(os.getenv("MEGA_SERVICE_PORT", 9000)))
     conversation_service.add_remote_service()
     conversation_service.start()

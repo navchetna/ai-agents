@@ -119,6 +119,8 @@ export default function ChatArea({
   const [streamingEnabled, setStreamingEnabled] = useState(false);
   const [streamedContent, setStreamedContent] = useState<string>('');
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+
 
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -300,6 +302,7 @@ export default function ChatArea({
 
         console.log(`Sending streaming request to: ${CHAT_QNA_URL}/api/conversations/${targetConversationId}`);
         const response = await axios.post(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}`, {
+          db_name: 'rag_db',
           question: messageContent.trim(),
           max_tokens: 1024,
           temperature: 0.1,
@@ -604,11 +607,44 @@ export default function ChatArea({
     }));
   };
 
-  const handleCopyContent = (content: string, messageId: string) => {
-    navigator.clipboard.writeText(content).then(() => {
-      setCopyPopup({ open: true, messageId });
-      setTimeout(() => setCopyPopup({ open: false, messageId: null }), 2000);
-    });
+  const copyToClipboard = (text: string): Promise<void> => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text);
+    } else {
+      return new Promise((resolve, reject) => {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        try {
+          const successful = document.execCommand('copy');
+          document.body.removeChild(textArea);
+          if (successful) {
+            resolve();
+          } else {
+            reject(new Error('Unable to copy text'));
+          }
+        } catch (err) {
+          document.body.removeChild(textArea);
+          reject(err);
+        }
+      });
+    }
+  };
+
+  const handleCopy = async (content: string, messageId: string) => {
+    try {
+      await copyToClipboard(content);
+      setCopiedMessageId(messageId);
+      setTimeout(() => setCopiedMessageId(null), 1000);
+    } catch (error) {
+      console.error('Failed to copy text:', error);
+    }
   };
 
   const formatTimestamp = (timestamp: string) => {
@@ -641,7 +677,7 @@ export default function ChatArea({
         sx={{
           position: 'relative',
           zIndex: 1,
-          maxWidth: '1200px',
+          maxWidth: '1100px',
           width: '100%',
           mx: 'auto',
           height: '100%',
@@ -662,219 +698,189 @@ export default function ChatArea({
           }}
         >
           {displayMessages.map((message) => (
-  <Fade in key={message.id}>
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'row',
-        gap: 2,
-        opacity: message.isPending ? 0.7 : 1,
-      }}
-    >
-      {message.role === 'user' ? (
-        <AccountCircleIcon
-          sx={{
-            fontSize: 32,
-            color: '#0071C5',
-            alignSelf: 'flex-start',
-            mt: 2
-          }}
-        />
-      ) : (
-        <Box
-          sx={{
-            width: 32,
-            height: 32,
-            borderRadius: '50%',
-            backgroundColor: 'white',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            alignSelf: 'flex-start',
-            mt: 2,
-          }}
-        >
-          <AutoAwesomeIcon
-            sx={{
-              fontSize: 24,
-              color: '#0071C5',
-            }}
-          />
-        </Box>
-      )}
-
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'flex-start',
-          width: '100%',
-          alignSelf: 'flex-start',
-        }}
-      >
-        <Box
-          sx={{
-            backgroundColor: message.role === 'user' ? '#0071C5' : '#f8f9fa',
-            borderRadius: 2,
-            p: 2,
-            maxWidth: '100%',
-            width: 'auto',
-            boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-            position: 'relative',
-          }}
-        >
-          <Typography
-            variant="body1"
-            sx={{
-              color: message.role === 'user' ? '#ffffff' : '#2c2c2c',
-              lineHeight: 1.5,
-              whiteSpace: 'pre-wrap',
-            }}
-          >
-            {message.isStreaming && message.id === streamingMessageId
-              ? streamedContent
-              : message.content}
-
-            {message.isStreaming && (
-              <span style={{ display: 'inline-block', width: '0.7em', height: '1em', verticalAlign: 'text-bottom' }}>
-                <Box
-                  component="span"
-                  sx={{
-                    display: 'inline-block',
-                    width: '3px',
-                    height: '1em',
-                    backgroundColor: '#0071C5',
-                    animation: 'blink 1s step-end infinite',
-                    '@keyframes blink': {
-                      '0%, 100%': { opacity: 1 },
-                      '50%': { opacity: 0 }
-                    },
-                  }}
-                />
-              </span>
-            )}
-          </Typography>
-
-          {message.role === 'assistant' && !message.isStreaming && (
-            <Box sx={{ display: 'flex', gap: 1, mt: 2, alignItems: 'center' }}>
-              <Tooltip title="Copy response">
-                <IconButton
-                  onClick={() => handleCopyContent(message.content, message.id)}
-                  size="small"
-                  sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}
-                >
-                  <ContentCopyIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Box sx={{ display: 'flex', gap: 0.5 }}>
-                <Tooltip title="Helpful">
-                  <IconButton
-                    size="small"
-                    onClick={() => handleQualityChange(message.id, 'good')}
-                    sx={{
-                      opacity: message.quality === 'good' ? 1 : 0.6,
-                      '&:hover': { opacity: 1 },
-                      color: message.quality === 'good' ? '#2e7d32' : 'inherit',
-                    }}
-                  >
-                    <ThumbUpIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Not helpful">
-                  <IconButton
-                    size="small"
-                    onClick={() => handleQualityChange(message.id, 'bad')}
-                    sx={{
-                      opacity: message.quality === 'bad' ? 1 : 0.6,
-                      '&:hover': { opacity: 1 },
-                      color: message.quality === 'bad' ? '#d32f2f' : 'inherit',
-                    }}
-                  >
-                    <ThumbDownIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-              {message.sources && message.sources.length > 0 && (
-                <Tooltip title="View sources">
-                  <IconButton
-                    size="small"
-                    onClick={() => toggleReferences(message.id)}
-                    sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}
-                  >
-                    <DescriptionIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              )}
-            </Box>
-          )}
-
-          {copyPopup.open && copyPopup.messageId === message.id && (
-            <Fade in>
+            <Fade in key={message.id}>
               <Box
                 sx={{
-                  position: 'absolute',
-                  bottom: '100%',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                  color: 'white',
-                  padding: '4px 8px',
-                  borderRadius: '4px',
-                  fontSize: '0.75rem',
-                  marginBottom: '4px',
+                  display: 'flex',
+                  flexDirection: 'row',
+                  gap: 2,
+                  opacity: message.isPending ? 0.7 : 1,
+                  justifyContent: 'flex-start',
                 }}
               >
-                Copied!
+                {message.role === 'user' ? (
+                  <AccountCircleIcon
+                    sx={{
+                      fontSize: 32,
+                      color: '#0071C5',
+                      alignSelf: 'flex-start',
+                      mt: 2
+                    }}
+                  />
+                ) : (
+                  <Box
+                    sx={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: '50%',
+                      backgroundColor: 'rgb(245,245,245)',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      alignSelf: 'flex-start',
+                      mt: 2,
+                    }}
+                  >
+                    <AutoAwesomeIcon
+                      sx={{
+                        fontSize: 24,
+                        color: '#0071C5',
+                      }}
+                    />
+                  </Box>
+                )}
+
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    width: '100%',
+                    alignSelf: 'flex-start',
+                  }}
+                >
+                  <Paper
+                    elevation={3}
+                    sx={{
+                      p: 2,
+                      maxWidth: '100%',
+                      borderRadius: 4,
+                      backgroundColor: message.role === 'user' ? '#e3f2fd' : '#fff',
+                      position: 'relative',
+                    }}
+                  >
+                    <Typography
+                      variant="body1"
+                      sx={{
+                        color: '#333',
+                        lineHeight: 1.5,
+                        whiteSpace: 'pre-wrap',
+                      }}
+                    >
+                      {message.isStreaming && message.id === streamingMessageId
+                        ? streamedContent
+                        : message.content}
+
+                      {message.isStreaming && (
+                        <span style={{ display: 'inline-block', width: '0.7em', height: '1em', verticalAlign: 'text-bottom' }}>
+                          <Box
+                            component="span"
+                            sx={{
+                              display: 'inline-block',
+                              width: '3px',
+                              height: '1em',
+                              backgroundColor: '#1976d2',
+                              animation: 'blink 1s step-end infinite',
+                              '@keyframes blink': {
+                                '0%, 100%': { opacity: 1 },
+                                '50%': { opacity: 0 }
+                              },
+                            }}
+                          />
+                        </span>
+                      )}
+                    </Typography>
+
+                    {message.role === 'assistant' && !message.isStreaming && (
+                      <Box sx={{ display: 'flex', gap: 1, mt: 2, justifyContent: 'flex-start' }}>
+                        <Tooltip title={copiedMessageId === message.id ? "Copied!" : "Copy response"}>
+                          <IconButton
+                            onClick={() => handleCopy(message.content, message.id)}
+                            size="small"
+                            color={copiedMessageId === message.id ? "primary" : "default"}
+                          >
+                            <ContentCopyIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+
+                        <Tooltip title="Helpful">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleQualityChange(message.id, 'good')}
+                            color={message.quality === 'good' ? 'primary' : 'default'}
+                          >
+                            <ThumbUpIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Not helpful">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleQualityChange(message.id, 'bad')}
+                            color={message.quality === 'bad' ? 'error' : 'default'}
+                          >
+                            <ThumbDownIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        {message.sources && message.sources.length > 0 && (
+                          <Tooltip title="View sources">
+                            <IconButton
+                              size="small"
+                              onClick={() => toggleReferences(message.id)}
+                            >
+                              <DescriptionIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    )}
+                  </Paper>
+
+                  {message.role === 'assistant' && message.sources && (
+                    <Collapse in={showReferences[message.id]} sx={{ mt: 1, maxWidth: '100%' }}>
+                      <Box
+                        sx={{
+                          backgroundColor: '#f8f9fa',
+                          borderRadius: 2,
+                          p: 2,
+                          border: '1px solid #e0e0e0',
+                        }}
+                      >
+                        <Typography variant="subtitle2" sx={{ mb: 1, color: '#2c2c2c' }}>
+                          Sources
+                        </Typography>
+                        {message.sources?.map((source, index) => (
+                          <Box key={index} sx={{ mb: 2, '&:last-child': { mb: 0 } }}>
+                            <Typography
+                              variant="subtitle2"
+                              sx={{
+                                color: '#1976d2',
+                                fontSize: '0.8rem',
+                                fontWeight: 600,
+                                mb: 0.5
+                              }}
+                            >
+                              {source.source} (Score: {source.relevance_score.toFixed(2)})
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                color: '#666',
+                                fontSize: '0.8rem',
+                                lineHeight: 1.4
+                              }}
+                            >
+                              {source.content}
+                            </Typography>
+                          </Box>
+                        ))}
+                      </Box>
+                    </Collapse>
+                  )}
+                </Box>
               </Box>
             </Fade>
-          )}
-        </Box>
+          ))}
 
-        {message.role === 'assistant' && message.sources && (
-          <Collapse in={showReferences[message.id]} sx={{ mt: 1, maxWidth: '100%' }}>
-            <Box
-              sx={{
-                backgroundColor: '#f8f9fa',
-                borderRadius: 2,
-                p: 2,
-                border: '1px solid #e0e0e0',
-              }}
-            >
-              <Typography variant="subtitle2" sx={{ mb: 1, color: '#2c2c2c' }}>
-                Sources
-              </Typography>
-              {message.sources?.map((source, index) => (
-                <Box key={index} sx={{ mb: 2, '&:last-child': { mb: 0 } }}>
-                  <Typography
-                    variant="subtitle2"
-                    sx={{
-                      color: '#1976d2',
-                      fontSize: '0.8rem',
-                      fontWeight: 600,
-                      mb: 0.5
-                    }}
-                  >
-                    {source.source} (Score: {source.relevance_score.toFixed(7)})
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: '#666',
-                      fontSize: '0.8rem',
-                      lineHeight: 1.4
-                    }}
-                  >
-                    {source.content}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-          </Collapse>
-        )}
-      </Box>
-    </Box>
-  </Fade>
-))}
           {isLoading && !streamingEnabled && !streamingMessageId && (
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
               <CircularProgress size={24} />

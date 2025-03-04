@@ -1,8 +1,9 @@
 "use client"
 
+import axios from 'axios';
+import debounce from "lodash/debounce"
 import type React from "react"
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { Search } from "lucide-react"
 import {
   TextField,
@@ -23,9 +24,7 @@ import {
 import { CircularProgress } from "@mui/material";
 import { getSuggestions } from "@/lib/api"
 import { type ApiType, API_TYPES } from "@/types/api"
-import { SEARCH_URL } from "@/lib/constants"
-import debounce from "lodash/debounce"
-import axios from 'axios';
+import { CHAT_QNA_URL } from "@/lib/constants"
 
 const CURRENT_YEAR = new Date().getFullYear()
 const YEAR_RANGE = 20
@@ -49,7 +48,7 @@ export default function SearchLanding({ onSearch }: SearchLandingProps) {
     if (query.trim()) {
       setIsLoading(true);
       try {
-        const response = await axios.post(`${SEARCH_URL}/search_papers`, {
+        const response = await axios.post(`${CHAT_QNA_URL}/api/search_papers`, {
           query,
           year: selectedYear,
           api: selectedApi,
