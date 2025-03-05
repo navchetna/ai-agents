@@ -138,7 +138,7 @@ def align_outputs(self, data, cur_node, inputs, runtime_graph, llm_parameters_di
     elif self.services[cur_node].service_type == ServiceType.RERANK:
         # rerank the inputs with the scores
         reranker_parameters = kwargs.get("reranker_parameters", None)
-        top_n = reranker_parameters.top_n if reranker_parameters else 1
+        top_n = reranker_parameters.top_n if reranker_parameters else 5
         docs = inputs["texts"]
         reranked_docs = []
         selected_sources = []
@@ -380,7 +380,7 @@ class ConversationRequest(BaseModel):
     conversation_id: Optional[str] = None
     max_tokens: Optional[int] = 1024
     temperature: Optional[float] = 0.1
-    top_k: Optional[int] = 3
+    top_k: Optional[int] = 5
 
 
 class ConversationResponse(BaseModel):
@@ -563,7 +563,7 @@ class ChatQnAService:
         
         parameters = LLMParams(
             max_tokens=chat_request.max_tokens if chat_request.max_tokens else 1024,
-            top_k=chat_request.top_k if chat_request.top_k else 10,
+            top_k=chat_request.top_k if chat_request.top_k else 5,
             top_p=chat_request.top_p if chat_request.top_p else 0.95,
             temperature=chat_request.temperature if chat_request.temperature else 0.01,
             frequency_penalty=chat_request.frequency_penalty if chat_request.frequency_penalty else 0.0,
@@ -581,7 +581,7 @@ class ChatQnAService:
             score_threshold=chat_request.score_threshold if chat_request.score_threshold else 0.2,
         )
         reranker_parameters = RerankerParms(
-            top_n=chat_request.top_n if chat_request.top_n else 1,
+            top_n=chat_request.top_n if chat_request.top_n else 5,
         )
         
         try:
@@ -751,8 +751,8 @@ class ConversationRAGService(ChatQnAService):
                 "max_tokens": conversation_request.max_tokens,
                 "temperature": conversation_request.temperature,
                 "stream": stream,
-                "k": conversation_request.top_k or 3,
-                "top_n": conversation_request.top_k or 3
+                "k": conversation_request.top_k or 5,
+                "top_n": conversation_request.top_k or 5
             }
 
             if conversation_request.db_name == "easy_circulars":
