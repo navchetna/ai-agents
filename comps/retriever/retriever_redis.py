@@ -3,8 +3,8 @@
 
 import os
 import time
+import redis
 from typing import Union
-
 from langchain_community.embeddings import HuggingFaceBgeEmbeddings
 from langchain_community.vectorstores import Redis
 from langchain_huggingface import HuggingFaceEndpointEmbeddings
@@ -31,6 +31,21 @@ from comps.proto.api_protocol import (
     RetrievalResponseData,
 )
 # from comps.third_parties.bridgetower.src.bridgetower_embedding import BridgeTowerEmbedding
+REDIS_URL = os.getenv("REDIS_URL")
+redis_pool = redis.ConnectionPool.from_url(REDIS_URL)
+
+def get_file_name(chunk_id):
+    r = redis.Redis(connection_pool=redis_pool)
+    client = r.ft('file-keys')
+    
+    results = client.search("*")
+    
+    for doc in results.docs:
+        key_ids = doc.key_ids.split("#")
+        if chunk_id in key_ids:
+            return doc.file_name
+    
+    return None
 
 logger = CustomLogger("retriever_redis")
 logflag = os.getenv("LOGFLAG", False)
@@ -96,12 +111,17 @@ async def retrieve(
     if isinstance(input, EmbedDoc) or isinstance(input, EmbedMultimodalDoc):
         metadata_list = []
         for r in search_res:
-            metadata_list.append(r.metadata)
+            file_name = get_file_name(r.metadata['id'])
+            metadata_list.append({**r.metadata, 'file_name': file_name})
             retrieved_docs.append(TextDoc(text=r.page_content))
         result = SearchedMultimodalDoc(retrieved_docs=retrieved_docs, initial_query=input.text, metadata=metadata_list)
     else:
         for r in search_res:
-            retrieved_docs.append(RetrievalResponseData(text=r.page_content, metadata=r.metadata))
+            file_name = get_file_name(r.metadata['id'])
+            retrieved_docs.append(RetrievalResponseData(
+                text=r.page_content,
+                metadata={**r.metadata, 'file_name': file_name}
+            ))
         if isinstance(input, RetrievalRequest):
             result = RetrievalResponse(retrieved_docs=retrieved_docs)
         elif isinstance(input, ChatCompletionRequest):
