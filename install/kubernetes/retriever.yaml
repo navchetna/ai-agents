@@ -41,7 +41,7 @@ spec:
               value: http://research-assistant-tei-embedding-deployment:6010
             - name: no_proxy
               value: 127.0.0.1,localhost,.intel.com,research-assistant-redis-deployment,research-assistant-tei-embedding-deployment
-          image: tanmayudupa124/easy-circulars-retriever:latest
+          image: ervin0307/retriever:latest
           name: research-assistant-retriever-container
           ports:
             - containerPort: 7000
