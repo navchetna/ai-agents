@@ -3,6 +3,7 @@ import os
 import json
 import requests
 from uuid import uuid4
+import redis
 from datetime import datetime
 from typing import List, Dict, Optional
 from langchain_core.prompts import PromptTemplate
@@ -47,6 +48,8 @@ RERANK_SERVER_PORT = int(os.getenv("RERANK_SERVER_PORT", 80))
 LLM_SERVER_HOST_IP = os.getenv("LLM_SERVER_HOST_IP", "0.0.0.0")
 LLM_SERVER_PORT = int(os.getenv("LLM_SERVER_PORT", 80))
 LLM_MODEL = os.getenv("LLM_MODEL", "Intel/neural-chat-7b-v3-3")
+REDIS_URL = os.getenv("REDIS_URL")
+
 
 def align_inputs(self, inputs, cur_node, runtime_graph, llm_parameters_dict, **kwargs):
     if self.services[cur_node].service_type == ServiceType.EMBEDDING:
@@ -80,14 +83,14 @@ def align_outputs(self, data, cur_node, inputs, runtime_graph, llm_parameters_di
     elif self.services[cur_node].service_type == ServiceType.RETRIEVER:
         if "retrieved_docs" in data:
             enhanced_docs = []
-            for doc in data["retrieved_docs"]:
-                enhanced_doc = doc.copy()
-                if "source" not in enhanced_doc and "id" in enhanced_doc:
-                    enhanced_doc["source"] = enhanced_doc["id"]
-                if "content" not in enhanced_doc and "text" in enhanced_doc:
-                    enhanced_doc["content"] = enhanced_doc["text"]
+            for doc, metadata in zip(data["retrieved_docs"], data["metadata"]):
+                enhanced_doc = {
+                    "content": doc["text"],
+                    "source": metadata["file_name"],
+                    "id": metadata["id"]
+                }
                 enhanced_docs.append(enhanced_doc)
-                
+            
             next_data["source_docs"] = enhanced_docs
             
         docs = [doc["text"] for doc in data["retrieved_docs"]]
@@ -143,7 +146,8 @@ def align_outputs(self, data, cur_node, inputs, runtime_graph, llm_parameters_di
         reranked_docs = []
         selected_sources = []
         
-        doc_metadata = inputs.get("doc_metadata", [])
+        # doc_metadata = inputs.get("doc_metadata", [])
+        doc_metadata = inputs.get("source_docs", [])
         
         for best_response in data[:top_n]:
             idx = best_response["index"]
@@ -157,6 +161,11 @@ def align_outputs(self, data, cur_node, inputs, runtime_graph, llm_parameters_di
                     source_info["source"] = source_info["id"]
                 if "content" not in source_info and "text" in source_info:
                     source_info["content"] = source_info["text"]
+                
+                # chunk_id = source_info.get("id")
+                # if chunk_id:
+                #     file_name = get_file_name_for_chunk(chunk_id)
+                #     source_info["file_name"] = file_name
                 
                 selected_sources.append(source_info)
                 print(f"DEBUG: Added reranked source: {source_info.get('source', 'unknown')} with score {source_info.get('relevance_score', 0.0)}")
@@ -718,7 +727,7 @@ class ConversationRAGService(ChatQnAService):
         source_info_list = []
         for source in sources_data:
             source_info = SourceInfo(
-                source=source.get("source", source.get("id", "unknown")),
+                source=source.get("file_name", source.get("source", source.get("id", "unknown"))),
                 content=source.get("content", source.get("text", "")),
                 relevance_score=float(source.get("relevance_score", source.get("score", 0.0)))
             )
@@ -797,7 +806,7 @@ class ConversationRAGService(ChatQnAService):
                             source["relevance_score"] = float(source.get("score"))
                             
                         processed_source = {
-                            "source": source.get("source", "unknown"),
+                            "source": source.get("file_name", source.get("source", "unknown")),
                             "content": source.get("content", source.get("text", "")),
                             "relevance_score": float(source.get("relevance_score", 0.0))
                         }
@@ -826,7 +835,7 @@ class ConversationRAGService(ChatQnAService):
                 if sources:
                     for source in sources:
                         processed_source = {
-                            "source": source.get("source", "unknown"),
+                            "source": source.get("file_name", source.get("source", "unknown")),
                             "content": source.get("content", source.get("text", "")),
                             "relevance_score": float(source.get("relevance_score", 0.0))
                         }
@@ -835,6 +844,7 @@ class ConversationRAGService(ChatQnAService):
                 self.save_conversation_turn(
                     conversation_request.conversation_id,
                     conversation_request.question,
+                    conversations_collection,
                     answer,
                     processed_sources
                 )
