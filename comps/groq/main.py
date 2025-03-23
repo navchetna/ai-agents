@@ -16,7 +16,7 @@ from comps.proto.api_protocol import (
 class GroqService:
     def __init__(self, host="0.0.0.0", port=8000):
         self.client = Groq()
-        self.model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+        self.model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
         self.host = host
         self.port = port
         self.endpoint = "/v1/chat/completions"
