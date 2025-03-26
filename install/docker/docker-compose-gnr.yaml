@@ -1,0 +1,162 @@
+# Copyright (C) 2024 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+version: "3.8"
+
+services:
+  retriever:
+    image: navchetna/retriever:latest
+    container_name: retriever-redis-server
+    ports:
+      - "5007:7000"
+    ipc: host
+    depends_on:
+      - redis-vector-db
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      REDIS_URL: ${REDIS_URL}
+      INDEX_NAME: ${INDEX_NAME}
+      TEI_EMBEDDING_ENDPOINT: http://tei-embedding-service:80
+      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+    restart: unless-stopped
+  redis-vector-db:
+    image: redis/redis-stack:7.2.0-v9
+    container_name: redis-vector-db
+    ports:
+      - "6379:6379"
+      - "8001:8001"
+  dataprep-redis:
+    image: navchetna/dataprep:latest
+    container_name: dataprep-redis-server
+    depends_on:
+      - redis-vector-db
+      - tei-embedding-service
+    volumes:
+      - ${HF_CACHE}:/.cache/huggingface/hub
+      - ${DATAPREP_OUT_DIR}:/home/user/comps/dataprep/out
+    ports:
+      - "5006:6007"
+    ipc: host
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      REDIS_URL: ${REDIS_URL}
+      LOGFLAG: ${LOGFLAG}
+      TEI_ENDPOINT: http://tei-embedding-service:80
+      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+    restart: unless-stopped
+  vllm-service:
+    image: vllm-cpu-env
+    container_name: vllm-service
+    ports:
+      - "9009:8000"
+    volumes:
+      - ${HF_CACHE}:/root/.cache/huggingface/hub
+    privileged: true
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      VLLM_USE_V1: 0
+      VLLM_ALLOW_LONG_MAX_MODEL_LEN: 1
+      VLLM_ENGINE_ITERATION_TIMEOUT_S: 600
+      VLLM_CPU_KVCACHE_SPACE: 80
+      VLLM_CPU_OMP_THREADS_BIND: "0-31"
+      HF_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+      VLLM_TORCH_PROFILER_DIR: "/mnt"
+    cpuset: "0-31"
+    command: --model $LLM_MODEL_ID --host 0.0.0.0 -tp 1 --dtype bfloat16 
+    healthcheck:
+      interval: 10s
+      retries: 50
+      start_period: 30s
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:8000/v1/models
+  tei-reranking-service:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+    container_name: tei-reranking-server
+    ports:
+      - "8808:80"
+    volumes:
+      - ${HF_CACHE}:/data
+    shm_size: 1g
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+      HF_HUB_DISABLE_PROGRESS_BARS: 1
+      HF_HUB_ENABLE_HF_TRANSFER: 0
+    command: --model-id ${RERANK_MODEL_ID} --auto-truncate
+  tei-embedding-service:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+    container_name: tei-embedding-server
+    ports:
+      - "6006:80"
+    volumes:
+      - ${HF_CACHE}:/data
+    shm_size: 1g
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+    command: --model-id ${EMBEDDING_MODEL_ID} --auto-truncate
+  mongodb:
+    image: mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: agents
+      MONGO_INITDB_ROOT_PASSWORD: agents
+    ports:
+      - "27017:27017"
+  backend:
+    image: ai-agents/rag/backend:latest
+    depends_on:
+      - redis-vector-db
+      - tei-embedding-service
+      - retriever
+      - tei-reranking-service
+      - vllm-service
+    ports:
+      - "5008:8888"
+    environment:
+      - no_proxy=${no_proxy}
+      - https_proxy=${https_proxy}
+      - http_proxy=${http_proxy}
+      - MEGA_SERVICE_HOST_IP=${SERVER_HOST}
+      - EMBEDDING_SERVER_HOST_IP=${EMBEDDING_SERVER_HOST_IP}
+      - EMBEDDING_SERVER_PORT=${EMBEDDING_SERVER_PORT:-80}
+      - RETRIEVER_SERVICE_HOST_IP=${RETRIEVER_SERVICE_HOST_IP}
+      - RETRIEVER_SERVICE_PORT=${RETRIEVER_SERVICE_PORT}
+      - RERANK_SERVER_HOST_IP=${RERANK_SERVER_HOST_IP}
+      - RERANK_SERVER_PORT=${RERANK_SERVER_PORT:-80}
+      - LLM_SERVER_HOST_IP=${LLM_SERVER_HOST_IP}
+      - LLM_SERVER_PORT=${LLM_SERVER_PORT:-80}
+      - LLM_MODEL=${LLM_MODEL_ID}
+      - LOGFLAG=${LOGFLAG}
+      - MONGO_HOST=${MONGO_HOST}
+      - MONGO_USERNAME=agents
+      - MONGO_PASSWORD=agents
+    ipc: host
+    restart: always
+  ui:
+    image: ${ui-assistant}:latest
+    depends_on:
+      - backend
+    ports:
+      - "5009:3000"
+    environment:
+      - no_proxy=${no_proxy}
+      - https_proxy=${https_proxy}
+      - http_proxy=${http_proxy}
+    restart: always
+
+networks:
+  default:
+    driver: bridge
