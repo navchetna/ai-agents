@@ -38,4 +38,4 @@ export MONGO_HOST="mongodb"
 
 export HF_CACHE="/home/anish-intel/.cache/huggingface/hub"
 
-export UI_IMAGE="ui-assistant"
+export UI_IMAGE="ai-agents/rag/ui"
