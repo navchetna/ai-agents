@@ -203,35 +203,14 @@ def align_outputs(self, data, cur_node, inputs, runtime_graph, llm_parameters_di
     return next_data
 
 def align_generator(self, gen, **kwargs):
-    # store words in a buffer and concat them
     buffer = ""
-    in_word = False
     
-    def is_word_boundary(curr_char, next_char=None):
-        if curr_char == '.':
-            if (buffer and buffer[-1].isdigit() and 
-                next_char and next_char.isdigit()):
-                return False, True
-            if (buffer and buffer[-1].isupper() and 
-                next_char and next_char.isupper()):
-                return False, True
-                
-        if curr_char == '-':
-            if (buffer and buffer[-1].isalnum() and 
-                next_char and next_char.isalnum()):
-                return False, True
-                
-        if curr_char in ' \t\n.,!?;:()[]{}':
-            return True, False
-
-        return False, True
-
     for line in gen:
         line = line.decode("utf-8")
         start = line.find("{")
         end = line.rfind("}") + 1
-
         json_str = line[start:end]
+        
         try:
             json_data = json.loads(json_str)
             if (
@@ -239,32 +218,33 @@ def align_generator(self, gen, **kwargs):
                 and "content" in json_data["choices"][0]["delta"]
             ):
                 new_content = json_data["choices"][0]["delta"]["content"]
+                buffer += new_content
                 
-                for i, char in enumerate(new_content):
-                    next_char = new_content[i + 1] if i + 1 < len(new_content) else None
-                    is_boundary, include_char = is_word_boundary(char, next_char)
-                    
-                    if include_char:
-                        buffer += char
-                        in_word = True
-                    
-                    if is_boundary and in_word:
-                        if buffer.strip():
-                            yield f"data: {repr((buffer + char).encode('utf-8'))}\n\n"
-                            buffer = ""
-                            in_word = False
-                    elif is_boundary:
-                        yield f"data: {repr(char.encode('utf-8'))}\n\n"
-                        
+                cleaned_content = buffer.strip()
+                if cleaned_content:
+                    if cleaned_content[0] not in ",.!?;:'\")]}-":
+                        yield str(f" {cleaned_content}")
+                    else:
+                        yield str(f"{cleaned_content} ")
+                    buffer = ""
+                
         except Exception as e:
             if buffer:
-                yield f"data: {repr(buffer.encode('utf-8'))}\n\n"
+                cleaned_content = buffer.strip()
+                if cleaned_content:
+                    yield f"data: {cleaned_content}\n\n"
                 buffer = ""
-            yield f"data: {repr(json_str.encode('utf-8'))}\n\n"
+            
+            cleaned_json_str = json_str.strip()
+            if cleaned_json_str:
+                yield f"data: {cleaned_json_str}\n\n"
     
-    if buffer.strip():
-        yield f"data: {repr(buffer.encode('utf-8'))}\n\n"
-    yield "data: [DONE]\n\n"
+    if buffer:
+        cleaned_content = buffer.strip()
+        if cleaned_content:
+            yield f"data: {cleaned_content} "
+    
+    yield ""
 
 class SearchQuery(BaseModel):
     query: str
@@ -566,7 +546,7 @@ class ChatQnAService:
 
     async def handle_request(self, request: Request):
         data = await request.json()
-        stream_opt = data.get("stream", False)
+        stream_opt = data.get("stream", True)
         chat_request = ChatCompletionRequest.parse_obj(data)
         prompt = handle_message(chat_request.messages)
         
@@ -739,7 +719,7 @@ class ConversationRAGService(ChatQnAService):
             data = await request.json()
             conversation_request = ConversationRequest.parse_obj(data)
 
-            stream = data.get("stream", False)
+            stream = data.get("stream", True)
 
             db = self.mongo_client[conversation_request.db_name]
             conversations_collection = db["conversations"]  
