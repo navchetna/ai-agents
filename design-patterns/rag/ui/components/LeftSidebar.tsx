@@ -22,7 +22,6 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChatIcon from '@mui/icons-material/Chat';
-import { topics } from './ChatArea';
 import { CHAT_QNA_URL } from '@/lib/constants';
 
 interface Conversation {
@@ -286,7 +285,7 @@ export default function LeftSidebar({
             }}>
               {conversations.map((conversation) => {
                 const preview = getConversationPreview(conversation);
-                const topic = topics.find(t => t.name === preview.context);
+                // const topic = topics.find(t => t.name === preview.context);
 
                 return (
                   <ListItemButton
@@ -347,8 +346,6 @@ export default function LeftSidebar({
                         sx={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          backgroundColor: topic ? `${topic.color}10` : '#f5f5f5',
-                          color: topic ? topic.color : '#666',
                           borderRadius: '12px',
                           px: 1,
                           py: 0.25,
