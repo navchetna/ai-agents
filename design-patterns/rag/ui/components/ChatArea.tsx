@@ -1083,9 +1083,6 @@ export default function ChatArea({
                   </Box>
 
                   <Box sx={{ mt: 3, mb: 2 }}>
-                    <Typography variant="subtitle1" sx={{ mb: 1, color: 'text.primary', fontSize: '1rem' }}>
-                      Ready to start your research journey?
-                    </Typography>
                     <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2, fontSize: '0.85rem' }}>
                       Type a question in the chat box below or ask about any research topic
                     </Typography>
