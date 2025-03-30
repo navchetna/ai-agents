@@ -212,12 +212,14 @@ def align_generator(self, gen, **kwargs):
     
     ttft = None
     first_token_received = False
+    token_count = 0
     
-    # Initialize metrics in the registry
     self.__class__._metrics_registry[request_id] = {
         "ttft": 0.0,
         "e2e_latency": 0.0,
-        "completed": False
+        "completed": False,
+        "output_tokens": 0,
+        "throughput": 0
     }
     
     for line in gen:
@@ -239,6 +241,8 @@ def align_generator(self, gen, **kwargs):
             ):
                 new_content = json_data["choices"][0]["delta"]["content"]
                 buffer += new_content
+
+                token_count += len(new_content.split()) 
                 
                 cleaned_content = buffer.strip()
                 if cleaned_content:
@@ -250,12 +254,17 @@ def align_generator(self, gen, **kwargs):
             
             if json_data["choices"][0]["finish_reason"] == "stop":
                 e2e_latency = time.perf_counter() - e2e_start_time
+                throughput =  token_count / (e2e_latency - ttft)
                 self.__class__._metrics_registry[request_id]["e2e_latency"] = e2e_latency
                 self.__class__._metrics_registry[request_id]["completed"] = True
+                self.__class__._metrics_registry[request_id]["output_tokens"] = token_count
+                self.__class__._metrics_registry[request_id]["throughput"] = throughput
                 
                 metrics_json = json.dumps({
                     "metrics": {
                         "ttft": ttft if ttft is not None else 0.0,
+                        "output_tokens": token_count,
+                        "throughput": throughput,
                         "e2e_latency": e2e_latency
                     }
                 })
@@ -274,12 +283,17 @@ def align_generator(self, gen, **kwargs):
     
     if not self.__class__._metrics_registry[request_id]["completed"]:
         e2e_latency = time.perf_counter() - e2e_start_time
+        throughput =  token_count / (e2e_latency - ttft)
         self.__class__._metrics_registry[request_id]["e2e_latency"] = e2e_latency
         self.__class__._metrics_registry[request_id]["completed"] = True
+        self.__class__._metrics_registry[request_id]["output_tokens"] = token_count
+        self.__class__._metrics_registry[request_id]["throughput"] = throughput
         
         metrics_json = json.dumps({
             "metrics": {
                 "ttft": ttft if ttft is not None else 0.0,
+                "output_tokens": token_count,
+                "throughput": throughput,
                 "e2e_latency": e2e_latency
             }
         })
@@ -760,7 +774,9 @@ class ConversationRAGService(ChatQnAService):
         if metrics:
             turn["metrics"] = {
                 "ttft": float(metrics.get("ttft", 0.0)),
-                "e2e_latency": float(metrics.get("e2e_latency", 0.0))
+                "e2e_latency": float(metrics.get("e2e_latency", 0.0)),
+                "output_tokens": float(metrics.get("output_tokens", 0)),
+                "throughput": float(metrics.get("throughput", 0.0))
             }
 
         if conversation_id not in self.active_conversations:
@@ -793,128 +809,6 @@ class ConversationRAGService(ChatQnAService):
             source_info_list.append(source_info)
         return source_info_list
 
-    # async def handle_chat_request(self, request: Request):
-    #     try:
-    #         data = await request.json()
-    #         conversation_request = ConversationRequest.parse_obj(data)
-
-    #         e2e_start_time = time.perf_counter()
-    #         ttft_start_time = e2e_start_time
-
-    #         request_id = str(uuid4())
-            
-    #         stream = data.get("stream", False)
-
-    #         db = self.mongo_client[conversation_request.db_name]
-    #         conversations_collection = db["conversations"]  
-    #         if not conversation_request.conversation_id and "conversation_id" in request.path_params:
-    #             conversation_request.conversation_id = request.path_params["conversation_id"]
-            
-    #         if conversation_request.conversation_id not in self.active_conversations:
-    #             stored_conversation = conversations_collection.find_one(
-    #                 {"conversation_id": conversation_request.conversation_id}
-    #             )
-    #             if stored_conversation:
-    #                 self.active_conversations[conversation_request.conversation_id] = stored_conversation["history"]
-    #             else:
-    #                 self.active_conversations[conversation_request.conversation_id] = []
-
-    #         chat_data = {
-    #             "messages": [{"role": "user", "content": conversation_request.question}],
-    #             "max_tokens": conversation_request.max_tokens,
-    #             "temperature": conversation_request.temperature,
-    #             "stream": stream,
-    #             "k": conversation_request.top_k or 5,
-    #             "top_n": conversation_request.top_k or 5
-    #         }
-
-    #         if conversation_request.db_name == "easy_circulars":
-    #             chat_data["chat_template"] = """
-    #             You are an expert assistant specializing in RBI circulars. The user is asking about a specific circular, 
-    #             and your responses must be strictly based on the provided search results.
-
-    #             - Use only the given search results to answer the question.  
-    #             - Do not add information beyond what is provided.  
-    #             - If the search results do not contain relevant information, clearly state that the answer is unavailable.  
-    #             - Ensure responses are concise, accurate, and relevant to the question.  
-
-    #             ### Search Results:  
-    #             {context}  
-
-    #             ### User Question:  
-    #             {question}  
-
-    #             ### Answer:
-    #         """
-    #         new_request = Request(scope=request.scope)
-    #         async def receive():
-    #             return {"type": "http.request", "body": json.dumps(chat_data).encode()}
-    #         new_request._receive = receive
-
-    #         rag_response = await super().handle_request(new_request)
-            
-    #         if isinstance(rag_response, JSONResponse):
-    #             response_data = json.loads(rag_response.body.decode())
-    #             answer = response_data["choices"][0]["message"]["content"]
-                
-    #             sources = response_data.get("sources", [])
-                
-    #             metrics = self.megaservice.__class__._metrics_registry.get(request_id, {})
-    #             if metrics and metrics.get("completed", False):
-    #                 metrics_data = {
-    #                     "ttft": metrics.get("ttft", 0.0),
-    #                     "e2e_latency": metrics.get("e2e_latency", 0.0)
-    #                 }
-    #             else:
-    #                 metrics_data = response_data.get("metrics", {"ttft": 0.0, "e2e_latency": 0.0})
-                
-    #             processed_sources = []
-    #             for source in sources:
-    #                 if isinstance(source, dict):
-    #                     if not source.get("source") and source.get("id"):
-    #                         source["source"] = source.get("id")
-    #                     if not source.get("content") and source.get("text"):
-    #                         source["content"] = source.get("text")
-    #                     if not source.get("relevance_score") and source.get("score"):
-    #                         source["relevance_score"] = float(source.get("score"))
-                            
-    #                     processed_source = {
-    #                         "source": source.get("file_name", source.get("source", "unknown")),
-    #                         "content": source.get("content", source.get("text", "")),
-    #                         "relevance_score": float(source.get("relevance_score", 0.0))
-    #                     }
-    #                     processed_sources.append(processed_source)
-                
-    #             source_info_list = self.prepare_source_info_list(processed_sources)
-                
-    #             self.save_conversation_turn(
-    #                 conversation_request.conversation_id,
-    #                 conversation_request.question,
-    #                 conversations_collection,
-    #                 answer,
-    #                 processed_sources,
-    #                 metrics_data
-    #             )
-
-    #             if request_id in self.megaservice.__class__._metrics_registry:
-    #                 del self.megaservice.__class__._metrics_registry[request_id]
-    #             return ConversationResponse(
-    #                 conversation_id=conversation_request.conversation_id,
-    #                 answer=answer,
-    #                 sources=source_info_list,
-    #                 metrics=metrics_data
-    #             )
-    #         return rag_response
-
-    #     except Exception as e:
-    #         print(f"Error processing request: {str(e)}")
-    #         import traceback
-    #         traceback.print_exc()
-    #         raise HTTPException(
-    #             status_code=500,
-    #             detail=f"Request processing failed: {str(e)}"
-    #         )
-
     async def handle_chat_request(self, request: Request):
         try:
             data = await request.json()
@@ -929,7 +823,6 @@ class ConversationRAGService(ChatQnAService):
             db = self.mongo_client[conversation_request.db_name]
             conversations_collection = db["conversations"]
 
-            # Ensure conversation ID is valid
             if not conversation_request.conversation_id and "conversation_id" in request.path_params:
                 conversation_request.conversation_id = request.path_params["conversation_id"]
 
@@ -942,7 +835,6 @@ class ConversationRAGService(ChatQnAService):
                 else:
                     self.active_conversations[conversation_request.conversation_id] = []
 
-            # Prepare chat data for processing
             chat_data = {
                 "messages": [{"role": "user", "content": conversation_request.question}],
                 "max_tokens": conversation_request.max_tokens,
@@ -957,7 +849,6 @@ class ConversationRAGService(ChatQnAService):
                 return {"type": "http.request", "body": json.dumps(chat_data).encode()}
             new_request._receive = receive
 
-            # Process the request using MegaService
             rag_response = await super().handle_request(new_request)
 
             if isinstance(rag_response, JSONResponse):
@@ -965,24 +856,20 @@ class ConversationRAGService(ChatQnAService):
                 answer = response_data["choices"][0]["message"]["content"]
                 sources = response_data.get("sources", [])
 
-                # Fetch metrics from registry or use provided metrics from payload
                 provided_metrics = data.get("metrics", None)
                 metrics_registry_data = self.megaservice.__class__._metrics_registry.get(request_id, {})
 
                 if provided_metrics:
-                    # Use metrics from payload if available
                     metrics_data = {
                         "ttft": float(provided_metrics.get("ttft", 0.0)),
                         "e2e_latency": float(provided_metrics.get("e2e_latency", 0.0))
                     }
                 elif metrics_registry_data and metrics_registry_data.get("completed", False):
-                    # Use metrics from registry if streaming completed
                     metrics_data = {
                         "ttft": float(metrics_registry_data.get("ttft", 0.0)),
                         "e2e_latency": float(metrics_registry_data.get("e2e_latency", 0.0))
                     }
                 else:
-                    # Default fallback for non-streaming requests
                     metrics_data = response_data.get("metrics", {"ttft": 0.0, "e2e_latency": 0.0})
 
                 processed_sources = []
@@ -995,7 +882,6 @@ class ConversationRAGService(ChatQnAService):
                         }
                         processed_sources.append(processed_source)
 
-                # Save conversation turn with correct metrics
                 self.save_conversation_turn(
                     conversation_request.conversation_id,
                     conversation_request.question,
@@ -1005,7 +891,6 @@ class ConversationRAGService(ChatQnAService):
                     metrics_data
                 )
 
-                # Remove metrics from registry after saving
                 if request_id in self.megaservice.__class__._metrics_registry:
                     del self.megaservice.__class__._metrics_registry[request_id]
 
@@ -1028,8 +913,6 @@ class ConversationRAGService(ChatQnAService):
                 status_code=500,
                 detail=f"Request processing failed: {str(e)}"
             )
-
-
 
     def serialize_datetime(self, obj):
         if isinstance(obj, dict):

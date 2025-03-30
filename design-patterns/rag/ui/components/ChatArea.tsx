@@ -9,15 +9,12 @@ import {
   Paper,
   Collapse,
   Fade,
-  Icon
-
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import SummarizeOutlinedIcon from '@mui/icons-material/SummarizeOutlined';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
-
 import axios from 'axios';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
@@ -30,6 +27,8 @@ import { CHAT_QNA_URL } from '@/lib/constants';
 
 interface Metrics {
   ttft: number;
+  output_tokens: number;
+  throughput: number;
   e2e_latency: number;
 }
 
@@ -236,107 +235,6 @@ export default function ChatArea({
     }
   };
 
-  // const sendMessage = async (messageContent: string, targetConversationId: string) => {
-  //   setIsLoading(true);
-
-  //   if (streamingEnabled) {
-  //     try {
-  //       const streamingMessageId = `streaming-${Date.now()}`;
-  //       let fullResponseText = '';
-
-  //       setMessages(prev => [...prev, {
-  //         id: streamingMessageId,
-  //         role: 'assistant',
-  //         content: '',
-  //         timestamp: new Date().toISOString(),
-  //         isStreaming: true
-  //       }]);
-
-  //       const response = await fetch(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}`, {
-  //         method: 'POST',
-  //         headers: {
-  //           'Content-Type': 'application/json',
-  //         },
-  //         body: JSON.stringify({
-  //           question: messageContent,
-  //           db_name: "rag_db",
-  //           stream: true
-  //         }),
-  //       });
-
-  //       if (!response.ok) {
-  //         throw new Error(`HTTP error! status: ${response.status}`);
-  //       }
-
-  //       if (!response.body) {
-  //         throw new Error('ReadableStream not supported');
-  //       }
-
-  //       const reader = response.body.getReader();
-  //       const decoder = new TextDecoder();
-
-  //       while (true) {
-  //         const { done, value } = await reader.read();
-
-  //         if (done) {
-  //           break;
-  //         }
-  //         const chunk = decoder.decode(value, { stream: true });
-  //         fullResponseText += chunk;
-
-  //         setMessages(prev =>
-  //           prev.map(msg =>
-  //             msg.id === streamingMessageId
-  //               ? { ...msg, content: fullResponseText }
-  //               : msg
-  //           )
-  //         );
-  //       }
-
-  //       // After streaming is complete, make a POST request to save the full response
-  //       await axios.post(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}`, {
-  //         question: messageContent,
-  //         db_name: "rag_db",
-  //         stream: false
-  //       });
-
-  //       // Now fetch the updated conversation with the properly stored response
-  //       const conversationResponse = await axios.get(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}?db_name=rag_db`);
-  //       const serverData = conversationResponse.data;
-
-  //       if (serverData.history && Array.isArray(serverData.history) && serverData.history.length > 0) {
-  //         const latestTurn = serverData.history[serverData.history.length - 1];
-
-  //         setMessages(prev =>
-  //           prev.map(msg =>
-  //             msg.id === streamingMessageId
-  //               ? {
-  //                 id: Date.now().toString(),
-  //                 role: 'assistant',
-  //                 content: fullResponseText,
-  //                 sources: latestTurn.sources || [],
-  //                 timestamp: new Date().toISOString(),
-  //                 isStreaming: false
-  //               }
-  //               : msg
-  //           )
-  //         );
-  //       }
-
-  //       setIsLoading(false);
-  //     } catch (error) {
-  //       console.error("Error in streaming response:", error);
-  //       setErrorMessage(error instanceof Error ? error.message : 'Failed to get streaming response');
-  //       setShowErrorSnackbar(true);
-  //       setIsLoading(false);
-  //     }
-  //   }
-
-  //   if (typeof updateConversationList === 'function') {
-  //     updateConversationList();
-  //   }
-  // };
-
   const sendMessage = async (messageContent: string, targetConversationId: string) => {
     setIsLoading(true);
 
@@ -385,13 +283,11 @@ export default function ChatArea({
           }
           const chunk = decoder.decode(value, { stream: true });
 
-          // Check if the chunk contains metrics data (but don't display it)
           const metricsMatch = chunk.match(/__METRICS__(.*?)__METRICS__/);
           if (metricsMatch) {
             try {
               const metricsData = JSON.parse(metricsMatch[1]);
               responseMetrics = metricsData.metrics;
-              // Remove the metrics marker from displayed content
               fullResponseText += chunk.replace(/__METRICS__(.*?)__METRICS__/, '');
             } catch (e) {
               console.error('Failed to parse metrics:', e);
@@ -410,7 +306,6 @@ export default function ChatArea({
           );
         }
 
-        // After streaming is complete, make a POST request to save the full response
         await axios.post(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}`, {
           question: messageContent,
           db_name: "rag_db",
@@ -418,7 +313,6 @@ export default function ChatArea({
           metrics: responseMetrics
         });
 
-        // Now fetch the updated conversation with the properly stored response
         const conversationResponse = await axios.get(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}?db_name=rag_db`);
         const serverData = conversationResponse.data;
 
@@ -479,7 +373,6 @@ export default function ChatArea({
     }
   };
 
-
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement> | string) => {
     if (typeof e !== 'string' && e?.preventDefault) {
       e.preventDefault();
@@ -491,7 +384,6 @@ export default function ChatArea({
     setShowWelcome(false);
     setErrorMessage(null);
 
-    // Create a user message object
     const userMessage = {
       id: Date.now().toString(),
       role: 'user',
@@ -610,7 +502,6 @@ export default function ChatArea({
             px: { xs: 2, sm: 4 },
             pt: 4,
             pb: 2,
-            // Reduced the gap between messages
             gap: 1.5,
           }}
         >
@@ -623,9 +514,7 @@ export default function ChatArea({
                   gap: 2,
                   opacity: message.isPending ? 0.7 : 1,
                   justifyContent: 'flex-start',
-                  // Add more space before a new question (except the first one)
                   mt: index > 0 && message.role === 'user' && displayMessages[index - 1].role === 'assistant' ? 3 : 0,
-                  // Reduce space between question and answer
                   mb: message.role === 'user' ? 0.5 : 0,
                 }}
               >
@@ -635,7 +524,7 @@ export default function ChatArea({
                       fontSize: 32,
                       color: '#0071C5',
                       alignSelf: 'flex-start',
-                      mt: 1 // Reduced from 2
+                      mt: 1
                     }}
                   />
                 ) : (
@@ -649,7 +538,7 @@ export default function ChatArea({
                       justifyContent: 'center',
                       alignItems: 'center',
                       alignSelf: 'flex-start',
-                      mt: 1 // Reduced from 2
+                      mt: 1
                     }}
                   >
                     <AutoAwesomeIcon
@@ -697,7 +586,7 @@ export default function ChatArea({
                       sx={{
                         display: 'flex',
                         alignItems: 'flex-start',
-                        mt: 0.5, // Reduced from 1
+                        mt: 0.5,
                         width: '100%',
                       }}
                     >
@@ -761,69 +650,6 @@ export default function ChatArea({
                           )}
                         </Typography>
 
-                        {/* {!message.isStreaming && (
-                          <Box sx={{ display: 'flex', gap: 1, mt: 1.5, justifyContent: 'flex-start' }}>
-                            <Tooltip title={copiedMessageId === message.id ? "Copied!" : "Copy response"}>
-                              <IconButton
-                                onClick={() => handleCopy(message.content, message.id)}
-                                size="small"
-                                color={copiedMessageId === message.id ? "primary" : "default"}
-                              >
-                                <ContentCopyIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-
-                            <Tooltip title="Helpful">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleQualityChange(message.id, 'good')}
-                                color={message.quality === 'good' ? 'primary' : 'default'}
-                              >
-                                <ThumbUpIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-
-                            <Tooltip title="Not helpful">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleQualityChange(message.id, 'bad')}
-                                color={message.quality === 'bad' ? 'error' : 'default'}
-                              >
-                                <ThumbDownIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-
-                            {message.sources && message.sources.length > 0 && (
-                              <Tooltip title="View sources">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => toggleReferences(message.id)}
-                                >
-                                  <DescriptionIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-
-                            {message.metrics && (
-                              <Tooltip
-                                title={
-                                  <Box sx={{ p: 1 }}>
-                                    <Typography variant="caption" display="block">
-                                      Time to First Token: {message.metrics.ttft.toFixed(2)}s
-                                    </Typography>
-                                    <Typography variant="caption" display="block">
-                                      End-to-End Latency: {message.metrics.e2e_latency.toFixed(2)}s
-                                    </Typography>
-                                  </Box>
-                                }
-                              >
-                                <IconButton size="small">
-                                  <InfoIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                          </Box>
-                        )} */}
                         {!message.isStreaming && (
                           <Box sx={{
                             display: 'flex',
@@ -831,7 +657,6 @@ export default function ChatArea({
                             width: '100%',
                             position: 'relative'
                           }}>
-                            {/* Left side buttons */}
                             <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-start' }}>
                               <Tooltip title={copiedMessageId === message.id ? "Copied!" : "Copy response"}>
                                 <IconButton
@@ -886,6 +711,12 @@ export default function ChatArea({
                                     <Box sx={{ p: 1 }}>
                                       <Typography variant="caption" display="block">
                                         Time to First Token: {message.metrics.ttft.toFixed(3)}s
+                                      </Typography>
+                                      <Typography variant="caption" display="block">
+                                        Throughput: {message.metrics.throughput.toFixed(3)} t/s
+                                      </Typography>
+                                      <Typography variant="caption" display="block">
+                                        Output tokens: {message.metrics.output_tokens}
                                       </Typography>
                                       <Typography variant="caption" display="block">
                                         End-to-End Latency: {message.metrics.e2e_latency.toFixed(3)}s
@@ -1165,7 +996,4 @@ export default function ChatArea({
       </Box>
     </Box>
   );
-
-
-
 }
