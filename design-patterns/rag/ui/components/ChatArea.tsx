@@ -414,7 +414,8 @@ export default function ChatArea({
         await axios.post(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}`, {
           question: messageContent,
           db_name: "rag_db",
-          stream: false
+          stream: false,
+          metrics: responseMetrics
         });
 
         // Now fetch the updated conversation with the properly stored response
