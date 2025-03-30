@@ -15,8 +15,7 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import SummarizeOutlinedIcon from '@mui/icons-material/SummarizeOutlined';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 
 import axios from 'axios';
@@ -29,6 +28,11 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import { CHAT_QNA_URL } from '@/lib/constants';
 
+interface Metrics {
+  ttft: number;
+  e2e_latency: number;
+}
+
 interface Message {
   id: string;
   role: "user" | "assistant" | string;
@@ -40,6 +44,7 @@ interface Message {
     relevance_score: number;
     content: string;
   }>;
+  metrics?: Metrics;
   isPending?: boolean;
   isStreaming?: boolean;
 }
@@ -166,7 +171,8 @@ export default function ChatArea({
             role: 'assistant',
             content: answerContent,
             timestamp: timestamp,
-            sources: turn.sources || turn.context || []
+            sources: turn.sources || turn.context || [],
+            metrics: turn.metrics || null
           });
         }
       });
@@ -230,6 +236,107 @@ export default function ChatArea({
     }
   };
 
+  // const sendMessage = async (messageContent: string, targetConversationId: string) => {
+  //   setIsLoading(true);
+
+  //   if (streamingEnabled) {
+  //     try {
+  //       const streamingMessageId = `streaming-${Date.now()}`;
+  //       let fullResponseText = '';
+
+  //       setMessages(prev => [...prev, {
+  //         id: streamingMessageId,
+  //         role: 'assistant',
+  //         content: '',
+  //         timestamp: new Date().toISOString(),
+  //         isStreaming: true
+  //       }]);
+
+  //       const response = await fetch(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}`, {
+  //         method: 'POST',
+  //         headers: {
+  //           'Content-Type': 'application/json',
+  //         },
+  //         body: JSON.stringify({
+  //           question: messageContent,
+  //           db_name: "rag_db",
+  //           stream: true
+  //         }),
+  //       });
+
+  //       if (!response.ok) {
+  //         throw new Error(`HTTP error! status: ${response.status}`);
+  //       }
+
+  //       if (!response.body) {
+  //         throw new Error('ReadableStream not supported');
+  //       }
+
+  //       const reader = response.body.getReader();
+  //       const decoder = new TextDecoder();
+
+  //       while (true) {
+  //         const { done, value } = await reader.read();
+
+  //         if (done) {
+  //           break;
+  //         }
+  //         const chunk = decoder.decode(value, { stream: true });
+  //         fullResponseText += chunk;
+
+  //         setMessages(prev =>
+  //           prev.map(msg =>
+  //             msg.id === streamingMessageId
+  //               ? { ...msg, content: fullResponseText }
+  //               : msg
+  //           )
+  //         );
+  //       }
+
+  //       // After streaming is complete, make a POST request to save the full response
+  //       await axios.post(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}`, {
+  //         question: messageContent,
+  //         db_name: "rag_db",
+  //         stream: false
+  //       });
+
+  //       // Now fetch the updated conversation with the properly stored response
+  //       const conversationResponse = await axios.get(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}?db_name=rag_db`);
+  //       const serverData = conversationResponse.data;
+
+  //       if (serverData.history && Array.isArray(serverData.history) && serverData.history.length > 0) {
+  //         const latestTurn = serverData.history[serverData.history.length - 1];
+
+  //         setMessages(prev =>
+  //           prev.map(msg =>
+  //             msg.id === streamingMessageId
+  //               ? {
+  //                 id: Date.now().toString(),
+  //                 role: 'assistant',
+  //                 content: fullResponseText,
+  //                 sources: latestTurn.sources || [],
+  //                 timestamp: new Date().toISOString(),
+  //                 isStreaming: false
+  //               }
+  //               : msg
+  //           )
+  //         );
+  //       }
+
+  //       setIsLoading(false);
+  //     } catch (error) {
+  //       console.error("Error in streaming response:", error);
+  //       setErrorMessage(error instanceof Error ? error.message : 'Failed to get streaming response');
+  //       setShowErrorSnackbar(true);
+  //       setIsLoading(false);
+  //     }
+  //   }
+
+  //   if (typeof updateConversationList === 'function') {
+  //     updateConversationList();
+  //   }
+  // };
+
   const sendMessage = async (messageContent: string, targetConversationId: string) => {
     setIsLoading(true);
 
@@ -237,6 +344,7 @@ export default function ChatArea({
       try {
         const streamingMessageId = `streaming-${Date.now()}`;
         let fullResponseText = '';
+        let responseMetrics = null;
 
         setMessages(prev => [...prev, {
           id: streamingMessageId,
@@ -276,7 +384,22 @@ export default function ChatArea({
             break;
           }
           const chunk = decoder.decode(value, { stream: true });
-          fullResponseText += chunk;
+
+          // Check if the chunk contains metrics data (but don't display it)
+          const metricsMatch = chunk.match(/__METRICS__(.*?)__METRICS__/);
+          if (metricsMatch) {
+            try {
+              const metricsData = JSON.parse(metricsMatch[1]);
+              responseMetrics = metricsData.metrics;
+              // Remove the metrics marker from displayed content
+              fullResponseText += chunk.replace(/__METRICS__(.*?)__METRICS__/, '');
+            } catch (e) {
+              console.error('Failed to parse metrics:', e);
+              fullResponseText += chunk;
+            }
+          } else {
+            fullResponseText += chunk;
+          }
 
           setMessages(prev =>
             prev.map(msg =>
@@ -309,6 +432,7 @@ export default function ChatArea({
                   role: 'assistant',
                   content: fullResponseText,
                   sources: latestTurn.sources || [],
+                  metrics: responseMetrics || latestTurn.metrics,
                   timestamp: new Date().toISOString(),
                   isStreaming: false
                 }
@@ -330,6 +454,7 @@ export default function ChatArea({
       updateConversationList();
     }
   };
+
 
   const handleQualityChange = (messageId: string, newQuality: 'good' | 'bad') => {
     const isLocal = localMessages.some(msg => msg.id === messageId);
@@ -635,7 +760,7 @@ export default function ChatArea({
                           )}
                         </Typography>
 
-                        {!message.isStreaming && (
+                        {/* {!message.isStreaming && (
                           <Box sx={{ display: 'flex', gap: 1, mt: 1.5, justifyContent: 'flex-start' }}>
                             <Tooltip title={copiedMessageId === message.id ? "Copied!" : "Copy response"}>
                               <IconButton
@@ -677,8 +802,105 @@ export default function ChatArea({
                                 </IconButton>
                               </Tooltip>
                             )}
+
+                            {message.metrics && (
+                              <Tooltip
+                                title={
+                                  <Box sx={{ p: 1 }}>
+                                    <Typography variant="caption" display="block">
+                                      Time to First Token: {message.metrics.ttft.toFixed(2)}s
+                                    </Typography>
+                                    <Typography variant="caption" display="block">
+                                      End-to-End Latency: {message.metrics.e2e_latency.toFixed(2)}s
+                                    </Typography>
+                                  </Box>
+                                }
+                              >
+                                <IconButton size="small">
+                                  <InfoIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Box>
+                        )} */}
+                        {!message.isStreaming && (
+                          <Box sx={{
+                            display: 'flex',
+                            mt: 1.5,
+                            width: '100%',
+                            position: 'relative'
+                          }}>
+                            {/* Left side buttons */}
+                            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-start' }}>
+                              <Tooltip title={copiedMessageId === message.id ? "Copied!" : "Copy response"}>
+                                <IconButton
+                                  onClick={() => handleCopy(message.content, message.id)}
+                                  size="small"
+                                  color={copiedMessageId === message.id ? "primary" : "default"}
+                                >
+                                  <ContentCopyIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+
+                              <Tooltip title="Helpful">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleQualityChange(message.id, 'good')}
+                                  color={message.quality === 'good' ? 'primary' : 'default'}
+                                >
+                                  <ThumbUpIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+
+                              <Tooltip title="Not helpful">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleQualityChange(message.id, 'bad')}
+                                  color={message.quality === 'bad' ? 'error' : 'default'}
+                                >
+                                  <ThumbDownIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+
+                              {message.sources && message.sources.length > 0 && (
+                                <Tooltip title="View sources">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => toggleReferences(message.id)}
+                                  >
+                                    <DescriptionIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                            </Box>
+
+                            {message.metrics && (
+                              <Box sx={{
+                                position: 'absolute',
+                                right: 0,
+                                bottom: 0
+                              }}>
+                                <Tooltip
+                                  title={
+                                    <Box sx={{ p: 1 }}>
+                                      <Typography variant="caption" display="block">
+                                        Time to First Token: {message.metrics.ttft.toFixed(3)}s
+                                      </Typography>
+                                      <Typography variant="caption" display="block">
+                                        End-to-End Latency: {message.metrics.e2e_latency.toFixed(3)}s
+                                      </Typography>
+                                    </Box>
+                                  }
+                                >
+                                  <IconButton size="small">
+                                    <InfoOutlinedIcon fontSize="small" sx={{ mt: 1, color: 'text.secondary' }} />
+                                  </IconButton>
+                                </Tooltip>
+                              </Box>
+                            )}
                           </Box>
                         )}
+
                       </Paper>
                     </Box>
                   )}

@@ -1,6 +1,7 @@
 import re
 import os
 import json
+import time
 import requests
 from uuid import uuid4
 import redis
@@ -204,6 +205,20 @@ def align_outputs(self, data, cur_node, inputs, runtime_graph, llm_parameters_di
 
 def align_generator(self, gen, **kwargs):
     buffer = ""
+    request_id = kwargs.get("request_id", str(uuid4()))
+    
+    ttft_start_time = kwargs.get("ttft_start_time", time.perf_counter())
+    e2e_start_time = ttft_start_time
+    
+    ttft = None
+    first_token_received = False
+    
+    # Initialize metrics in the registry
+    self.__class__._metrics_registry[request_id] = {
+        "ttft": 0.0,
+        "e2e_latency": 0.0,
+        "completed": False
+    }
     
     for line in gen:
         line = line.decode("utf-8")
@@ -213,6 +228,11 @@ def align_generator(self, gen, **kwargs):
         
         try:
             json_data = json.loads(json_str)
+            if not first_token_received and json_data["choices"][0]["delta"].get("content"):
+                ttft = time.perf_counter() - ttft_start_time
+                first_token_received = True
+                self.__class__._metrics_registry[request_id]["ttft"] = ttft
+            
             if (
                 json_data["choices"][0]["finish_reason"] != "eos_token"
                 and "content" in json_data["choices"][0]["delta"]
@@ -227,6 +247,19 @@ def align_generator(self, gen, **kwargs):
                     else:
                         yield str(f"{cleaned_content} ")
                     buffer = ""
+            
+            if json_data["choices"][0]["finish_reason"] == "stop":
+                e2e_latency = time.perf_counter() - e2e_start_time
+                self.__class__._metrics_registry[request_id]["e2e_latency"] = e2e_latency
+                self.__class__._metrics_registry[request_id]["completed"] = True
+                
+                metrics_json = json.dumps({
+                    "metrics": {
+                        "ttft": ttft if ttft is not None else 0.0,
+                        "e2e_latency": e2e_latency
+                    }
+                })
+                yield f"__METRICS__{metrics_json}__METRICS__"
                 
         except Exception as e:
             if buffer:
@@ -238,6 +271,19 @@ def align_generator(self, gen, **kwargs):
             cleaned_json_str = json_str.strip()
             if cleaned_json_str:
                 yield f"data: {cleaned_json_str}\n\n"
+    
+    if not self.__class__._metrics_registry[request_id]["completed"]:
+        e2e_latency = time.perf_counter() - e2e_start_time
+        self.__class__._metrics_registry[request_id]["e2e_latency"] = e2e_latency
+        self.__class__._metrics_registry[request_id]["completed"] = True
+        
+        metrics_json = json.dumps({
+            "metrics": {
+                "ttft": ttft if ttft is not None else 0.0,
+                "e2e_latency": e2e_latency
+            }
+        })
+        yield f"__METRICS__{metrics_json}__METRICS__"
     
     if buffer:
         cleaned_content = buffer.strip()
@@ -376,6 +422,7 @@ class ConversationResponse(BaseModel):
     conversation_id: str
     answer: str
     sources: List[SourceInfo]
+    metrics: Optional[Dict[str, float]] = None
 
 
 class ChatTemplate:
@@ -410,6 +457,7 @@ class ChatQnAService:
         ServiceOrchestrator.align_inputs = align_inputs
         ServiceOrchestrator.align_outputs = align_outputs
         ServiceOrchestrator.align_generator = align_generator
+        ServiceOrchestrator._metrics_registry = {}
         self.megaservice = ServiceOrchestrator()
         self.endpoint = str(MegaServiceEndpoint.CHAT_QNA)
 
@@ -549,6 +597,7 @@ class ChatQnAService:
         stream_opt = data.get("stream", True)
         chat_request = ChatCompletionRequest.parse_obj(data)
         prompt = handle_message(chat_request.messages)
+        request_id = str(uuid4())
         
         parameters = LLMParams(
             max_tokens=chat_request.max_tokens if chat_request.max_tokens else 1024,
@@ -572,6 +621,9 @@ class ChatQnAService:
         reranker_parameters = RerankerParms(
             top_n=chat_request.top_n if chat_request.top_n else 5,
         )
+
+        e2e_start_time = time.perf_counter()
+        ttft_start_time = e2e_start_time
         
         try:
             result_dict, runtime_graph = await self.megaservice.schedule(
@@ -579,11 +631,16 @@ class ChatQnAService:
                 llm_parameters=parameters,
                 retriever_parameters=retriever_parameters,
                 reranker_parameters=reranker_parameters,
+                ttft_start_time=ttft_start_time,
+                request_id=request_id,
             )
             
             for node, response in result_dict.items():
                 if isinstance(response, StreamingResponse):
                     return response
+            
+            e2e_end_time = time.perf_counter()
+            e2e_latency = e2e_end_time - e2e_start_time
                     
             last_node = runtime_graph.all_leaves()[-1]
             response = result_dict[last_node]["text"]
@@ -619,6 +676,21 @@ class ChatQnAService:
             
             response_dict = completion_response.dict()
             response_dict["sources"] = sources
+
+            metrics = self.megaservice.__class__._metrics_registry.get(request_id, {})
+            if metrics and metrics.get("completed", False):
+                response_dict["metrics"] = {
+                    "ttft": metrics.get("ttft", 0.0),
+                    "e2e_latency": metrics.get("e2e_latency", 0.0)
+                }
+            else:
+                response_dict["metrics"] = {
+                    "ttft": 0.0,
+                    "e2e_latency": e2e_latency
+                }
+            
+            if request_id in self.megaservice.__class__._metrics_registry:
+                del self.megaservice.__class__._metrics_registry[request_id]
             
             print(f"DEBUG: Returning response with {len(sources)} sources")
             for i, src in enumerate(sources):
@@ -677,13 +749,19 @@ class ConversationRAGService(ChatQnAService):
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-    def save_conversation_turn(self, conversation_id: str, question: str, conversations_collection, answer: str, sources: List[Dict]):
+    def save_conversation_turn(self, conversation_id: str, question: str, conversations_collection, answer: str, sources: List[Dict], metrics: Dict = None):
         turn = {
             "question": question,
             "answer": answer,
             "sources": sources,
             "timestamp": datetime.now()
         }
+
+        if metrics:
+            turn["metrics"] = {
+                "ttft": float(metrics.get("ttft", 0.0)),
+                "e2e_latency": float(metrics.get("e2e_latency", 0.0))
+            }
 
         if conversation_id not in self.active_conversations:
             self.active_conversations[conversation_id] = []
@@ -702,6 +780,7 @@ class ConversationRAGService(ChatQnAService):
             },
             upsert=True
         )
+        print(f"DEBUG: Saved conversation turn with metrics: {turn.get('metrics', {})}")
 
     def prepare_source_info_list(self, sources_data: List[Dict]) -> List[SourceInfo]:
         source_info_list = []
@@ -719,7 +798,12 @@ class ConversationRAGService(ChatQnAService):
             data = await request.json()
             conversation_request = ConversationRequest.parse_obj(data)
 
-            stream = data.get("stream", True)
+            e2e_start_time = time.perf_counter()
+            ttft_start_time = e2e_start_time
+
+            request_id = str(uuid4())
+            
+            stream = data.get("stream", False)
 
             db = self.mongo_client[conversation_request.db_name]
             conversations_collection = db["conversations"]  
@@ -775,6 +859,15 @@ class ConversationRAGService(ChatQnAService):
                 
                 sources = response_data.get("sources", [])
                 
+                metrics = self.megaservice.__class__._metrics_registry.get(request_id, {})
+                if metrics and metrics.get("completed", False):
+                    metrics_data = {
+                        "ttft": metrics.get("ttft", 0.0),
+                        "e2e_latency": metrics.get("e2e_latency", 0.0)
+                    }
+                else:
+                    metrics_data = response_data.get("metrics", {"ttft": 0.0, "e2e_latency": 0.0})
+                
                 processed_sources = []
                 for source in sources:
                     if isinstance(source, dict):
@@ -799,44 +892,18 @@ class ConversationRAGService(ChatQnAService):
                     conversation_request.question,
                     conversations_collection,
                     answer,
-                    processed_sources
+                    processed_sources,
+                    metrics_data
                 )
 
+                if request_id in self.megaservice.__class__._metrics_registry:
+                    del self.megaservice.__class__._metrics_registry[request_id]
                 return ConversationResponse(
                     conversation_id=conversation_request.conversation_id,
                     answer=answer,
-                    sources=source_info_list
+                    sources=source_info_list,
+                    metrics=metrics_data
                 )
-            elif isinstance(rag_response, ChatCompletionResponse):
-                answer = rag_response.choices[0].message.content
-                sources = getattr(rag_response, "sources", [])
-                
-                processed_sources = []
-                if sources:
-                    for source in sources:
-                        processed_source = {
-                            "source": source.get("file_name", source.get("source", "unknown")),
-                            "content": source.get("content", source.get("text", "")),
-                            "relevance_score": float(source.get("relevance_score", 0.0))
-                        }
-                        processed_sources.append(processed_source)
-                
-                self.save_conversation_turn(
-                    conversation_request.conversation_id,
-                    conversation_request.question,
-                    conversations_collection,
-                    answer,
-                    processed_sources
-                )
-
-                source_info_list = self.prepare_source_info_list(processed_sources)
-                
-                return ConversationResponse(
-                    conversation_id=conversation_request.conversation_id,
-                    answer=answer,
-                    sources=source_info_list
-                )
-            
             return rag_response
 
         except Exception as e:
