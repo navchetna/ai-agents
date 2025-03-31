@@ -2,6 +2,9 @@
 
 set -e
 
+# Get the directory where the script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 echo "==== Whisper Speech-to-Text Service Setup ===="
 echo ""
 
@@ -54,13 +57,14 @@ echo ""
 
 # Install Python dependencies
 echo "Installing Python dependencies..."
-pip install -r requirements.txt
+# Use the script directory to ensure we find requirements.txt
+pip install -r "$SCRIPT_DIR/requirements.txt"
 
 echo ""
 echo "Setup completed successfully!"
 echo ""
 echo "To start the Whisper service, run:"
-echo "python service.py"
+echo "python $SCRIPT_DIR/service.py"
 echo ""
 echo "If you want to set environment variables:"
 echo "export WHISPER_MODEL_SIZE=base  # Options: tiny, base, small, medium, large"

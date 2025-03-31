@@ -110,11 +110,12 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscription, disabled
         timeout: 30000,
       });
       
-      if (response.data && response.data.text) {
+      if (response.data && response.data.text && response.data.text.trim()) {
         onTranscription(response.data.text);
         showFeedback('Transcription successful!', 'success');
       } else {
-        showFeedback('No speech detected. Try again.', 'warning');
+        // Show alert for empty speech instead of passing to input
+        showFeedback('No speech detected. Please try again.', 'warning');
       }
     } catch (err: any) {
       console.error('Error processing audio:', err);
@@ -159,23 +160,6 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscription, disabled
           disabled={processing || disabled}
           sx={{
             transition: 'all 0.2s',
-            ...(recording && {
-              animation: 'pulse 1.5s infinite',
-              '@keyframes pulse': {
-                '0%': {
-                  transform: 'scale(1)',
-                  boxShadow: '0 0 0 0 rgba(244, 67, 54, 0.7)',
-                },
-                '70%': {
-                  transform: 'scale(1.1)',
-                  boxShadow: '0 0 0 10px rgba(244, 67, 54, 0)',
-                },
-                '100%': {
-                  transform: 'scale(1)',
-                  boxShadow: '0 0 0 0 rgba(244, 67, 54, 0)',
-                },
-              },
-            }),
           }}
         >
           {processing ? (
