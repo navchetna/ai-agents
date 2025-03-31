@@ -49,7 +49,7 @@ RERANK_SERVER_HOST_IP = os.getenv("RERANK_SERVER_HOST_IP", "0.0.0.0")
 RERANK_SERVER_PORT = int(os.getenv("RERANK_SERVER_PORT", 80))
 LLM_SERVER_HOST_IP = os.getenv("LLM_SERVER_HOST_IP", "0.0.0.0")
 LLM_SERVER_PORT = int(os.getenv("LLM_SERVER_PORT", 80))
-LLM_MODEL = os.getenv("LLM_MODEL_ID", "Intel/neural-chat-7b-v3-3")
+LLM_MODEL = os.getenv("LLM_MODEL_ID", "meta-llama/Llama-3.1-8B-Instruct")
 REDIS_URL = os.getenv("REDIS_URL")
 
 # Add Whisper service constants
@@ -692,16 +692,29 @@ class ChatQnAService:
             response_dict = completion_response.dict()
             response_dict["sources"] = sources
 
-            metrics = self.megaservice.__class__._metrics_registry.get(request_id, {})
-            if metrics and metrics.get("completed", False):
-                response_dict["metrics"] = {
-                    "ttft": metrics.get("ttft", 0.0),
-                    "e2e_latency": metrics.get("e2e_latency", 0.0)
+            provided_metrics = data.get("metrics", None)
+            metrics_registry_data = self.megaservice.__class__._metrics_registry.get(request_id, {})
+
+            if provided_metrics:
+                metrics_data = {
+                    "ttft": float(provided_metrics.get("ttft", 0.0)),
+                    "e2e_latency": float(provided_metrics.get("e2e_latency", 0.0)),
+                    "output_tokens": int(provided_metrics.get("output_tokens", 0)),
+                    "throughput": float(provided_metrics.get("throughput", 0.0))
+                }
+            elif metrics_registry_data and metrics_registry_data.get("completed", False):
+                metrics_data = {
+                    "ttft": float(metrics_registry_data.get("ttft", 0.0)),
+                    "e2e_latency": float(metrics_registry_data.get("e2e_latency", 0.0)),
+                    "output_tokens": int(metrics_registry_data.get("output_tokens", 0)),
+                    "throughput": float(metrics_registry_data.get("throughput", 0.0))
                 }
             else:
-                response_dict["metrics"] = {
+                metrics_data = {
                     "ttft": 0.0,
-                    "e2e_latency": e2e_latency
+                    "e2e_latency": 0.0,
+                    "output_tokens": 0,
+                    "throughput": 0.0
                 }
             
             if request_id in self.megaservice.__class__._metrics_registry:
@@ -776,7 +789,7 @@ class ConversationRAGService(ChatQnAService):
             turn["metrics"] = {
                 "ttft": float(metrics.get("ttft", 0.0)),
                 "e2e_latency": float(metrics.get("e2e_latency", 0.0)),
-                "output_tokens": float(metrics.get("output_tokens", 0)),
+                "output_tokens": int(metrics.get("output_tokens", 0)),
                 "throughput": float(metrics.get("throughput", 0.0))
             }
 
@@ -909,7 +922,12 @@ class ConversationRAGService(ChatQnAService):
                         "throughput": float(metrics_registry_data.get("throughput", 0.0))
                     }
                 else:
-                    metrics_data = response_data.get("metrics", {"ttft": 0.0, "e2e_latency": 0.0})
+                    metrics_data = {
+                        "ttft": 0.0,
+                        "e2e_latency": 0.0,
+                        "output_tokens": 0,
+                        "throughput": 0.0
+                    }
 
                 processed_sources = []
                 for source in sources:
