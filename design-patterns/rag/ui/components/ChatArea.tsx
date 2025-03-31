@@ -45,9 +45,10 @@ interface Message {
     relevance_score: number;
     content: string;
   }>;
-  metrics?: Metrics;
+  metrics?: Metrics | null;
   isPending?: boolean;
   isStreaming?: boolean;
+  isThinking?: boolean;
 }
 
 interface ChatAreaProps {
@@ -64,7 +65,6 @@ interface ChatAreaProps {
 
 export default function ChatArea({
   conversationId,
-  // onContextChange,
   onSelectConversation,
   onConversationUpdated,
   updateConversationList
@@ -243,14 +243,19 @@ export default function ChatArea({
     if (streamingEnabled) {
       try {
         const streamingMessageId = `streaming-${Date.now()}`;
+        setStreamingMessageId(streamingMessageId);
+        
         let fullResponseText = '';
+        let responseMetrics: Metrics | null = null;
+        let sourcesFromResponse: Array<{ source: string; relevance_score: number; content: string; }> = [];
 
         setMessages(prev => [...prev, {
           id: streamingMessageId,
           role: 'assistant',
           content: '',
           timestamp: new Date().toISOString(),
-          isStreaming: true
+          isStreaming: true,
+          isThinking: true
         }]);
 
         const response = await fetch(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}`, {
@@ -283,49 +288,104 @@ export default function ChatArea({
             break;
           }
           const chunk = decoder.decode(value, { stream: true });
-          
-          // No longer parsing metrics from stream, just accumulate content
-          fullResponseText += chunk;
 
-          setMessages(prev =>
-            prev.map(msg =>
-              msg.id === streamingMessageId
-                ? { ...msg, content: fullResponseText }
-                : msg
-            )
-          );
+          const metricsMatch = chunk.match(/__METRICS__(.*?)__METRICS__/);
+          if (metricsMatch) {
+            try {
+              const metricsData = JSON.parse(metricsMatch[1]);
+              responseMetrics = metricsData.metrics;
+              setMessages(prev =>
+                prev.map(msg =>
+                  msg.id === streamingMessageId
+                    ? { 
+                        ...msg, 
+                        metrics: responseMetrics,
+                      }
+                    : msg
+                )
+              );
+              
+              fullResponseText += chunk.replace(/__METRICS__(.*?)__METRICS__/, '');
+            } catch (e) {
+              console.error('Failed to parse metrics:', e);
+              fullResponseText += chunk;
+            }
+          } else {
+            fullResponseText += chunk;
+          }
+
+          const formattedText = fullResponseText
+            .replace(/\r\n/g, '\n')
+            .replace(/\n{3,}/g, '\n\n');
+
+          if (formattedText.trim() !== '') {
+            setMessages(prev =>
+              prev.map(msg =>
+                msg.id === streamingMessageId
+                  ? { 
+                      ...msg, 
+                      content: formattedText,
+                      isThinking: false
+                    }
+                  : msg
+              )
+            );
+          } else {
+            setMessages(prev =>
+              prev.map(msg =>
+                msg.id === streamingMessageId
+                  ? { ...msg, content: formattedText }
+                  : msg
+              )
+            );
+          }
         }
 
-        // After streaming completes, get the conversation data with metrics
-        const conversationResponse = await axios.get(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}?db_name=rag_db`);
-        const serverData = conversationResponse.data;
-
-        if (serverData.history && Array.isArray(serverData.history) && serverData.history.length > 0) {
-          const latestTurn = serverData.history[serverData.history.length - 1];
-
-          setMessages(prev =>
-            prev.map(msg =>
-              msg.id === streamingMessageId
-                ? {
-                  id: Date.now().toString(),
-                  role: 'assistant',
-                  content: fullResponseText,
-                  sources: latestTurn.sources || [],
-                  metrics: latestTurn.metrics,
-                  timestamp: new Date().toISOString(),
-                  isStreaming: false
+        setMessages(prev =>
+          prev.map(msg =>
+            msg.id === streamingMessageId
+              ? {
+                  ...msg,
+                  isStreaming: false,
+                  isThinking: false,
+                  metrics: responseMetrics
                 }
-                : msg
-            )
-          );
-        }
+              : msg
+          )
+        );
+
+        axios.post(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}`, {
+          question: messageContent,
+          db_name: "rag_db",
+          stream: false,
+          answer: fullResponseText,
+          metrics: responseMetrics,
+          sources: sourcesFromResponse
+        }).then(saveResponse => {
+          if (saveResponse.data && saveResponse.data.sources) {
+            setMessages(prev =>
+              prev.map(msg =>
+                msg.id === streamingMessageId
+                  ? {
+                      ...msg,
+                      sources: saveResponse.data.sources
+                    }
+                  : msg
+              )
+            );
+          }
+        }).catch(error => {
+          console.error("Error saving conversation:", error);
+        });
 
         setIsLoading(false);
+        setStreamingMessageId(null);
       } catch (error) {
         console.error("Error in streaming response:", error);
         setErrorMessage(error instanceof Error ? error.message : 'Failed to get streaming response');
         setShowErrorSnackbar(true);
         setIsLoading(false);
+        setStreamingMessageId(null);
       }
     }
 
@@ -457,7 +517,6 @@ export default function ChatArea({
   const handleTranscription = (text: string) => {
     if (text.trim()) {
       setInput(prev => {
-        // If there's already text in the input field, append with a space
         if (prev.trim()) {
           return `${prev.trim()} ${text.trim()}`;
         }
@@ -603,34 +662,57 @@ export default function ChatArea({
                             color: '#333',
                             lineHeight: 1.5,
                             whiteSpace: 'pre-wrap',
+                            mt: 0,
+                            mb: 0,
                           }}
                         >
-                          {message.isStreaming && message.id === streamingMessageId ? (
+                          {message.isThinking ? (
                             <Typography
                               variant="body1"
                               sx={{
                                 color: '#333',
                                 lineHeight: 1.5,
                                 whiteSpace: 'pre-wrap',
+                                display: 'flex',
+                                alignItems: 'center',
+                                m: 0,
+                                p: 0,
                               }}
                             >
-                              {streamingContent[message.id] || ''}
-                              <Box
-                                component="span"
-                                sx={{
-                                  display: 'inline-block',
-                                  width: '3px',
-                                  height: '1em',
-                                  backgroundColor: '#1976d2',
-                                  marginLeft: '2px',
-                                  verticalAlign: 'text-bottom',
-                                  animation: 'blink 1s step-end infinite',
-                                  '@keyframes blink': {
-                                    '0%, 100%': { opacity: 1 },
-                                    '50%': { opacity: 0 }
-                                  },
-                                }}
-                              />
+                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                <Box
+                                  sx={{
+                                    display: 'inline-flex',
+                                    gap: '3px',
+                                    position: 'relative',
+                                    top: '2px',
+                                  }}
+                                >
+                                  {[0, 1, 2].map((i) => (
+                                    <Box
+                                      key={i}
+                                      component="span"
+                                      sx={{
+                                        width: '3px',
+                                        height: '3px',
+                                        borderRadius: '50%',
+                                        backgroundColor: 'rgba(25, 118, 210, 0.6)',
+                                        animation: `thinkingDot 1.2s infinite ease-in-out ${i * 0.15}s`,
+                                        '@keyframes thinkingDot': {
+                                          '0%, 100%': {
+                                            transform: 'translateY(0)',
+                                            opacity: 0.5,
+                                          },
+                                          '50%': {
+                                            transform: 'translateY(-2px)',
+                                            opacity: 0.9,
+                                          },
+                                        },
+                                      }}
+                                    />
+                                  ))}
+                                </Box>
+                              </Box>
                             </Typography>
                           ) : (
                             <Typography
@@ -639,99 +721,117 @@ export default function ChatArea({
                                 color: '#333',
                                 lineHeight: 1.5,
                                 whiteSpace: 'pre-wrap',
+                                m: 0,
+                                p: 0,
+                                '& p': { marginBottom: '0.8em', marginTop: 0 },
+                                '& p:last-child': { marginBottom: 0 },
                               }}
                             >
-                              {message.content}
+                              {message.isStreaming ? (
+                                <>
+                                  {message.content.split('\n').map((paragraph, idx) => (
+                                    paragraph.trim() ? <p key={idx}>{paragraph}</p> : null
+                                  ))}
+                                </>
+                              ) : (
+                                <>
+                                  {message.content.split('\n\n').map((paragraph, idx) => (
+                                    <p key={idx}>{paragraph}</p>
+                                  ))}
+                                </>
+                              )}
                             </Typography>
                           )}
                         </Typography>
 
-                        {!message.isStreaming && (
-                          <Box sx={{
-                            display: 'flex',
-                            mt: 1.5,
-                            width: '100%',
-                            position: 'relative'
-                          }}>
-                            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-start' }}>
-                              <Tooltip title={copiedMessageId === message.id ? "Copied!" : "Copy response"}>
-                                <IconButton
-                                  onClick={() => handleCopy(message.content, message.id)}
-                                  size="small"
-                                  color={copiedMessageId === message.id ? "primary" : "default"}
-                                >
-                                  <ContentCopyIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
+                        <Box sx={{
+                          display: 'flex',
+                          mt: 1.5,
+                          width: '100%',
+                          position: 'relative'
+                        }}>
+                          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-start' }}>
+                            {!message.isStreaming && (
+                              <>
+                                <Tooltip title={copiedMessageId === message.id ? "Copied!" : "Copy response"}>
+                                  <IconButton
+                                    onClick={() => handleCopy(message.content, message.id)}
+                                    size="small"
+                                    color={copiedMessageId === message.id ? "primary" : "default"}
+                                  >
+                                    <ContentCopyIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
 
-                              <Tooltip title="Helpful">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleQualityChange(message.id, 'good')}
-                                  color={message.quality === 'good' ? 'primary' : 'default'}
-                                >
-                                  <ThumbUpIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-
-                              <Tooltip title="Not helpful">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleQualityChange(message.id, 'bad')}
-                                  color={message.quality === 'bad' ? 'error' : 'default'}
-                                >
-                                  <ThumbDownIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-
-                              {message.sources && message.sources.length > 0 && (
-                                <Tooltip title="View sources">
+                                <Tooltip title="Helpful">
                                   <IconButton
                                     size="small"
-                                    onClick={() => toggleReferences(message.id)}
+                                    onClick={() => handleQualityChange(message.id, 'good')}
+                                    color={message.quality === 'good' ? 'primary' : 'default'}
                                   >
-                                    <DescriptionIcon fontSize="small" />
+                                    <ThumbUpIcon fontSize="small" />
                                   </IconButton>
                                 </Tooltip>
-                              )}
-                            </Box>
 
-                            {message.metrics && (
-                              <Box sx={{
-                                position: 'absolute',
-                                right: 0,
-                                bottom: 0
-                              }}>
-                                <Tooltip
-                                  title={
-                                    <Box sx={{ p: 1 }}>
-                                      <Typography variant="caption" display="block">
-                                        Time to First Token: {message.metrics.ttft.toFixed(3)}s
-                                      </Typography>
-                                      {message.metrics.throughput !== undefined && (
-                                        <Typography variant="caption" display="block">
-                                          Throughput: {message.metrics.throughput.toFixed(3)} t/s
-                                        </Typography>
-                                      )}
-                                      {message.metrics.output_tokens !== undefined && (
-                                        <Typography variant="caption" display="block">
-                                          Output tokens: {message.metrics.output_tokens}
-                                        </Typography>
-                                      )}
-                                      <Typography variant="caption" display="block">
-                                        End-to-End Latency: {message.metrics.e2e_latency.toFixed(3)}s
-                                      </Typography>
-                                    </Box>
-                                  }
-                                >
-                                  <IconButton size="small">
-                                    <InfoOutlinedIcon fontSize="small" sx={{ mt: 1, color: 'text.secondary' }} />
+                                <Tooltip title="Not helpful">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleQualityChange(message.id, 'bad')}
+                                    color={message.quality === 'bad' ? 'error' : 'default'}
+                                  >
+                                    <ThumbDownIcon fontSize="small" />
                                   </IconButton>
                                 </Tooltip>
-                              </Box>
+
+                                {message.sources && message.sources.length > 0 && (
+                                  <Tooltip title="View sources">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => toggleReferences(message.id)}
+                                    >
+                                      <DescriptionIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+                              </>
                             )}
                           </Box>
-                        )}
+
+                          {message.metrics && (
+                            <Box sx={{
+                              position: 'absolute',
+                              right: 0,
+                              bottom: 0,
+                              transition: 'opacity 0.3s ease-in-out'
+                            }}>
+                              <Tooltip
+                                title={
+                                  <Box sx={{ p: 1 }}>
+                                    <Typography variant="caption" display="block">
+                                      Time to First Token: {message.metrics.ttft.toFixed(3)}s
+                                    </Typography>
+                                    <Typography variant="caption" display="block">
+                                      Throughput: {message.metrics.throughput.toFixed(3)} t/s
+                                    </Typography>
+                                    <Typography variant="caption" display="block">
+                                      Output tokens: {message.metrics.output_tokens}
+                                    </Typography>
+                                    <Typography variant="caption" display="block">
+                                      End-to-End Latency: {message.metrics.e2e_latency.toFixed(3)}s
+                                    </Typography>
+                                  </Box>
+                                }
+                              >
+                                <IconButton size="small">
+                                  <InfoOutlinedIcon 
+                                    fontSize="small" 
+                                    sx={{ mt: 1, color: 'text.secondary' }} 
+                                  />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
+                          )}
+                        </Box>
 
                       </Paper>
                     </Box>

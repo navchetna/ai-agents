@@ -226,6 +226,8 @@ def align_generator(self, gen, **kwargs):
         "throughput": 0
     }
     
+    full_response = ""
+    
     for line in gen:
         line = line.decode("utf-8")
         start = line.find("{")
@@ -245,53 +247,63 @@ def align_generator(self, gen, **kwargs):
             ):
                 new_content = json_data["choices"][0]["delta"]["content"]
                 buffer += new_content
+                full_response += new_content
 
                 token_count += len(new_content.split()) 
-                
-                cleaned_content = buffer.strip()
-                if cleaned_content:
-                    if cleaned_content[0] not in ",.!?;:'\")]}-":
-                        yield str(f" {cleaned_content}")
-                    else:
-                        yield str(f"{cleaned_content} ")
+                if buffer:
+                    yield buffer
                     buffer = ""
             
             if json_data["choices"][0]["finish_reason"] == "stop":
                 e2e_latency = time.perf_counter() - e2e_start_time
-                throughput = token_count / (e2e_latency - ttft) if (e2e_latency - ttft) > 0 else 0
+                throughput = token_count / max(e2e_latency - ttft, 0.001)
                 
                 self.__class__._metrics_registry[request_id]["e2e_latency"] = e2e_latency
                 self.__class__._metrics_registry[request_id]["completed"] = True
                 self.__class__._metrics_registry[request_id]["output_tokens"] = token_count
                 self.__class__._metrics_registry[request_id]["throughput"] = throughput
                 
-                # Don't send metrics in the stream - backend will handle storing them
-                # The frontend will get metrics when it requests the conversation data
+                metrics_json = json.dumps({
+                    "metrics": {
+                        "ttft": ttft if ttft is not None else 0.0,
+                        "output_tokens": token_count,
+                        "throughput": throughput,
+                        "e2e_latency": e2e_latency
+                    }
+                })
+                
+                yield f"__METRICS__{metrics_json}__METRICS__"
                 
         except Exception as e:
             if buffer:
-                cleaned_content = buffer.strip()
-                if cleaned_content:
-                    yield f"data: {cleaned_content}\n\n"
+                yield buffer
                 buffer = ""
             
             cleaned_json_str = json_str.strip()
             if cleaned_json_str:
-                yield f"data: {cleaned_json_str}\n\n"
+                yield cleaned_json_str
     
     if not self.__class__._metrics_registry[request_id]["completed"]:
         e2e_latency = time.perf_counter() - e2e_start_time
-        throughput = token_count / (e2e_latency - ttft) if (e2e_latency - ttft) > 0 else 0
+        throughput = token_count / max(e2e_latency - ttft, 0.001)
         
         self.__class__._metrics_registry[request_id]["e2e_latency"] = e2e_latency
         self.__class__._metrics_registry[request_id]["completed"] = True
         self.__class__._metrics_registry[request_id]["output_tokens"] = token_count
         self.__class__._metrics_registry[request_id]["throughput"] = throughput
+        
+        metrics_json = json.dumps({
+            "metrics": {
+                "ttft": ttft if ttft is not None else 0.0,
+                "output_tokens": token_count,
+                "throughput": throughput,
+                "e2e_latency": e2e_latency
+            }
+        })
+        yield f"__METRICS__{metrics_json}__METRICS__"
     
     if buffer:
-        cleaned_content = buffer.strip()
-        if cleaned_content:
-            yield f"data: {cleaned_content} "
+        yield buffer
     
     yield ""
 
@@ -764,7 +776,7 @@ class ConversationRAGService(ChatQnAService):
             turn["metrics"] = {
                 "ttft": float(metrics.get("ttft", 0.0)),
                 "e2e_latency": float(metrics.get("e2e_latency", 0.0)),
-                "output_tokens": int(metrics.get("output_tokens", 0)),
+                "output_tokens": float(metrics.get("output_tokens", 0)),
                 "throughput": float(metrics.get("throughput", 0.0))
             }
 
@@ -779,7 +791,7 @@ class ConversationRAGService(ChatQnAService):
             {"conversation_id": conversation_id},
             {
                 "$set": {
-                    "last_updated": datetime.now(),
+                    "last_updated": datetime.now().isoformat(),
                     "history": self.serialize_datetime(self.active_conversations[conversation_id])
                 }
             },
@@ -839,29 +851,65 @@ class ConversationRAGService(ChatQnAService):
             new_request._receive = receive
 
             rag_response = await super().handle_request(new_request)
+            
+            if isinstance(rag_response, StreamingResponse):
+                provided_metrics = data.get("metrics", None)
+                if provided_metrics and not stream:
+                    metrics_data = {
+                        "ttft": float(provided_metrics.get("ttft", 0.0)),
+                        "e2e_latency": float(provided_metrics.get("e2e_latency", 0.0)),
+                        "output_tokens": float(provided_metrics.get("output_tokens", 0)),
+                        "throughput": float(provided_metrics.get("throughput", 0.0))
+                    }
+                    
+                    answer_text = data.get("answer", "")
+                    answer_text = answer_text.replace('\r\n', '\n').replace('\n{3,}', '\n\n')
+                    
+                    self.save_conversation_turn(
+                        conversation_request.conversation_id,
+                        conversation_request.question,
+                        conversations_collection,
+                        answer_text,
+                        data.get("sources", []),
+                        metrics_data
+                    )
+
+                    processed_sources = data.get("sources", [])
+                    source_info_list = self.prepare_source_info_list(processed_sources)
+                    
+                    return ConversationResponse(
+                        conversation_id=conversation_request.conversation_id,
+                        answer=answer_text,
+                        sources=source_info_list,
+                        metrics=metrics_data
+                    )
+                
+                return rag_response
 
             if isinstance(rag_response, JSONResponse):
                 response_data = json.loads(rag_response.body.decode())
                 answer = response_data["choices"][0]["message"]["content"]
                 sources = response_data.get("sources", [])
 
-                # Get metrics directly from the metrics registry
-                metrics_data = self.megaservice.__class__._metrics_registry.get(request_id, {})
-                if metrics_data and metrics_data.get("completed", False):
+                provided_metrics = data.get("metrics", None)
+                metrics_registry_data = self.megaservice.__class__._metrics_registry.get(request_id, {})
+
+                if provided_metrics:
                     metrics_data = {
-                        "ttft": float(metrics_data.get("ttft", 0.0)),
-                        "e2e_latency": float(metrics_data.get("e2e_latency", 0.0)),
-                        "output_tokens": int(metrics_data.get("output_tokens", 0)),
-                        "throughput": float(metrics_data.get("throughput", 0.0))
+                        "ttft": float(provided_metrics.get("ttft", 0.0)),
+                        "e2e_latency": float(provided_metrics.get("e2e_latency", 0.0)),
+                        "output_tokens": float(provided_metrics.get("output_tokens", 0)),
+                        "throughput": float(provided_metrics.get("throughput", 0.0))
+                    }
+                elif metrics_registry_data and metrics_registry_data.get("completed", False):
+                    metrics_data = {
+                        "ttft": float(metrics_registry_data.get("ttft", 0.0)),
+                        "e2e_latency": float(metrics_registry_data.get("e2e_latency", 0.0)),
+                        "output_tokens": float(metrics_registry_data.get("output_tokens", 0)),
+                        "throughput": float(metrics_registry_data.get("throughput", 0.0))
                     }
                 else:
-                    # Fallback metrics if not found in registry
-                    metrics_data = {
-                        "ttft": 0.0,
-                        "e2e_latency": time.perf_counter() - e2e_start_time,
-                        "output_tokens": 0,
-                        "throughput": 0.0
-                    }
+                    metrics_data = response_data.get("metrics", {"ttft": 0.0, "e2e_latency": 0.0})
 
                 processed_sources = []
                 for source in sources:
@@ -882,21 +930,17 @@ class ConversationRAGService(ChatQnAService):
                     metrics_data
                 )
 
-                # Clean up metrics registry
                 if request_id in self.megaservice.__class__._metrics_registry:
                     del self.megaservice.__class__._metrics_registry[request_id]
 
                 source_info_list = self.prepare_source_info_list(processed_sources)
 
-                # Include metrics in the response
-                response = ConversationResponse(
+                return ConversationResponse(
                     conversation_id=conversation_request.conversation_id,
                     answer=answer,
                     sources=source_info_list,
                     metrics=metrics_data
                 )
-                
-                return response
 
             return rag_response
 
@@ -1073,9 +1117,6 @@ class ConversationRAGService(ChatQnAService):
             raise HTTPException(status_code=500, detail="Internal Server Error")
 
     async def handle_transcribe(self, file: UploadFile = File(...)):
-        """
-        Forward transcription requests to the Whisper service
-        """
         try:
             file_content = await file.read()
             
@@ -1109,9 +1150,6 @@ class ConversationRAGService(ChatQnAService):
             raise HTTPException(status_code=500, detail=str(e))
 
     async def handle_whisper_healthcheck(self, request: Request):
-        """
-        Check the health of the Whisper service
-        """
         try:
             whisper_url = f"http://{WHISPER_SERVICE_HOST_IP}:{WHISPER_SERVICE_PORT}/api/healthcheck"
             
