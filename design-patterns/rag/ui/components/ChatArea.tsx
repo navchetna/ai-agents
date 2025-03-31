@@ -9,6 +9,7 @@ import {
   Paper,
   Collapse,
   Fade,
+  Divider,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import SummarizeOutlinedIcon from '@mui/icons-material/SummarizeOutlined';
@@ -24,6 +25,7 @@ import SendIcon from '@mui/icons-material/Send';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import { CHAT_QNA_URL } from '@/lib/constants';
+import AudioRecorder from './AudioRecorder';
 
 interface Metrics {
   ttft: number;
@@ -242,7 +244,6 @@ export default function ChatArea({
       try {
         const streamingMessageId = `streaming-${Date.now()}`;
         let fullResponseText = '';
-        let responseMetrics = null;
 
         setMessages(prev => [...prev, {
           id: streamingMessageId,
@@ -282,20 +283,9 @@ export default function ChatArea({
             break;
           }
           const chunk = decoder.decode(value, { stream: true });
-
-          const metricsMatch = chunk.match(/__METRICS__(.*?)__METRICS__/);
-          if (metricsMatch) {
-            try {
-              const metricsData = JSON.parse(metricsMatch[1]);
-              responseMetrics = metricsData.metrics;
-              fullResponseText += chunk.replace(/__METRICS__(.*?)__METRICS__/, '');
-            } catch (e) {
-              console.error('Failed to parse metrics:', e);
-              fullResponseText += chunk;
-            }
-          } else {
-            fullResponseText += chunk;
-          }
+          
+          // No longer parsing metrics from stream, just accumulate content
+          fullResponseText += chunk;
 
           setMessages(prev =>
             prev.map(msg =>
@@ -306,13 +296,7 @@ export default function ChatArea({
           );
         }
 
-        await axios.post(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}`, {
-          question: messageContent,
-          db_name: "rag_db",
-          stream: false,
-          metrics: responseMetrics
-        });
-
+        // After streaming completes, get the conversation data with metrics
         const conversationResponse = await axios.get(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}?db_name=rag_db`);
         const serverData = conversationResponse.data;
 
@@ -327,7 +311,7 @@ export default function ChatArea({
                   role: 'assistant',
                   content: fullResponseText,
                   sources: latestTurn.sources || [],
-                  metrics: responseMetrics || latestTurn.metrics,
+                  metrics: latestTurn.metrics,
                   timestamp: new Date().toISOString(),
                   isStreaming: false
                 }
@@ -468,6 +452,18 @@ export default function ChatArea({
       ...prev,
       [messageId]: !prev[messageId]
     }));
+  };
+
+  const handleTranscription = (text: string) => {
+    if (text.trim()) {
+      setInput(prev => {
+        // If there's already text in the input field, append with a space
+        if (prev.trim()) {
+          return `${prev.trim()} ${text.trim()}`;
+        }
+        return text.trim();
+      });
+    }
   };
 
   return (
@@ -712,12 +708,16 @@ export default function ChatArea({
                                       <Typography variant="caption" display="block">
                                         Time to First Token: {message.metrics.ttft.toFixed(3)}s
                                       </Typography>
-                                      <Typography variant="caption" display="block">
-                                        Throughput: {message.metrics.throughput.toFixed(3)} t/s
-                                      </Typography>
-                                      <Typography variant="caption" display="block">
-                                        Output tokens: {message.metrics.output_tokens}
-                                      </Typography>
+                                      {message.metrics.throughput !== undefined && (
+                                        <Typography variant="caption" display="block">
+                                          Throughput: {message.metrics.throughput.toFixed(3)} t/s
+                                        </Typography>
+                                      )}
+                                      {message.metrics.output_tokens !== undefined && (
+                                        <Typography variant="caption" display="block">
+                                          Output tokens: {message.metrics.output_tokens}
+                                        </Typography>
+                                      )}
                                       <Typography variant="caption" display="block">
                                         End-to-End Latency: {message.metrics.e2e_latency.toFixed(3)}s
                                       </Typography>
@@ -973,6 +973,10 @@ export default function ChatArea({
                 },
               },
             }}
+          />
+          <AudioRecorder 
+            onTranscription={handleTranscription} 
+            disabled={isLoading}
           />
           <Tooltip title="Send message" arrow>
             <IconButton

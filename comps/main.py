@@ -3,6 +3,7 @@ import os
 import json
 import time
 import requests
+import aiohttp
 from uuid import uuid4
 import redis
 from datetime import datetime
@@ -21,7 +22,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from comps.proto.docarray import LLMParams, RerankerParms, RetrieverParms
 from comps.circulars.metadata_operations import handle_circular_update, handle_circular_get
-from fastapi import Request, HTTPException
+from fastapi import Request, HTTPException, File, UploadFile
 from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
 from mongo_client import mongo_client
 
@@ -48,9 +49,12 @@ RERANK_SERVER_HOST_IP = os.getenv("RERANK_SERVER_HOST_IP", "0.0.0.0")
 RERANK_SERVER_PORT = int(os.getenv("RERANK_SERVER_PORT", 80))
 LLM_SERVER_HOST_IP = os.getenv("LLM_SERVER_HOST_IP", "0.0.0.0")
 LLM_SERVER_PORT = int(os.getenv("LLM_SERVER_PORT", 80))
-LLM_MODEL = os.getenv("LLM_MODEL", "Intel/neural-chat-7b-v3-3")
+LLM_MODEL = os.getenv("LLM_MODEL_ID", "Intel/neural-chat-7b-v3-3")
 REDIS_URL = os.getenv("REDIS_URL")
 
+# Add Whisper service constants
+WHISPER_SERVICE_HOST_IP = os.getenv("WHISPER_SERVICE_HOST_IP", "0.0.0.0")
+WHISPER_SERVICE_PORT = int(os.getenv("WHISPER_SERVICE_PORT", 8765))
 
 def align_inputs(self, inputs, cur_node, runtime_graph, llm_parameters_dict, **kwargs):
     if self.services[cur_node].service_type == ServiceType.EMBEDDING:
@@ -210,7 +214,7 @@ def align_generator(self, gen, **kwargs):
     ttft_start_time = kwargs.get("ttft_start_time", time.perf_counter())
     e2e_start_time = ttft_start_time
     
-    ttft = None
+    ttft = 0.0
     first_token_received = False
     token_count = 0
     
@@ -254,21 +258,15 @@ def align_generator(self, gen, **kwargs):
             
             if json_data["choices"][0]["finish_reason"] == "stop":
                 e2e_latency = time.perf_counter() - e2e_start_time
-                throughput =  token_count / (e2e_latency - ttft)
+                throughput = token_count / (e2e_latency - ttft) if (e2e_latency - ttft) > 0 else 0
+                
                 self.__class__._metrics_registry[request_id]["e2e_latency"] = e2e_latency
                 self.__class__._metrics_registry[request_id]["completed"] = True
                 self.__class__._metrics_registry[request_id]["output_tokens"] = token_count
                 self.__class__._metrics_registry[request_id]["throughput"] = throughput
                 
-                metrics_json = json.dumps({
-                    "metrics": {
-                        "ttft": ttft if ttft is not None else 0.0,
-                        "output_tokens": token_count,
-                        "throughput": throughput,
-                        "e2e_latency": e2e_latency
-                    }
-                })
-                yield f"__METRICS__{metrics_json}__METRICS__"
+                # Don't send metrics in the stream - backend will handle storing them
+                # The frontend will get metrics when it requests the conversation data
                 
         except Exception as e:
             if buffer:
@@ -283,21 +281,12 @@ def align_generator(self, gen, **kwargs):
     
     if not self.__class__._metrics_registry[request_id]["completed"]:
         e2e_latency = time.perf_counter() - e2e_start_time
-        throughput =  token_count / (e2e_latency - ttft)
+        throughput = token_count / (e2e_latency - ttft) if (e2e_latency - ttft) > 0 else 0
+        
         self.__class__._metrics_registry[request_id]["e2e_latency"] = e2e_latency
         self.__class__._metrics_registry[request_id]["completed"] = True
         self.__class__._metrics_registry[request_id]["output_tokens"] = token_count
         self.__class__._metrics_registry[request_id]["throughput"] = throughput
-        
-        metrics_json = json.dumps({
-            "metrics": {
-                "ttft": ttft if ttft is not None else 0.0,
-                "output_tokens": token_count,
-                "throughput": throughput,
-                "e2e_latency": e2e_latency
-            }
-        })
-        yield f"__METRICS__{metrics_json}__METRICS__"
     
     if buffer:
         cleaned_content = buffer.strip()
@@ -724,7 +713,7 @@ class ChatQnAService:
             service_role=ServiceRoleType.MEGASERVICE,
             host=self.host,
             port=self.port,
-            endpoint=self.endpoint,
+            endpoint="/",
             input_datatype=ChatCompletionRequest,
             output_datatype=ChatCompletionResponse,
         )
@@ -775,7 +764,7 @@ class ConversationRAGService(ChatQnAService):
             turn["metrics"] = {
                 "ttft": float(metrics.get("ttft", 0.0)),
                 "e2e_latency": float(metrics.get("e2e_latency", 0.0)),
-                "output_tokens": float(metrics.get("output_tokens", 0)),
+                "output_tokens": int(metrics.get("output_tokens", 0)),
                 "throughput": float(metrics.get("throughput", 0.0))
             }
 
@@ -790,7 +779,7 @@ class ConversationRAGService(ChatQnAService):
             {"conversation_id": conversation_id},
             {
                 "$set": {
-                    "last_updated": datetime.now().isoformat(),
+                    "last_updated": datetime.now(),
                     "history": self.serialize_datetime(self.active_conversations[conversation_id])
                 }
             },
@@ -856,21 +845,23 @@ class ConversationRAGService(ChatQnAService):
                 answer = response_data["choices"][0]["message"]["content"]
                 sources = response_data.get("sources", [])
 
-                provided_metrics = data.get("metrics", None)
-                metrics_registry_data = self.megaservice.__class__._metrics_registry.get(request_id, {})
-
-                if provided_metrics:
+                # Get metrics directly from the metrics registry
+                metrics_data = self.megaservice.__class__._metrics_registry.get(request_id, {})
+                if metrics_data and metrics_data.get("completed", False):
                     metrics_data = {
-                        "ttft": float(provided_metrics.get("ttft", 0.0)),
-                        "e2e_latency": float(provided_metrics.get("e2e_latency", 0.0))
-                    }
-                elif metrics_registry_data and metrics_registry_data.get("completed", False):
-                    metrics_data = {
-                        "ttft": float(metrics_registry_data.get("ttft", 0.0)),
-                        "e2e_latency": float(metrics_registry_data.get("e2e_latency", 0.0))
+                        "ttft": float(metrics_data.get("ttft", 0.0)),
+                        "e2e_latency": float(metrics_data.get("e2e_latency", 0.0)),
+                        "output_tokens": int(metrics_data.get("output_tokens", 0)),
+                        "throughput": float(metrics_data.get("throughput", 0.0))
                     }
                 else:
-                    metrics_data = response_data.get("metrics", {"ttft": 0.0, "e2e_latency": 0.0})
+                    # Fallback metrics if not found in registry
+                    metrics_data = {
+                        "ttft": 0.0,
+                        "e2e_latency": time.perf_counter() - e2e_start_time,
+                        "output_tokens": 0,
+                        "throughput": 0.0
+                    }
 
                 processed_sources = []
                 for source in sources:
@@ -891,17 +882,21 @@ class ConversationRAGService(ChatQnAService):
                     metrics_data
                 )
 
+                # Clean up metrics registry
                 if request_id in self.megaservice.__class__._metrics_registry:
                     del self.megaservice.__class__._metrics_registry[request_id]
 
                 source_info_list = self.prepare_source_info_list(processed_sources)
 
-                return ConversationResponse(
+                # Include metrics in the response
+                response = ConversationResponse(
                     conversation_id=conversation_request.conversation_id,
                     answer=answer,
                     sources=source_info_list,
                     metrics=metrics_data
                 )
+                
+                return response
 
             return rag_response
 
@@ -914,15 +909,6 @@ class ConversationRAGService(ChatQnAService):
                 detail=f"Request processing failed: {str(e)}"
             )
 
-    def serialize_datetime(self, obj):
-        if isinstance(obj, dict):
-            return {k: self.serialize_datetime(v) for k, v in obj.items()}
-        elif isinstance(obj, list):
-            return [self.serialize_datetime(item) for item in obj]
-        elif isinstance(obj, datetime):
-            return obj.isoformat()
-        return obj
-        
     async def handle_get_history(self, request: Request):
         try:
             query_params = dict(request.query_params)
@@ -1086,6 +1072,88 @@ class ConversationRAGService(ChatQnAService):
             print(f"Error processing download_references request: {e}")
             raise HTTPException(status_code=500, detail="Internal Server Error")
 
+    async def handle_transcribe(self, file: UploadFile = File(...)):
+        """
+        Forward transcription requests to the Whisper service
+        """
+        try:
+            file_content = await file.read()
+            
+            whisper_url = f"http://{WHISPER_SERVICE_HOST_IP}:{WHISPER_SERVICE_PORT}/api/transcribe"
+            
+            async with aiohttp.ClientSession() as session:
+                form = aiohttp.FormData()
+                form.add_field('file', 
+                              file_content,
+                              filename=file.filename,
+                              content_type=file.content_type)
+                
+                async with session.post(whisper_url, data=form, timeout=30) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        raise HTTPException(
+                            status_code=response.status, 
+                            detail=f"Whisper service error: {error_text}"
+                        )
+                    
+                    response_data = await response.json()
+                    return JSONResponse(content=response_data)
+                
+        except aiohttp.ClientError as e:
+            print(f"Error connecting to Whisper service: {str(e)}")
+            raise HTTPException(status_code=503, detail=f"Could not connect to Whisper service: {str(e)}")
+        except Exception as e:
+            print(f"Error in transcription service: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def handle_whisper_healthcheck(self, request: Request):
+        """
+        Check the health of the Whisper service
+        """
+        try:
+            whisper_url = f"http://{WHISPER_SERVICE_HOST_IP}:{WHISPER_SERVICE_PORT}/api/healthcheck"
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(whisper_url, timeout=5) as response:
+                    if response.status != 200:
+                        return JSONResponse(
+                            status_code=503,
+                            content={
+                                "status": "unavailable", 
+                                "message": "Whisper service is not healthy"
+                            }
+                        )
+                    
+                    health_data = await response.json()
+                    return JSONResponse(content=health_data)
+                    
+        except aiohttp.ClientError as e:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "status": "unavailable", 
+                    "message": f"Could not connect to Whisper service: {str(e)}"
+                }
+            )
+        except Exception as e:
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "status": "error", 
+                    "message": f"Error checking Whisper service health: {str(e)}"
+                }
+            )
+
+    def serialize_datetime(self, obj):
+        if isinstance(obj, dict):
+            return {k: self.serialize_datetime(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self.serialize_datetime(item) for item in obj]
+        elif isinstance(obj, datetime):
+            return obj.isoformat()
+        return obj
 
     def start(self):
         self.service = MicroService(
@@ -1108,6 +1176,8 @@ class ConversationRAGService(ChatQnAService):
         self.service.add_route("/api/download_references", self.handle_download_references, methods=["POST"])
         self.service.add_route("/api/circulars", handle_circular_update, methods=["PATCH"])
         self.service.add_route("/api/circulars", handle_circular_get, methods=["GET"])
+        self.service.add_route("/api/transcribe", self.handle_transcribe, methods=["POST"])
+        self.service.add_route("/api/whisper_healthcheck", self.handle_whisper_healthcheck, methods=["GET"])
         self.service.start()
 
 if __name__ == "__main__":
