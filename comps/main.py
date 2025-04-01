@@ -1,7 +1,9 @@
 import re
 import os
 import json
+import time
 import requests
+import aiohttp
 from uuid import uuid4
 import redis
 from datetime import datetime
@@ -20,7 +22,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from comps.proto.docarray import LLMParams, RerankerParms, RetrieverParms
 from comps.circulars.metadata_operations import handle_circular_update, handle_circular_get
-from fastapi import Request, HTTPException
+from fastapi import Request, HTTPException, File, UploadFile
 from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
 from mongo_client import mongo_client
 
@@ -47,9 +49,12 @@ RERANK_SERVER_HOST_IP = os.getenv("RERANK_SERVER_HOST_IP", "0.0.0.0")
 RERANK_SERVER_PORT = int(os.getenv("RERANK_SERVER_PORT", 80))
 LLM_SERVER_HOST_IP = os.getenv("LLM_SERVER_HOST_IP", "0.0.0.0")
 LLM_SERVER_PORT = int(os.getenv("LLM_SERVER_PORT", 80))
-LLM_MODEL = os.getenv("LLM_MODEL", "Intel/neural-chat-7b-v3-3")
+LLM_MODEL = os.getenv("LLM_MODEL_ID", "meta-llama/Llama-3.1-8B-Instruct")
 REDIS_URL = os.getenv("REDIS_URL")
 
+# Add Whisper service constants
+WHISPER_SERVICE_HOST_IP = os.getenv("WHISPER_SERVICE_HOST_IP", "0.0.0.0")
+WHISPER_SERVICE_PORT = int(os.getenv("WHISPER_SERVICE_PORT", 8765))
 
 def align_inputs(self, inputs, cur_node, runtime_graph, llm_parameters_dict, **kwargs):
     if self.services[cur_node].service_type == ServiceType.EMBEDDING:
@@ -203,68 +208,104 @@ def align_outputs(self, data, cur_node, inputs, runtime_graph, llm_parameters_di
     return next_data
 
 def align_generator(self, gen, **kwargs):
-    # store words in a buffer and concat them
     buffer = ""
-    in_word = False
+    request_id = kwargs.get("request_id", str(uuid4()))
     
-    def is_word_boundary(curr_char, next_char=None):
-        if curr_char == '.':
-            if (buffer and buffer[-1].isdigit() and 
-                next_char and next_char.isdigit()):
-                return False, True
-            if (buffer and buffer[-1].isupper() and 
-                next_char and next_char.isupper()):
-                return False, True
-                
-        if curr_char == '-':
-            if (buffer and buffer[-1].isalnum() and 
-                next_char and next_char.isalnum()):
-                return False, True
-                
-        if curr_char in ' \t\n.,!?;:()[]{}':
-            return True, False
-
-        return False, True
-
+    ttft_start_time = kwargs.get("ttft_start_time", time.perf_counter())
+    e2e_start_time = ttft_start_time
+    
+    ttft = 0.0
+    first_token_received = False
+    token_count = 0
+    
+    self.__class__._metrics_registry[request_id] = {
+        "ttft": 0.0,
+        "e2e_latency": 0.0,
+        "completed": False,
+        "output_tokens": 0,
+        "throughput": 0
+    }
+    
+    full_response = ""
+    
     for line in gen:
         line = line.decode("utf-8")
         start = line.find("{")
         end = line.rfind("}") + 1
-
         json_str = line[start:end]
+        
         try:
             json_data = json.loads(json_str)
+            if not first_token_received and json_data["choices"][0]["delta"].get("content"):
+                ttft = time.perf_counter() - ttft_start_time
+                first_token_received = True
+                self.__class__._metrics_registry[request_id]["ttft"] = ttft
+            
             if (
                 json_data["choices"][0]["finish_reason"] != "eos_token"
                 and "content" in json_data["choices"][0]["delta"]
             ):
                 new_content = json_data["choices"][0]["delta"]["content"]
+                buffer += new_content
+                full_response += new_content
+
+                token_count += len(new_content.split()) 
+                if buffer:
+                    yield buffer
+                    buffer = ""
+            
+            if json_data["choices"][0]["finish_reason"] == "stop":
+                e2e_latency = time.perf_counter() - e2e_start_time
+                throughput = token_count / max(e2e_latency - ttft, 0.001)
                 
-                for i, char in enumerate(new_content):
-                    next_char = new_content[i + 1] if i + 1 < len(new_content) else None
-                    is_boundary, include_char = is_word_boundary(char, next_char)
-                    
-                    if include_char:
-                        buffer += char
-                        in_word = True
-                    
-                    if is_boundary and in_word:
-                        if buffer.strip():
-                            yield f"data: {repr((buffer + char).encode('utf-8'))}\n\n"
-                            buffer = ""
-                            in_word = False
-                    elif is_boundary:
-                        yield f"data: {repr(char.encode('utf-8'))}\n\n"
-                        
+                self.__class__._metrics_registry[request_id]["e2e_latency"] = e2e_latency
+                self.__class__._metrics_registry[request_id]["completed"] = True
+                self.__class__._metrics_registry[request_id]["output_tokens"] = token_count
+                self.__class__._metrics_registry[request_id]["throughput"] = throughput
+                
+                metrics_json = json.dumps({
+                    "metrics": {
+                        "ttft": ttft if ttft is not None else 0.0,
+                        "output_tokens": token_count,
+                        "throughput": throughput,
+                        "e2e_latency": e2e_latency
+                    }
+                })
+                
+                yield f"__METRICS__{metrics_json}__METRICS__"
+                
         except Exception as e:
             if buffer:
-                yield f"data: {repr(buffer.encode('utf-8'))}\n\n"
+                yield buffer
                 buffer = ""
-            yield f"data: {repr(json_str.encode('utf-8'))}\n\n"
+            
+            cleaned_json_str = json_str.strip()
+            if cleaned_json_str:
+                yield cleaned_json_str
     
-    if buffer.strip():
-        yield f"data: {repr(buffer.encode('utf-8'))}\n\n"
-    yield "data: [DONE]\n\n"
+    if not self.__class__._metrics_registry[request_id]["completed"]:
+        e2e_latency = time.perf_counter() - e2e_start_time
+        throughput = token_count / max(e2e_latency - ttft, 0.001)
+        
+        self.__class__._metrics_registry[request_id]["e2e_latency"] = e2e_latency
+        self.__class__._metrics_registry[request_id]["completed"] = True
+        self.__class__._metrics_registry[request_id]["output_tokens"] = token_count
+        self.__class__._metrics_registry[request_id]["throughput"] = throughput
+        
+        metrics_json = json.dumps({
+            "metrics": {
+                "ttft": ttft if ttft is not None else 0.0,
+                "output_tokens": token_count,
+                "throughput": throughput,
+                "e2e_latency": e2e_latency
+            }
+        })
+        yield f"__METRICS__{metrics_json}__METRICS__"
+    
+    if buffer:
+        yield buffer
+    
+    yield ""
 
 class SearchQuery(BaseModel):
     query: str
@@ -396,6 +437,7 @@ class ConversationResponse(BaseModel):
     conversation_id: str
     answer: str
     sources: List[SourceInfo]
+    metrics: Optional[Dict[str, float]] = None
 
 
 class ChatTemplate:
@@ -430,8 +472,10 @@ class ChatQnAService:
         ServiceOrchestrator.align_inputs = align_inputs
         ServiceOrchestrator.align_outputs = align_outputs
         ServiceOrchestrator.align_generator = align_generator
+        ServiceOrchestrator._metrics_registry = {}
         self.megaservice = ServiceOrchestrator()
         self.endpoint = str(MegaServiceEndpoint.CHAT_QNA)
+        self.last_result_dict = {}
 
     def add_remote_service(self):
 
@@ -566,9 +610,13 @@ class ChatQnAService:
 
     async def handle_request(self, request: Request):
         data = await request.json()
-        stream_opt = data.get("stream", False)
+        stream_opt = data.get("stream", True)
         chat_request = ChatCompletionRequest.parse_obj(data)
         prompt = handle_message(chat_request.messages)
+        request_id = str(uuid4())
+        
+        sources = []
+        self.last_sources = []
         
         parameters = LLMParams(
             max_tokens=chat_request.max_tokens if chat_request.max_tokens else 1024,
@@ -592,6 +640,9 @@ class ChatQnAService:
         reranker_parameters = RerankerParms(
             top_n=chat_request.top_n if chat_request.top_n else 5,
         )
+
+        e2e_start_time = time.perf_counter()
+        ttft_start_time = e2e_start_time
         
         try:
             result_dict, runtime_graph = await self.megaservice.schedule(
@@ -599,28 +650,49 @@ class ChatQnAService:
                 llm_parameters=parameters,
                 retriever_parameters=retriever_parameters,
                 reranker_parameters=reranker_parameters,
+                ttft_start_time=ttft_start_time,
+                request_id=request_id,
             )
             
-            for node, response in result_dict.items():
-                if isinstance(response, StreamingResponse):
-                    return response
-                    
-            last_node = runtime_graph.all_leaves()[-1]
-            response = result_dict[last_node]["text"]
-            
+            self.last_result_dict = result_dict
+
             sources = []
-            if "selected_sources" in result_dict[last_node]:
-                sources = result_dict[last_node]["selected_sources"]
-                print(f"DEBUG: Found {len(sources)} sources in result")
-            else:
-                print("DEBUG: No sources found in result")
-                
+            try:
+                last_node = runtime_graph.all_leaves()[-1]
+                if last_node in result_dict and isinstance(result_dict[last_node], dict) and "selected_sources" in result_dict[last_node]:
+                    sources = result_dict[last_node]["selected_sources"]
+                    print(f"DEBUG: Found {len(sources)} sources in last node")
+            except (IndexError, TypeError, KeyError) as e:
+                print(f"Error accessing last node sources: {e}")
+
             if not sources:
                 for node_name, node_data in result_dict.items():
                     if isinstance(node_data, dict) and "selected_sources" in node_data:
                         sources = node_data["selected_sources"]
                         print(f"DEBUG: Found {len(sources)} sources in node {node_name}")
                         break
+
+            self.last_sources = sources
+            
+            for node, response in result_dict.items():
+                if isinstance(response, StreamingResponse):
+                    return response
+            
+            e2e_end_time = time.perf_counter()
+            e2e_latency = e2e_end_time - e2e_start_time
+                    
+            response = "No response generated"
+            try:
+                last_node = runtime_graph.all_leaves()[-1]
+                if isinstance(result_dict[last_node], dict) and "text" in result_dict[last_node]:
+                    response = result_dict[last_node]["text"]
+                else:
+                    print(f"WARNING: No response text found in result_dict[{last_node}]")
+            except (IndexError, TypeError, KeyError) as e:
+                print(f"Error accessing last node response: {e}")
+                
+            print(f"DEBUG: Using {len(sources)} pre-extracted sources for response")
+                
             choices = []
             usage = UsageInfo()
             choices.append(
@@ -639,6 +711,34 @@ class ChatQnAService:
             
             response_dict = completion_response.dict()
             response_dict["sources"] = sources
+
+            provided_metrics = data.get("metrics", None)
+            metrics_registry_data = self.megaservice.__class__._metrics_registry.get(request_id, {})
+
+            if provided_metrics:
+                metrics_data = {
+                    "ttft": float(provided_metrics.get("ttft", 0.0)),
+                    "e2e_latency": float(provided_metrics.get("e2e_latency", 0.0)),
+                    "output_tokens": int(provided_metrics.get("output_tokens", 0)),
+                    "throughput": float(provided_metrics.get("throughput", 0.0))
+                }
+            elif metrics_registry_data and metrics_registry_data.get("completed", False):
+                metrics_data = {
+                    "ttft": float(metrics_registry_data.get("ttft", 0.0)),
+                    "e2e_latency": float(metrics_registry_data.get("e2e_latency", 0.0)),
+                    "output_tokens": int(metrics_registry_data.get("output_tokens", 0)),
+                    "throughput": float(metrics_registry_data.get("throughput", 0.0))
+                }
+            else:
+                metrics_data = {
+                    "ttft": 0.0,
+                    "e2e_latency": 0.0,
+                    "output_tokens": 0,
+                    "throughput": 0.0
+                }
+            
+            if request_id in self.megaservice.__class__._metrics_registry:
+                del self.megaservice.__class__._metrics_registry[request_id]
             
             print(f"DEBUG: Returning response with {len(sources)} sources")
             for i, src in enumerate(sources):
@@ -658,7 +758,7 @@ class ChatQnAService:
             service_role=ServiceRoleType.MEGASERVICE,
             host=self.host,
             port=self.port,
-            endpoint=self.endpoint,
+            endpoint="/",
             input_datatype=ChatCompletionRequest,
             output_datatype=ChatCompletionResponse,
         )
@@ -697,13 +797,21 @@ class ConversationRAGService(ChatQnAService):
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-    def save_conversation_turn(self, conversation_id: str, question: str, conversations_collection, answer: str, sources: List[Dict]):
+    def save_conversation_turn(self, conversation_id: str, question: str, conversations_collection, answer: str, sources: List[Dict], metrics: Dict = None):
         turn = {
             "question": question,
             "answer": answer,
             "sources": sources,
             "timestamp": datetime.now()
         }
+
+        if metrics:
+            turn["metrics"] = {
+                "ttft": float(metrics.get("ttft", 0.0)),
+                "e2e_latency": float(metrics.get("e2e_latency", 0.0)),
+                "output_tokens": int(metrics.get("output_tokens", 0)),
+                "throughput": float(metrics.get("throughput", 0.0))
+            }
 
         if conversation_id not in self.active_conversations:
             self.active_conversations[conversation_id] = []
@@ -722,6 +830,7 @@ class ConversationRAGService(ChatQnAService):
             },
             upsert=True
         )
+        print(f"DEBUG: Saved conversation turn with metrics: {turn.get('metrics', {})}")
 
     def prepare_source_info_list(self, sources_data: List[Dict]) -> List[SourceInfo]:
         source_info_list = []
@@ -739,13 +848,18 @@ class ConversationRAGService(ChatQnAService):
             data = await request.json()
             conversation_request = ConversationRequest.parse_obj(data)
 
+            e2e_start_time = time.perf_counter()
+            ttft_start_time = e2e_start_time
+
+            request_id = str(uuid4())
             stream = data.get("stream", False)
 
             db = self.mongo_client[conversation_request.db_name]
-            conversations_collection = db["conversations"]  
+            conversations_collection = db["conversations"]
+
             if not conversation_request.conversation_id and "conversation_id" in request.path_params:
                 conversation_request.conversation_id = request.path_params["conversation_id"]
-            
+
             if conversation_request.conversation_id not in self.active_conversations:
                 stored_conversation = conversations_collection.find_one(
                     {"conversation_id": conversation_request.conversation_id}
@@ -764,24 +878,6 @@ class ConversationRAGService(ChatQnAService):
                 "top_n": conversation_request.top_k or 5
             }
 
-            if conversation_request.db_name == "easy_circulars":
-                chat_data["chat_template"] = """
-                You are an expert assistant specializing in RBI circulars. The user is asking about a specific circular, 
-                and your responses must be strictly based on the provided search results.
-
-                - Use only the given search results to answer the question.  
-                - Do not add information beyond what is provided.  
-                - If the search results do not contain relevant information, clearly state that the answer is unavailable.  
-                - Ensure responses are concise, accurate, and relevant to the question.  
-
-                ### Search Results:  
-                {context}  
-
-                ### User Question:  
-                {question}  
-
-                ### Answer:
-            """
             new_request = Request(scope=request.scope)
             async def receive():
                 return {"type": "http.request", "body": json.dumps(chat_data).encode()}
@@ -789,74 +885,177 @@ class ConversationRAGService(ChatQnAService):
 
             rag_response = await super().handle_request(new_request)
             
+            if isinstance(rag_response, StreamingResponse):
+                if stream:
+                    original_body_iterator = rag_response.body_iterator
+                    
+                    async def capture_and_forward():
+                        full_response = ""
+                        metrics_data = None
+                        
+                        try:
+                            async for chunk in original_body_iterator:
+                                yield chunk
+                                chunk_str = chunk.decode('utf-8') if isinstance(chunk, bytes) else chunk
+                                
+                                metrics_match = re.search(r"__METRICS__(.*?)__METRICS__", chunk_str)
+                                if metrics_match:
+                                    try:
+                                        metrics_json = json.loads(metrics_match.group(1))
+                                        metrics_data = metrics_json.get("metrics", {})
+                                        chunk_str = chunk_str.replace(metrics_match.group(0), "")
+                                    except Exception as e:
+                                        print(f"Failed to parse metrics: {e}")
+                                
+                                full_response += chunk_str
+                        except Exception as e:
+                            print(f"Error during streaming: {e}")
+                            error_message = f"Streaming error occurred: {str(e)}"
+                            yield error_message.encode('utf-8') if isinstance(chunk, bytes) else error_message
+                        
+                        sources = []
+                        metrics_registry_data = self.megaservice.__class__._metrics_registry.get(request_id, {})
+                        
+                        if hasattr(self, 'last_result_dict') and self.last_result_dict:
+                            for node_name, node_data in self.last_result_dict.items():
+                                if isinstance(node_data, dict) and "selected_sources" in node_data:
+                                    sources = node_data["selected_sources"]
+                                    print(f"DEBUG: Found {len(sources)} sources in node {node_name}")
+                                    break
+                        
+                        if not sources and hasattr(self, 'last_sources') and self.last_sources:
+                            sources = self.last_sources
+                            print(f"DEBUG: Using {len(sources)} pre-extracted sources")
+                        
+                        full_response = re.sub(r"__METRICS__.*?__METRICS__", "", full_response)
+                        full_response = full_response.strip()
+                        
+                        full_response = full_response.replace('\r\n', '\n').replace('\n{3,}', '\n\n')
+                                                
+                        if not metrics_data and metrics_registry_data and metrics_registry_data.get("completed", False):
+                            metrics_data = {
+                                "ttft": float(metrics_registry_data.get("ttft", 0.0)),
+                                "e2e_latency": float(metrics_registry_data.get("e2e_latency", 0.0)),
+                                "output_tokens": float(metrics_registry_data.get("output_tokens", 0)),
+                                "throughput": float(metrics_registry_data.get("throughput", 0.0))
+                            }
+                        
+                        print(f"DEBUG: Saving streamed content to MongoDB: {len(full_response)} chars, {len(sources)} sources")
+                        self.save_conversation_turn(
+                            conversation_request.conversation_id,
+                            conversation_request.question,
+                            conversations_collection,
+                            full_response,
+                            sources,
+                            metrics_data
+                        )
+                        
+                        if request_id in self.megaservice.__class__._metrics_registry:
+                            del self.megaservice.__class__._metrics_registry[request_id]
+                                                
+                    new_streaming_response = StreamingResponse(
+                        capture_and_forward(),
+                        status_code=rag_response.status_code,
+                        headers=dict(rag_response.headers),
+                        media_type=rag_response.media_type
+                    )
+                    
+                    return new_streaming_response
+                else:
+                    provided_metrics = data.get("metrics", None)
+                    if provided_metrics:
+                        metrics_data = {
+                            "ttft": float(provided_metrics.get("ttft", 0.0)),
+                            "e2e_latency": float(provided_metrics.get("e2e_latency", 0.0)),
+                            "output_tokens": float(provided_metrics.get("output_tokens", 0)),
+                            "throughput": float(provided_metrics.get("throughput", 0.0))
+                        }
+                        
+                        answer_text = data.get("answer", "")
+                        answer_text = answer_text.replace('\r\n', '\n').replace('\n{3,}', '\n\n')
+                        
+                        self.save_conversation_turn(
+                            conversation_request.conversation_id,
+                            conversation_request.question,
+                            conversations_collection,
+                            answer_text,
+                            data.get("sources", []),
+                            metrics_data
+                        )
+
+                        processed_sources = data.get("sources", [])
+                        source_info_list = self.prepare_source_info_list(processed_sources)
+                        
+                        return ConversationResponse(
+                            conversation_id=conversation_request.conversation_id,
+                            answer=answer_text,
+                            sources=source_info_list,
+                            metrics=metrics_data
+                        )
+                
+                return rag_response
+
             if isinstance(rag_response, JSONResponse):
                 response_data = json.loads(rag_response.body.decode())
                 answer = response_data["choices"][0]["message"]["content"]
-                
                 sources = response_data.get("sources", [])
-                
+
+                provided_metrics = data.get("metrics", None)
+                metrics_registry_data = self.megaservice.__class__._metrics_registry.get(request_id, {})
+
+                if provided_metrics:
+                    metrics_data = {
+                        "ttft": float(provided_metrics.get("ttft", 0.0)),
+                        "e2e_latency": float(provided_metrics.get("e2e_latency", 0.0)),
+                        "output_tokens": float(provided_metrics.get("output_tokens", 0)),
+                        "throughput": float(provided_metrics.get("throughput", 0.0))
+                    }
+                elif metrics_registry_data and metrics_registry_data.get("completed", False):
+                    metrics_data = {
+                        "ttft": float(metrics_registry_data.get("ttft", 0.0)),
+                        "e2e_latency": float(metrics_registry_data.get("e2e_latency", 0.0)),
+                        "output_tokens": float(metrics_registry_data.get("output_tokens", 0)),
+                        "throughput": float(metrics_registry_data.get("throughput", 0.0))
+                    }
+                else:
+                    metrics_data = {
+                        "ttft": 0.0,
+                        "e2e_latency": 0.0,
+                        "output_tokens": 0,
+                        "throughput": 0.0
+                    }
+
                 processed_sources = []
                 for source in sources:
                     if isinstance(source, dict):
-                        if not source.get("source") and source.get("id"):
-                            source["source"] = source.get("id")
-                        if not source.get("content") and source.get("text"):
-                            source["content"] = source.get("text")
-                        if not source.get("relevance_score") and source.get("score"):
-                            source["relevance_score"] = float(source.get("score"))
-                            
                         processed_source = {
                             "source": source.get("file_name", source.get("source", "unknown")),
                             "content": source.get("content", source.get("text", "")),
                             "relevance_score": float(source.get("relevance_score", 0.0))
                         }
                         processed_sources.append(processed_source)
-                
-                source_info_list = self.prepare_source_info_list(processed_sources)
-                
+
                 self.save_conversation_turn(
                     conversation_request.conversation_id,
                     conversation_request.question,
                     conversations_collection,
                     answer,
-                    processed_sources
+                    processed_sources,
+                    metrics_data
                 )
 
-                return ConversationResponse(
-                    conversation_id=conversation_request.conversation_id,
-                    answer=answer,
-                    sources=source_info_list
-                )
-            elif isinstance(rag_response, ChatCompletionResponse):
-                answer = rag_response.choices[0].message.content
-                sources = getattr(rag_response, "sources", [])
-                
-                processed_sources = []
-                if sources:
-                    for source in sources:
-                        processed_source = {
-                            "source": source.get("file_name", source.get("source", "unknown")),
-                            "content": source.get("content", source.get("text", "")),
-                            "relevance_score": float(source.get("relevance_score", 0.0))
-                        }
-                        processed_sources.append(processed_source)
-                
-                self.save_conversation_turn(
-                    conversation_request.conversation_id,
-                    conversation_request.question,
-                    conversations_collection,
-                    answer,
-                    processed_sources
-                )
+                if request_id in self.megaservice.__class__._metrics_registry:
+                    del self.megaservice.__class__._metrics_registry[request_id]
 
                 source_info_list = self.prepare_source_info_list(processed_sources)
-                
+
                 return ConversationResponse(
                     conversation_id=conversation_request.conversation_id,
                     answer=answer,
-                    sources=source_info_list
+                    sources=source_info_list,
+                    metrics=metrics_data
                 )
-            
+
             return rag_response
 
         except Exception as e:
@@ -868,15 +1067,6 @@ class ConversationRAGService(ChatQnAService):
                 detail=f"Request processing failed: {str(e)}"
             )
 
-    def serialize_datetime(self, obj):
-        if isinstance(obj, dict):
-            return {k: self.serialize_datetime(v) for k, v in obj.items()}
-        elif isinstance(obj, list):
-            return [self.serialize_datetime(item) for item in obj]
-        elif isinstance(obj, datetime):
-            return obj.isoformat()
-        return obj
-        
     async def handle_get_history(self, request: Request):
         try:
             query_params = dict(request.query_params)
@@ -1040,6 +1230,82 @@ class ConversationRAGService(ChatQnAService):
             print(f"Error processing download_references request: {e}")
             raise HTTPException(status_code=500, detail="Internal Server Error")
 
+    async def handle_transcribe(self, file: UploadFile = File(...)):
+        try:
+            file_content = await file.read()
+            
+            whisper_url = f"http://{WHISPER_SERVICE_HOST_IP}:{WHISPER_SERVICE_PORT}/api/transcribe"
+            
+            async with aiohttp.ClientSession() as session:
+                form = aiohttp.FormData()
+                form.add_field('file', 
+                              file_content,
+                              filename=file.filename,
+                              content_type=file.content_type)
+                
+                async with session.post(whisper_url, data=form, timeout=30) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        raise HTTPException(
+                            status_code=response.status, 
+                            detail=f"Whisper service error: {error_text}"
+                        )
+                    
+                    response_data = await response.json()
+                    return JSONResponse(content=response_data)
+                
+        except aiohttp.ClientError as e:
+            print(f"Error connecting to Whisper service: {str(e)}")
+            raise HTTPException(status_code=503, detail=f"Could not connect to Whisper service: {str(e)}")
+        except Exception as e:
+            print(f"Error in transcription service: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def handle_whisper_healthcheck(self, request: Request):
+        try:
+            whisper_url = f"http://{WHISPER_SERVICE_HOST_IP}:{WHISPER_SERVICE_PORT}/api/healthcheck"
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(whisper_url, timeout=5) as response:
+                    if response.status != 200:
+                        return JSONResponse(
+                            status_code=503,
+                            content={
+                                "status": "unavailable", 
+                                "message": "Whisper service is not healthy"
+                            }
+                        )
+                    
+                    health_data = await response.json()
+                    return JSONResponse(content=health_data)
+                    
+        except aiohttp.ClientError as e:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "status": "unavailable", 
+                    "message": f"Could not connect to Whisper service: {str(e)}"
+                }
+            )
+        except Exception as e:
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "status": "error", 
+                    "message": f"Error checking Whisper service health: {str(e)}"
+                }
+            )
+
+    def serialize_datetime(self, obj):
+        if isinstance(obj, dict):
+            return {k: self.serialize_datetime(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self.serialize_datetime(item) for item in obj]
+        elif isinstance(obj, datetime):
+            return obj.isoformat()
+        return obj
 
     def start(self):
         self.service = MicroService(
@@ -1062,6 +1328,8 @@ class ConversationRAGService(ChatQnAService):
         self.service.add_route("/api/download_references", self.handle_download_references, methods=["POST"])
         self.service.add_route("/api/circulars", handle_circular_update, methods=["PATCH"])
         self.service.add_route("/api/circulars", handle_circular_get, methods=["GET"])
+        self.service.add_route("/api/transcribe", self.handle_transcribe, methods=["POST"])
+        self.service.add_route("/api/whisper_healthcheck", self.handle_whisper_healthcheck, methods=["GET"])
         self.service.start()
 
 if __name__ == "__main__":

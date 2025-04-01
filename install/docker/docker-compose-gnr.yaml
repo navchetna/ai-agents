@@ -48,6 +48,20 @@ services:
       TEI_ENDPOINT: http://tei-embedding-service:80
       HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
     restart: unless-stopped
+  whisper-service:
+    image: navchetna/whisper-service:latest
+    container_name: whisper-service
+    ports:
+      - "8765:8765"
+    volumes:
+      - ${HF_CACHE}:/root/.cache/huggingface/hub
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      WHISPER_MODEL_SIZE: ${WHISPER_MODEL_SIZE:-base}
+      WHISPER_SERVICE_PORT: ${WHISPER_SERVICE_PORT:-8765}
+    restart: unless-stopped
   vllm-service:
     image: vllm-cpu-env
     container_name: vllm-service
@@ -63,7 +77,7 @@ services:
       VLLM_USE_V1: 0
       VLLM_ALLOW_LONG_MAX_MODEL_LEN: 1
       VLLM_ENGINE_ITERATION_TIMEOUT_S: 600
-      VLLM_CPU_KVCACHE_SPACE: 80
+      VLLM_CPU_KVCACHE_SPACE: 30
       VLLM_CPU_OMP_THREADS_BIND: "0-31"
       HF_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
       VLLM_TORCH_PROFILER_DIR: "/mnt"
@@ -116,7 +130,7 @@ services:
     ports:
       - "27017:27017"
   backend:
-    image: navchetna/rag-backend:latest
+    image: ai-agents/rag/backend:latest
     depends_on:
       - redis-vector-db
       - tei-embedding-service
@@ -143,10 +157,12 @@ services:
       - MONGO_HOST=${MONGO_HOST}
       - MONGO_USERNAME=agents
       - MONGO_PASSWORD=agents
+      - WHISPER_SERVICE_HOST_IP=${WHISPER_SERVICE_HOST_IP}
     ipc: host
     restart: always
   ui:
-    image: ${UI_IMAGE}:latest
+    # image: ${UI_IMAGE}:latest
+    image: ai-agents/rag/ui:latest
     depends_on:
       - backend
     ports:

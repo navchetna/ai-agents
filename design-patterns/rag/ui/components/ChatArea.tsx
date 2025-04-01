@@ -6,36 +6,37 @@ import {
   Typography,
   Tooltip,
   CircularProgress,
-  Button,
+  Paper,
   Collapse,
   Fade,
-  Paper,
-  Chip,
-  Alert,
-  Snackbar,
-  Avatar
+  Divider,
 } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
+import SummarizeOutlinedIcon from '@mui/icons-material/SummarizeOutlined';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import FileUploadIcon from '@mui/icons-material/FileUpload';
 import axios from 'axios';
-import SendIcon from '@mui/icons-material/Send';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import DescriptionIcon from '@mui/icons-material/Description';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import SendIcon from '@mui/icons-material/Send';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { CHAT_QNA_URL } from '@/lib/constants';
-import SecurityIcon from '@mui/icons-material/Security';
-import BiotechIcon from '@mui/icons-material/Biotech';
-import PsychologyIcon from '@mui/icons-material/Psychology';
-import MemoryIcon from '@mui/icons-material/Memory';
-import CloudIcon from '@mui/icons-material/Cloud';
-import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing';
-import { FormControlLabel } from '@mui/material';
+import AudioRecorder from './AudioRecorder';
+
+interface Metrics {
+  ttft: number;
+  output_tokens: number;
+  throughput: number;
+  e2e_latency: number;
+}
 
 interface Message {
   id: string;
-  role: 'user' | 'assistant';
+  role: "user" | "assistant" | string;
   content: string;
   timestamp: string;
   quality?: 'good' | 'bad';
@@ -44,8 +45,10 @@ interface Message {
     relevance_score: number;
     content: string;
   }>;
+  metrics?: Metrics | null;
   isPending?: boolean;
   isStreaming?: boolean;
+  isThinking?: boolean;
 }
 
 interface ChatAreaProps {
@@ -57,73 +60,32 @@ interface ChatAreaProps {
   onContextChange: (context: string) => void;
   onSelectConversation: (id: string) => void;
   onConversationUpdated?: () => void;
+  updateConversationList?: () => void;
 }
-
-export const topics = [
-  {
-    name: 'Cybersecurity',
-    icon: <SecurityIcon />,
-    color: '#e91e63'
-  },
-  {
-    name: 'Biotechnology',
-    icon: <BiotechIcon />,
-    color: '#4caf50'
-  },
-  {
-    name: 'Neurology',
-    icon: <PsychologyIcon />,
-    color: '#ff9800'
-  },
-  {
-    name: 'Artificial Intelligence',
-    icon: <MemoryIcon />,
-    color: '#2196f3'
-  },
-  {
-    name: 'Cloud Computing',
-    icon: <CloudIcon />,
-    color: '#03a9f4'
-  },
-  {
-    name: 'AI Agents',
-    icon: <PrecisionManufacturingIcon />,
-    color: '#9c27b0'
-  }
-];
 
 export default function ChatArea({
   conversationId,
-  onTogglePDFViewer,
-  isPDFViewerOpen,
-  isCollapsed,
-  onContextChange,
-  onCollapseChange,
   onSelectConversation,
-  onConversationUpdated
+  onConversationUpdated,
+  updateConversationList
 }: ChatAreaProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showReferences, setShowReferences] = useState<{ [key: string]: boolean }>({});
-  const [copyPopup, setCopyPopup] = useState<{ open: boolean; messageId: string | null }>({
-    open: false,
-    messageId: null
-  });
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId);
   const [showNewChatPrompt, setShowNewChatPrompt] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showErrorSnackbar, setShowErrorSnackbar] = useState(false);
-  const [streamingEnabled, setStreamingEnabled] = useState(false);
-  const [streamedContent, setStreamedContent] = useState<string>('');
+  const [streamingEnabled, setStreamingEnabled] = useState(true);
+  const [streamingContent, setStreamingContent] = useState<{ [key: string]: string }>({});
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
-
+  const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -135,7 +97,10 @@ export default function ChatArea({
 
   useEffect(() => {
     scrollToBottom();
-  }, [displayMessages, streamedContent]);
+  }, [displayMessages]);
+  useEffect(() => {
+    scrollToBottom();
+  }, [displayMessages, streamingContent]);
 
   useEffect(() => {
     if (conversationId) {
@@ -154,8 +119,8 @@ export default function ChatArea({
 
   useEffect(() => {
     return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
       }
     };
   }, []);
@@ -207,7 +172,8 @@ export default function ChatArea({
             role: 'assistant',
             content: answerContent,
             timestamp: timestamp,
-            sources: turn.sources || turn.context || []
+            sources: turn.sources || turn.context || [],
+            metrics: turn.metrics || null
           });
         }
       });
@@ -236,18 +202,11 @@ export default function ChatArea({
     }
   };
 
-  const handleTopicSelect = (topicName: string) => {
-    onContextChange(topicName);
-    const welcomeMessage = `You are now in ${topicName} context.`;
-    setInput(welcomeMessage);
-    handleSubmit(welcomeMessage);
-  };
-
-  const startNewConversation = async (userMessageContent: string) => {
+  const startNewConversation = async (userMessageContent: string): Promise<string | null> => {
     try {
       const response = await axios.post(`${CHAT_QNA_URL}/api/conversations/new`, {
         db_name: 'rag_db'
-      })
+      });
 
       const data = await response.data;
       console.log('Created new conversation:', data);
@@ -259,8 +218,6 @@ export default function ChatArea({
       if (onConversationUpdated) {
         onConversationUpdated();
       }
-
-      await sendMessage(userMessageContent, newConversationId);
 
       return newConversationId;
     } catch (error) {
@@ -281,302 +238,163 @@ export default function ChatArea({
   };
 
   const sendMessage = async (messageContent: string, targetConversationId: string) => {
+    setIsLoading(true);
+
     if (streamingEnabled) {
       try {
-        const streamingMessageId = Date.now().toString() + '-streaming';
+        const streamingMessageId = `streaming-${Date.now()}`;
         setStreamingMessageId(streamingMessageId);
+        
+        let fullResponseText = '';
+        let responseMetrics: Metrics | null = null;
+        let sourcesFromResponse: Array<{ source: string; relevance_score: number; content: string; }> = [];
 
-        setLocalMessages(prev => [
-          ...prev,
-          {
-            id: streamingMessageId,
-            role: 'assistant',
-            content: '',
-            timestamp: new Date().toISOString(),
-            isStreaming: true
-          }
-        ]);
+        setMessages(prev => [...prev, {
+          id: streamingMessageId,
+          role: 'assistant',
+          content: '',
+          timestamp: new Date().toISOString(),
+          isStreaming: true,
+          isThinking: true
+        }]);
 
-        setStreamedContent('');
-        setIsLoading(true);
-
-        console.log(`Sending streaming request to: ${CHAT_QNA_URL}/api/conversations/${targetConversationId}`);
-        const response = await axios.post(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}`, {
-          db_name: 'rag_db',
-          question: messageContent.trim(),
-          max_tokens: 1024,
-          temperature: 0.1,
-          stream: true
-        }, {
+        const response = await fetch(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}`, {
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Accept': 'text/event-stream'
           },
-          responseType: 'stream'
+          body: JSON.stringify({
+            question: messageContent,
+            db_name: "rag_db",
+            stream: true
+          }),
         });
 
-        const reader = response.data.getReader();
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        if (!response.body) {
+          throw new Error('ReadableStream not supported');
+        }
+
+        const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        let buffer = '';
 
         while (true) {
           const { done, value } = await reader.read();
 
           if (done) {
-            console.log('Stream complete');
             break;
           }
-
           const chunk = decoder.decode(value, { stream: true });
-          buffer += chunk;
-          console.log('Received chunk:', chunk);
 
-          let unprocessedBuffer = '';
-          const lines = buffer.split('\n');
-
-          for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-
-            if (line.startsWith('data: ')) {
-              const dataContent = line.substring(6).trim();
-
-              if (dataContent === '[DONE]') {
-                console.log('End of stream marker received');
-                continue;
-              }
-
-              try {
-                console.log('Processing data content:', dataContent);
-
-                if (dataContent.startsWith("b'") && dataContent.endsWith("'")) {
-                  const textContent = dataContent.substring(2, dataContent.length - 1);
-                  console.log('Extracted text content from b\' format:', textContent);
-
-                  setStreamedContent(prev => {
-                    const updatedContent = prev + textContent;
-
-                    setLocalMessages(messages =>
-                      messages.map(msg => {
-                        if (msg.id === streamingMessageId) {
-                          return {
-                            ...msg,
-                            content: updatedContent
-                          };
-                        }
-                        return msg;
-                      })
-                    );
-
-                    return updatedContent;
-                  });
-                }
-                else {
-                  try {
-                    const byteObj: unknown = JSON.parse(dataContent);
-
-                    let byteArray: number[];
-                    if (Array.isArray(byteObj)) {
-                      byteArray = byteObj as number[];
-                    } else if (byteObj && typeof byteObj === 'object') {
-                      byteArray = Object.values(byteObj as Record<string, number>);
-                    } else {
-                      console.warn('Unexpected data format:', byteObj);
-                      byteArray = [];
-                    }
-
-                    const textContent = new TextDecoder().decode(new Uint8Array(byteArray));
-                    console.log('Decoded text content from JSON byte array:', textContent);
-
-                    setStreamedContent(prev => {
-                      const updatedContent = prev + textContent;
-
-                      setLocalMessages(messages =>
-                        messages.map(msg => {
-                          if (msg.id === streamingMessageId) {
-                            return {
-                              ...msg,
-                              content: updatedContent
-                            };
-                          }
-                          return msg;
-                        })
-                      );
-
-                      return updatedContent;
-                    });
-                  } catch (jsonError) {
-                    console.warn('Failed to parse as JSON:', jsonError);
-
-                    if (typeof dataContent === 'string' &&
-                      !dataContent.startsWith('{') &&
-                      !dataContent.startsWith('[') &&
-                      dataContent.trim().length > 0) {
-                      console.log('Using as plain text:', dataContent);
-
-                      setStreamedContent(prev => {
-                        const updatedContent = prev + dataContent;
-
-                        setLocalMessages(messages =>
-                          messages.map(msg => {
-                            if (msg.id === streamingMessageId) {
-                              return {
-                                ...msg,
-                                content: updatedContent
-                              };
-                            }
-                            return msg;
-                          })
-                        );
-
-                        return updatedContent;
-                      });
-                    }
-                  }
-                }
-              } catch (e) {
-                console.error('Error processing streaming data:', e, dataContent);
-              }
-            } else if (line !== '') {
-              unprocessedBuffer += line + '\n';
+          const metricsMatch = chunk.match(/__METRICS__(.*?)__METRICS__/);
+          if (metricsMatch) {
+            try {
+              const metricsData = JSON.parse(metricsMatch[1]);
+              responseMetrics = metricsData.metrics;
+              setMessages(prev =>
+                prev.map(msg =>
+                  msg.id === streamingMessageId
+                    ? { 
+                        ...msg, 
+                        metrics: responseMetrics,
+                      }
+                    : msg
+                )
+              );
+              
+              fullResponseText += chunk.replace(/__METRICS__(.*?)__METRICS__/, '');
+            } catch (e) {
+              console.error('Failed to parse metrics:', e);
+              fullResponseText += chunk;
             }
+          } else {
+            fullResponseText += chunk;
           }
 
-          buffer = unprocessedBuffer;
+          const formattedText = fullResponseText
+            .replace(/\r\n/g, '\n')
+            .replace(/\n{3,}/g, '\n\n');
+
+          if (formattedText.trim() !== '') {
+            setMessages(prev =>
+              prev.map(msg =>
+                msg.id === streamingMessageId
+                  ? { 
+                      ...msg, 
+                      content: formattedText,
+                      isThinking: false
+                    }
+                  : msg
+              )
+            );
+          } else {
+            setMessages(prev =>
+              prev.map(msg =>
+                msg.id === streamingMessageId
+                  ? { ...msg, content: formattedText }
+                  : msg
+              )
+            );
+          }
         }
 
-        setLocalMessages(prev =>
-          prev.map(msg => {
-            if (msg.id === streamingMessageId) {
-              return {
-                ...msg,
-                isStreaming: false,
-                isPending: false
-              };
-            }
-            return msg;
-          })
+        setMessages(prev =>
+          prev.map(msg =>
+            msg.id === streamingMessageId
+              ? {
+                  ...msg,
+                  isStreaming: false,
+                  isThinking: false,
+                  metrics: responseMetrics
+                }
+              : msg
+          )
         );
 
-        setStreamingMessageId(null);
-        setIsLoading(false);
-
-        if (currentConversationId) {
-          setTimeout(() => {
-            loadConversation(currentConversationId as string);
-          }, 1000);
-        }
-
-        if (onConversationUpdated) {
-          onConversationUpdated();
-        }
-
-      } catch (error) {
-        console.error('Streaming error:', error);
-        setErrorMessage(error instanceof Error ? error.message : 'Failed to stream response');
-        setShowErrorSnackbar(true);
-
-        if (streamingMessageId) {
-          setLocalMessages(prev =>
-            prev.map(msg => {
-              if (msg.id === streamingMessageId) {
-                return {
-                  ...msg,
-                  content: 'Sorry, there was an error streaming the response.',
-                  isStreaming: false,
-                  isPending: false
-                };
+        axios.get(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}?db_name=rag_db`)
+          .then(response => {
+            if (response.data && response.data.history && response.data.history.length > 0) {
+              const latestTurn = response.data.history.filter((turn: { question: string; sources?: any[] }) => 
+                turn.question === messageContent
+              ).pop();
+              
+              if (latestTurn && latestTurn.sources) {
+                setMessages(prev =>
+                  prev.map(msg =>
+                    msg.id === streamingMessageId
+                      ? {
+                          ...msg,
+                          sources: latestTurn.sources
+                        }
+                      : msg
+                  )
+                );
               }
-              return msg;
-            })
-          );
-        }
+            }
+          })
+          .catch(error => {
+            console.error("Error fetching conversation with sources:", error);
+          });
 
+        setIsLoading(false);
         setStreamingMessageId(null);
-        setIsLoading(false);
-      }
-    }
-    else {
-      try {
-        const response = await axios.post(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}`, {
-          db_name: 'rag_db',
-          question: messageContent.trim(),
-          max_tokens: 1024,
-          temperature: 0.1,
-          stream: false
-        });
-
-        const data = await response.data;
-        console.log('Received non-streaming response:', data);
-
-        if (targetConversationId) {
-          await loadConversation(targetConversationId);
-          setLocalMessages([]);
-        }
-
-        if (onConversationUpdated) {
-          onConversationUpdated();
-        }
-
       } catch (error) {
-        console.error('Error:', error);
-        setErrorMessage(error instanceof Error ? error.message : 'Failed to get response');
+        console.error("Error in streaming response:", error);
+        setErrorMessage(error instanceof Error ? error.message : 'Failed to get streaming response');
         setShowErrorSnackbar(true);
-
-        setLocalMessages(prev => {
-          const errorAssistantMessage: Message = {
-            id: Date.now().toString(),
-            role: 'assistant',
-            content: 'Sorry, I encountered an error processing your request. Please try again or start a new conversation.',
-            timestamp: new Date().toISOString(),
-          };
-
-          return [...prev, errorAssistantMessage];
-        });
-      } finally {
         setIsLoading(false);
+        setStreamingMessageId(null);
       }
+    }
+
+    if (typeof updateConversationList === 'function') {
+      updateConversationList();
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement> | string) => {
-    if (typeof e !== 'string' && e?.preventDefault) {
-      e.preventDefault();
-    }
-
-    const messageContent = typeof e === 'string' ? e : input;
-    if (!messageContent.trim() || isLoading) return;
-
-    setShowWelcome(false);
-    setErrorMessage(null);
-
-    const userMessageId = Date.now().toString();
-    const userMessage: Message = {
-      id: userMessageId,
-      role: 'user',
-      content: messageContent.trim(),
-      timestamp: new Date().toISOString(),
-      isPending: false
-    };
-
-    setLocalMessages(prev => [...prev, userMessage]);
-    setInput('');
-
-    setIsLoading(true);
-
-    try {
-      if (currentConversationId) {
-        await sendMessage(messageContent.trim(), currentConversationId);
-      } else {
-        setShowNewChatPrompt(false);
-        await startNewConversation(messageContent.trim());
-      }
-    } catch (error) {
-      console.error("Failed to handle submission:", error);
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to send message');
-      setShowErrorSnackbar(true);
-      setIsLoading(false);
-    }
-  };
 
   const handleQualityChange = (messageId: string, newQuality: 'good' | 'bad') => {
     const isLocal = localMessages.some(msg => msg.id === messageId);
@@ -597,6 +415,48 @@ export default function ChatArea({
             : message
         )
       );
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement> | string) => {
+    if (typeof e !== 'string' && e?.preventDefault) {
+      e.preventDefault();
+    }
+
+    const messageContent = typeof e === 'string' ? e : input;
+    if (!messageContent.trim() || isLoading) return;
+
+    setShowWelcome(false);
+    setErrorMessage(null);
+
+    const userMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: messageContent.trim(),
+      timestamp: new Date().toISOString(),
+      isPending: false
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+
+    try {
+      if (currentConversationId) {
+        await sendMessage(messageContent.trim(), currentConversationId);
+      } else {
+        setShowNewChatPrompt(false);
+        const newConversationId = await startNewConversation(messageContent.trim());
+        if (newConversationId) {
+          setCurrentConversationId(newConversationId);
+          await sendMessage(messageContent.trim(), newConversationId);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to send message');
+      setShowErrorSnackbar(true);
+      setIsLoading(false);
     }
   };
 
@@ -647,19 +507,23 @@ export default function ChatArea({
     }
   };
 
-  const formatTimestamp = (timestamp: string) => {
-    try {
-      return new Date(timestamp).toLocaleTimeString(undefined, {
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch (e) {
-      return '';
-    }
+
+  const toggleSourcesVisibility = (messageId: string) => {
+    setShowReferences(prev => ({
+      ...prev,
+      [messageId]: !prev[messageId]
+    }));
   };
 
-  const toggleStreaming = () => {
-    setStreamingEnabled(!streamingEnabled);
+  const handleTranscription = (text: string) => {
+    if (text.trim()) {
+      setInput(prev => {
+        if (prev.trim()) {
+          return `${prev.trim()} ${text.trim()}`;
+        }
+        return text.trim();
+      });
+    }
   };
 
   return (
@@ -694,10 +558,10 @@ export default function ChatArea({
             px: { xs: 2, sm: 4 },
             pt: 4,
             pb: 2,
-            gap: 3,
+            gap: 1.5,
           }}
         >
-          {displayMessages.map((message) => (
+          {displayMessages.map((message, index) => (
             <Fade in key={message.id}>
               <Box
                 sx={{
@@ -706,6 +570,8 @@ export default function ChatArea({
                   gap: 2,
                   opacity: message.isPending ? 0.7 : 1,
                   justifyContent: 'flex-start',
+                  mt: index > 0 && message.role === 'user' && displayMessages[index - 1].role === 'assistant' ? 3 : 0,
+                  mb: message.role === 'user' ? 0.5 : 0,
                 }}
               >
                 {message.role === 'user' ? (
@@ -714,7 +580,7 @@ export default function ChatArea({
                       fontSize: 32,
                       color: '#0071C5',
                       alignSelf: 'flex-start',
-                      mt: 2
+                      mt: 1
                     }}
                   />
                 ) : (
@@ -728,7 +594,7 @@ export default function ChatArea({
                       justifyContent: 'center',
                       alignItems: 'center',
                       alignSelf: 'flex-start',
-                      mt: 2,
+                      mt: 1
                     }}
                   >
                     <AutoAwesomeIcon
@@ -749,91 +615,228 @@ export default function ChatArea({
                     alignSelf: 'flex-start',
                   }}
                 >
-                  <Paper
-                    elevation={3}
-                    sx={{
-                      p: 2,
-                      maxWidth: '100%',
-                      borderRadius: 4,
-                      backgroundColor: message.role === 'user' ? '#e3f2fd' : '#fff',
-                      position: 'relative',
-                    }}
-                  >
-                    <Typography
-                      variant="body1"
+                  {message.role === 'user' ? (
+                    <Paper
+                      elevation={3}
                       sx={{
-                        color: '#333',
-                        lineHeight: 1.5,
-                        whiteSpace: 'pre-wrap',
+                        p: 2,
+                        maxWidth: '100%',
+                        borderRadius: 4,
+                        backgroundColor: '#e3f2fd',
+                        position: 'relative',
                       }}
                     >
-                      {message.isStreaming && message.id === streamingMessageId
-                        ? streamedContent
-                        : message.content}
-
-                      {message.isStreaming && (
-                        <span style={{ display: 'inline-block', width: '0.7em', height: '1em', verticalAlign: 'text-bottom' }}>
-                          <Box
-                            component="span"
-                            sx={{
-                              display: 'inline-block',
-                              width: '3px',
-                              height: '1em',
-                              backgroundColor: '#1976d2',
-                              animation: 'blink 1s step-end infinite',
-                              '@keyframes blink': {
-                                '0%, 100%': { opacity: 1 },
-                                '50%': { opacity: 0 }
-                              },
-                            }}
-                          />
-                        </span>
-                      )}
-                    </Typography>
-
-                    {message.role === 'assistant' && !message.isStreaming && (
-                      <Box sx={{ display: 'flex', gap: 1, mt: 2, justifyContent: 'flex-start' }}>
-                        <Tooltip title={copiedMessageId === message.id ? "Copied!" : "Copy response"}>
-                          <IconButton
-                            onClick={() => handleCopy(message.content, message.id)}
-                            size="small"
-                            color={copiedMessageId === message.id ? "primary" : "default"}
-                          >
-                            <ContentCopyIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-
-                        <Tooltip title="Helpful">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleQualityChange(message.id, 'good')}
-                            color={message.quality === 'good' ? 'primary' : 'default'}
-                          >
-                            <ThumbUpIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Not helpful">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleQualityChange(message.id, 'bad')}
-                            color={message.quality === 'bad' ? 'error' : 'default'}
-                          >
-                            <ThumbDownIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        {message.sources && message.sources.length > 0 && (
-                          <Tooltip title="View sources">
-                            <IconButton
-                              size="small"
-                              onClick={() => toggleReferences(message.id)}
+                      <Typography
+                        variant="body1"
+                        sx={{
+                          color: '#333',
+                          lineHeight: 1.5,
+                          whiteSpace: 'pre-wrap',
+                        }}
+                      >
+                        {message.content}
+                      </Typography>
+                    </Paper>
+                  ) : (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        mt: 0.5,
+                        width: '100%',
+                      }}
+                    >
+                      <Paper
+                        elevation={3}
+                        sx={{
+                          p: 2,
+                          maxWidth: '100%',
+                          width: '100%',
+                          borderRadius: 4,
+                          backgroundColor: '#fff',
+                          position: 'relative',
+                        }}
+                      >
+                        <Typography
+                          variant="body1"
+                          sx={{
+                            color: '#333',
+                            lineHeight: 1.5,
+                            whiteSpace: 'pre-wrap',
+                            mt: 0,
+                            mb: 0,
+                          }}
+                        >
+                          {message.isThinking ? (
+                            <Typography
+                              variant="body1"
+                              sx={{
+                                color: '#333',
+                                lineHeight: 1.5,
+                                whiteSpace: 'pre-wrap',
+                                display: 'flex',
+                                alignItems: 'center',
+                                m: 0,
+                                p: 0,
+                              }}
                             >
-                              <DescriptionIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
-                    )}
-                  </Paper>
+                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                <Box
+                                  sx={{
+                                    display: 'inline-flex',
+                                    gap: '3px',
+                                    position: 'relative',
+                                    top: '2px',
+                                  }}
+                                >
+                                  {[0, 1, 2].map((i) => (
+                                    <Box
+                                      key={i}
+                                      component="span"
+                                      sx={{
+                                        width: '3px',
+                                        height: '3px',
+                                        borderRadius: '50%',
+                                        backgroundColor: 'rgba(25, 118, 210, 0.6)',
+                                        animation: `thinkingDot 1.2s infinite ease-in-out ${i * 0.15}s`,
+                                        '@keyframes thinkingDot': {
+                                          '0%, 100%': {
+                                            transform: 'translateY(0)',
+                                            opacity: 0.5,
+                                          },
+                                          '50%': {
+                                            transform: 'translateY(-2px)',
+                                            opacity: 0.9,
+                                          },
+                                        },
+                                      }}
+                                    />
+                                  ))}
+                                </Box>
+                              </Box>
+                            </Typography>
+                          ) : (
+                            <Typography
+                              variant="body1"
+                              sx={{
+                                color: '#333',
+                                lineHeight: 1.5,
+                                whiteSpace: 'pre-wrap',
+                                m: 0,
+                                p: 0,
+                                '& p': { marginBottom: '0.8em', marginTop: 0 },
+                                '& p:last-child': { marginBottom: 0 },
+                              }}
+                            >
+                              {message.isStreaming ? (
+                                <>
+                                  {message.content.split('\n').map((paragraph, idx) => (
+                                    paragraph.trim() ? <p key={idx}>{paragraph}</p> : null
+                                  ))}
+                                </>
+                              ) : (
+                                <>
+                                  {message.content.split('\n\n').map((paragraph, idx) => (
+                                    <p key={idx}>{paragraph}</p>
+                                  ))}
+                                </>
+                              )}
+                            </Typography>
+                          )}
+                        </Typography>
+
+                        <Box sx={{
+                          display: 'flex',
+                          mt: 1.5,
+                          width: '100%',
+                          position: 'relative'
+                        }}>
+                          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-start' }}>
+                            {!message.isStreaming && (
+                              <>
+                                <Tooltip title={copiedMessageId === message.id ? "Copied!" : "Copy response"}>
+                                  <IconButton
+                                    onClick={() => handleCopy(message.content, message.id)}
+                                    size="small"
+                                    color={copiedMessageId === message.id ? "primary" : "default"}
+                                  >
+                                    <ContentCopyIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+
+                                <Tooltip title="Helpful">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleQualityChange(message.id, 'good')}
+                                    color={message.quality === 'good' ? 'primary' : 'default'}
+                                  >
+                                    <ThumbUpIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+
+                                <Tooltip title="Not helpful">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleQualityChange(message.id, 'bad')}
+                                    color={message.quality === 'bad' ? 'error' : 'default'}
+                                  >
+                                    <ThumbDownIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+
+                                {message.sources && message.sources.length > 0 && (
+                                  <Tooltip title="View sources">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => toggleReferences(message.id)}
+                                    >
+                                      <DescriptionIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+                              </>
+                            )}
+                          </Box>
+
+                          {message.metrics && (
+                            <Box sx={{
+                              position: 'absolute',
+                              right: 0,
+                              bottom: 0,
+                              transition: 'opacity 0.3s ease-in-out'
+                            }}>
+                              <Tooltip
+                                title={
+                                  <Box sx={{ p: 1 }}>
+                                    <Typography variant="caption" display="block">
+                                      Time to First Token: {message.metrics.ttft.toFixed(3)}s
+                                    </Typography>
+                                    <Typography variant="caption" display="block">
+                                      Throughput: {message.metrics.throughput.toFixed(3)} t/s
+                                    </Typography>
+                                    <Typography variant="caption" display="block">
+                                      Output tokens: {message.metrics.output_tokens}
+                                    </Typography>
+                                    <Typography variant="caption" display="block">
+                                      End-to-End Latency: {message.metrics.e2e_latency.toFixed(3)}s
+                                    </Typography>
+                                  </Box>
+                                }
+                              >
+                                <IconButton size="small">
+                                  <InfoOutlinedIcon 
+                                    fontSize="small" 
+                                    sx={{ mt: 1, color: 'text.secondary' }} 
+                                  />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
+                          )}
+                        </Box>
+
+                      </Paper>
+                    </Box>
+                  )}
 
                   {message.role === 'assistant' && message.sources && (
                     <Collapse in={showReferences[message.id]} sx={{ mt: 1, maxWidth: '100%' }}>
@@ -881,6 +884,159 @@ export default function ChatArea({
             </Fade>
           ))}
 
+          {showWelcome && (
+            <Fade in timeout={800}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: '80vh',
+                  textAlign: 'center',
+                  px: 3,
+                }}
+              >
+                <Box
+                  sx={{
+                    maxWidth: 750,
+                    width: '100%',
+                    backgroundColor: '#fff',
+                    borderRadius: 4,
+                    p: 3,
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                  }}
+                >
+                  <Typography variant="h4" sx={{ mb: 1, color: '#0071C5', fontWeight: 'bold' }}>
+                    Welcome to Research Assistant
+                  </Typography>
+
+                  <Box sx={{
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                    gap: 3,
+                    mb: 4
+                  }}>
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 2.5,
+                        borderRadius: 3,
+                        backgroundColor: 'rgba(0, 113, 197, 0.08)',
+                        border: '1px solid rgba(0, 113, 197, 0.2)',
+                        transition: 'all 0.3s',
+                        '&:hover': {
+                          transform: 'translateY(-4px)',
+                          boxShadow: '0 12px 20px rgba(0, 113, 197, 0.15)',
+                          backgroundColor: 'rgba(0, 113, 197, 0.12)',
+                        }
+                      }}
+                    >
+                      <SearchIcon sx={{ fontSize: 32, color: '#0071C5', mb: 1 }} />
+                      <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold', fontSize: '0.95rem' }}>
+                        Search Research Papers
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                        Find and explore academic papers from top journals and conferences
+                      </Typography>
+                    </Paper>
+
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 2.5,
+                        borderRadius: 3,
+                        backgroundColor: 'rgba(255, 152, 0, 0.08)',
+                        border: '1px solid rgba(255, 152, 0, 0.2)',
+                        transition: 'all 0.3s',
+                        '&:hover': {
+                          transform: 'translateY(-4px)',
+                          boxShadow: '0 12px 20px rgba(255, 152, 0, 0.15)',
+                          backgroundColor: 'rgba(255, 152, 0, 0.12)',
+                        }
+                      }}
+                    >
+                      <FileUploadIcon sx={{ fontSize: 32, color: '#0071C5', mb: 1 }} />
+                      <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold', fontSize: '0.95rem' }}>
+                        File Upload
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                        Upload research papers and documents for AI-powered analysis
+                      </Typography>
+                    </Paper>
+
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 2.5,
+                        borderRadius: 3,
+                        backgroundColor: 'rgba(228, 217, 111, 0.08)',
+                        border: '1px solid rgba(228, 217, 111, 0.2)',
+                        transition: 'all 0.3s',
+                        '&:hover': {
+                          transform: 'translateY(-4px)',
+                          boxShadow: '0 12px 20px rgba(228, 217, 111, 0.15)',
+                          backgroundColor: 'rgba(228, 217, 111, 0.12)',
+                        }
+                      }}
+                    >
+                      <SummarizeOutlinedIcon sx={{ fontSize: 32, color: '#E4D96F', mb: 1 }} />
+                      <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold', fontSize: '0.95rem' }}>
+                        Conversation Summaries
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                        Get instant summaries of your research discussions
+                      </Typography>
+                    </Paper>
+
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 2.5,
+                        borderRadius: 3,
+                        backgroundColor: 'rgba(233, 30, 99, 0.08)',
+                        border: '1px solid rgba(233, 30, 99, 0.2)',
+                        transition: 'all 0.3s',
+                        '&:hover': {
+                          transform: 'translateY(-4px)',
+                          boxShadow: '0 12px 20px rgba(233, 30, 99, 0.15)',
+                          backgroundColor: 'rgba(233, 30, 99, 0.12)',
+                        }
+                      }}
+                    >
+                      <PictureAsPdfIcon sx={{ fontSize: 32, color: '#E91E63', mb: 1 }} />
+                      <Typography variant="h6" sx={{ mb: 1, fontWeight: 'bold', fontSize: '0.95rem' }}>
+                        PDF Context Viewer
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                        View the exact sources the AI uses to generate responses
+                      </Typography>
+                    </Paper>
+                  </Box>
+
+                  <Box sx={{ mt: 3, mb: 2 }}>
+                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2, fontSize: '0.85rem' }}>
+                      Type a question in the chat box below or ask about any research topic
+                    </Typography>
+
+                    <Box sx={{
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      animation: 'pulse 2s infinite',
+                      '@keyframes pulse': {
+                        '0%': { transform: 'translateY(0)' },
+                        '50%': { transform: 'translateY(-8px)' },
+                        '100%': { transform: 'translateY(0)' }
+                      }
+                    }}>
+                    </Box>
+                  </Box>
+                </Box>
+              </Box>
+            </Fade>
+          )}
+
           {isLoading && !streamingEnabled && !streamingMessageId && (
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
               <CircularProgress size={24} />
@@ -918,6 +1074,10 @@ export default function ChatArea({
                 },
               },
             }}
+          />
+          <AudioRecorder 
+            onTranscription={handleTranscription} 
+            disabled={isLoading}
           />
           <Tooltip title="Send message" arrow>
             <IconButton
