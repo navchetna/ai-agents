@@ -475,6 +475,7 @@ class ChatQnAService:
         ServiceOrchestrator._metrics_registry = {}
         self.megaservice = ServiceOrchestrator()
         self.endpoint = str(MegaServiceEndpoint.CHAT_QNA)
+        self.last_result_dict = {}
 
     def add_remote_service(self):
 
@@ -614,6 +615,9 @@ class ChatQnAService:
         prompt = handle_message(chat_request.messages)
         request_id = str(uuid4())
         
+        sources = []
+        self.last_sources = []
+        
         parameters = LLMParams(
             max_tokens=chat_request.max_tokens if chat_request.max_tokens else 1024,
             top_k=chat_request.top_k if chat_request.top_k else 5,
@@ -650,6 +654,26 @@ class ChatQnAService:
                 request_id=request_id,
             )
             
+            self.last_result_dict = result_dict
+
+            sources = []
+            try:
+                last_node = runtime_graph.all_leaves()[-1]
+                if last_node in result_dict and isinstance(result_dict[last_node], dict) and "selected_sources" in result_dict[last_node]:
+                    sources = result_dict[last_node]["selected_sources"]
+                    print(f"DEBUG: Found {len(sources)} sources in last node")
+            except (IndexError, TypeError, KeyError) as e:
+                print(f"Error accessing last node sources: {e}")
+
+            if not sources:
+                for node_name, node_data in result_dict.items():
+                    if isinstance(node_data, dict) and "selected_sources" in node_data:
+                        sources = node_data["selected_sources"]
+                        print(f"DEBUG: Found {len(sources)} sources in node {node_name}")
+                        break
+
+            self.last_sources = sources
+            
             for node, response in result_dict.items():
                 if isinstance(response, StreamingResponse):
                     return response
@@ -657,22 +681,18 @@ class ChatQnAService:
             e2e_end_time = time.perf_counter()
             e2e_latency = e2e_end_time - e2e_start_time
                     
-            last_node = runtime_graph.all_leaves()[-1]
-            response = result_dict[last_node]["text"]
-            
-            sources = []
-            if "selected_sources" in result_dict[last_node]:
-                sources = result_dict[last_node]["selected_sources"]
-                print(f"DEBUG: Found {len(sources)} sources in result")
-            else:
-                print("DEBUG: No sources found in result")
+            response = "No response generated"
+            try:
+                last_node = runtime_graph.all_leaves()[-1]
+                if isinstance(result_dict[last_node], dict) and "text" in result_dict[last_node]:
+                    response = result_dict[last_node]["text"]
+                else:
+                    print(f"WARNING: No response text found in result_dict[{last_node}]")
+            except (IndexError, TypeError, KeyError) as e:
+                print(f"Error accessing last node response: {e}")
                 
-            if not sources:
-                for node_name, node_data in result_dict.items():
-                    if isinstance(node_data, dict) and "selected_sources" in node_data:
-                        sources = node_data["selected_sources"]
-                        print(f"DEBUG: Found {len(sources)} sources in node {node_name}")
-                        break
+            print(f"DEBUG: Using {len(sources)} pre-extracted sources for response")
+                
             choices = []
             usage = UsageInfo()
             choices.append(
@@ -866,36 +886,112 @@ class ConversationRAGService(ChatQnAService):
             rag_response = await super().handle_request(new_request)
             
             if isinstance(rag_response, StreamingResponse):
-                provided_metrics = data.get("metrics", None)
-                if provided_metrics and not stream:
-                    metrics_data = {
-                        "ttft": float(provided_metrics.get("ttft", 0.0)),
-                        "e2e_latency": float(provided_metrics.get("e2e_latency", 0.0)),
-                        "output_tokens": float(provided_metrics.get("output_tokens", 0)),
-                        "throughput": float(provided_metrics.get("throughput", 0.0))
-                    }
+                if stream:
+                    original_body_iterator = rag_response.body_iterator
                     
-                    answer_text = data.get("answer", "")
-                    answer_text = answer_text.replace('\r\n', '\n').replace('\n{3,}', '\n\n')
-                    
-                    self.save_conversation_turn(
-                        conversation_request.conversation_id,
-                        conversation_request.question,
-                        conversations_collection,
-                        answer_text,
-                        data.get("sources", []),
-                        metrics_data
+                    async def capture_and_forward():
+                        full_response = ""
+                        metrics_data = None
+                        
+                        try:
+                            async for chunk in original_body_iterator:
+                                yield chunk
+                                chunk_str = chunk.decode('utf-8') if isinstance(chunk, bytes) else chunk
+                                
+                                metrics_match = re.search(r"__METRICS__(.*?)__METRICS__", chunk_str)
+                                if metrics_match:
+                                    try:
+                                        metrics_json = json.loads(metrics_match.group(1))
+                                        metrics_data = metrics_json.get("metrics", {})
+                                        chunk_str = chunk_str.replace(metrics_match.group(0), "")
+                                    except Exception as e:
+                                        print(f"Failed to parse metrics: {e}")
+                                
+                                full_response += chunk_str
+                        except Exception as e:
+                            print(f"Error during streaming: {e}")
+                            error_message = f"Streaming error occurred: {str(e)}"
+                            yield error_message.encode('utf-8') if isinstance(chunk, bytes) else error_message
+                        
+                        sources = []
+                        metrics_registry_data = self.megaservice.__class__._metrics_registry.get(request_id, {})
+                        
+                        if hasattr(self, 'last_result_dict') and self.last_result_dict:
+                            for node_name, node_data in self.last_result_dict.items():
+                                if isinstance(node_data, dict) and "selected_sources" in node_data:
+                                    sources = node_data["selected_sources"]
+                                    print(f"DEBUG: Found {len(sources)} sources in node {node_name}")
+                                    break
+                        
+                        if not sources and hasattr(self, 'last_sources') and self.last_sources:
+                            sources = self.last_sources
+                            print(f"DEBUG: Using {len(sources)} pre-extracted sources")
+                        
+                        full_response = re.sub(r"__METRICS__.*?__METRICS__", "", full_response)
+                        full_response = full_response.strip()
+                        
+                        full_response = full_response.replace('\r\n', '\n').replace('\n{3,}', '\n\n')
+                                                
+                        if not metrics_data and metrics_registry_data and metrics_registry_data.get("completed", False):
+                            metrics_data = {
+                                "ttft": float(metrics_registry_data.get("ttft", 0.0)),
+                                "e2e_latency": float(metrics_registry_data.get("e2e_latency", 0.0)),
+                                "output_tokens": float(metrics_registry_data.get("output_tokens", 0)),
+                                "throughput": float(metrics_registry_data.get("throughput", 0.0))
+                            }
+                        
+                        print(f"DEBUG: Saving streamed content to MongoDB: {len(full_response)} chars, {len(sources)} sources")
+                        self.save_conversation_turn(
+                            conversation_request.conversation_id,
+                            conversation_request.question,
+                            conversations_collection,
+                            full_response,
+                            sources,
+                            metrics_data
+                        )
+                        
+                        if request_id in self.megaservice.__class__._metrics_registry:
+                            del self.megaservice.__class__._metrics_registry[request_id]
+                                                
+                    new_streaming_response = StreamingResponse(
+                        capture_and_forward(),
+                        status_code=rag_response.status_code,
+                        headers=dict(rag_response.headers),
+                        media_type=rag_response.media_type
                     )
+                    
+                    return new_streaming_response
+                else:
+                    provided_metrics = data.get("metrics", None)
+                    if provided_metrics:
+                        metrics_data = {
+                            "ttft": float(provided_metrics.get("ttft", 0.0)),
+                            "e2e_latency": float(provided_metrics.get("e2e_latency", 0.0)),
+                            "output_tokens": float(provided_metrics.get("output_tokens", 0)),
+                            "throughput": float(provided_metrics.get("throughput", 0.0))
+                        }
+                        
+                        answer_text = data.get("answer", "")
+                        answer_text = answer_text.replace('\r\n', '\n').replace('\n{3,}', '\n\n')
+                        
+                        self.save_conversation_turn(
+                            conversation_request.conversation_id,
+                            conversation_request.question,
+                            conversations_collection,
+                            answer_text,
+                            data.get("sources", []),
+                            metrics_data
+                        )
 
-                    processed_sources = data.get("sources", [])
-                    source_info_list = self.prepare_source_info_list(processed_sources)
-                    
-                    return ConversationResponse(
-                        conversation_id=conversation_request.conversation_id,
-                        answer=answer_text,
-                        sources=source_info_list,
-                        metrics=metrics_data
-                    )
+                        processed_sources = data.get("sources", [])
+                        source_info_list = self.prepare_source_info_list(processed_sources)
+                        
+                        return ConversationResponse(
+                            conversation_id=conversation_request.conversation_id,
+                            answer=answer_text,
+                            sources=source_info_list,
+                            metrics=metrics_data
+                        )
                 
                 return rag_response
 

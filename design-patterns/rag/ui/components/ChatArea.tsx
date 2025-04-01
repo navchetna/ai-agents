@@ -354,29 +354,30 @@ export default function ChatArea({
           )
         );
 
-        axios.post(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}`, {
-          question: messageContent,
-          db_name: "rag_db",
-          stream: false,
-          answer: fullResponseText,
-          metrics: responseMetrics,
-          sources: sourcesFromResponse
-        }).then(saveResponse => {
-          if (saveResponse.data && saveResponse.data.sources) {
-            setMessages(prev =>
-              prev.map(msg =>
-                msg.id === streamingMessageId
-                  ? {
-                      ...msg,
-                      sources: saveResponse.data.sources
-                    }
-                  : msg
-              )
-            );
-          }
-        }).catch(error => {
-          console.error("Error saving conversation:", error);
-        });
+        axios.get(`${CHAT_QNA_URL}/api/conversations/${targetConversationId}?db_name=rag_db`)
+          .then(response => {
+            if (response.data && response.data.history && response.data.history.length > 0) {
+              const latestTurn = response.data.history.filter((turn: { question: string; sources?: any[] }) => 
+                turn.question === messageContent
+              ).pop();
+              
+              if (latestTurn && latestTurn.sources) {
+                setMessages(prev =>
+                  prev.map(msg =>
+                    msg.id === streamingMessageId
+                      ? {
+                          ...msg,
+                          sources: latestTurn.sources
+                        }
+                      : msg
+                  )
+                );
+              }
+            }
+          })
+          .catch(error => {
+            console.error("Error fetching conversation with sources:", error);
+          });
 
         setIsLoading(false);
         setStreamingMessageId(null);
