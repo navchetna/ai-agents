@@ -11,23 +11,19 @@ import numpy as np
 import time
 import torch
 
-# Load environment variables
 WHISPER_MODEL_SIZE = os.getenv("WHISPER_MODEL_SIZE", "base")
 WHISPER_SERVICE_PORT = int(os.getenv("WHISPER_SERVICE_PORT", 8765))
 
-# Initialize FastAPI app
 app = FastAPI(title="Whisper Speech-to-Text Service")
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Check if ffmpeg is installed
 def is_ffmpeg_installed():
     return shutil.which("ffmpeg") is not None
 
@@ -40,7 +36,6 @@ if not is_ffmpeg_installed():
     print("  - Windows: choco install ffmpeg")
     print("\nService will start but transcription will fail until ffmpeg is installed.")
 
-# Load Whisper model
 try:
     print(f"Loading Whisper model: {WHISPER_MODEL_SIZE}")
     model = whisper.load_model(WHISPER_MODEL_SIZE)
@@ -86,14 +81,12 @@ async def transcribe_audio(file: UploadFile = File(...)):
     """
     start_time = time.time()
     
-    # Check if ffmpeg is installed
     if not is_ffmpeg_installed():
         raise HTTPException(
             status_code=500, 
             detail="ffmpeg is not installed. Please install ffmpeg to process audio files."
         )
     
-    # Check if model is loaded
     if model is None:
         raise HTTPException(
             status_code=500,
@@ -104,21 +97,17 @@ async def transcribe_audio(file: UploadFile = File(...)):
         raise HTTPException(400, "Unsupported file format. Supported formats: mp3, wav, m4a, ogg, webm")
     
     try:
-        # Save the uploaded file temporarily
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp:
             contents = await file.read()
             temp.write(contents)
             temp_path = temp.name
             
-        # Transcribe with Whisper
         result = model.transcribe(temp_path)
         
-        # Clean up the temporary file
         os.unlink(temp_path)
         
         processing_time = time.time() - start_time
         
-        # If no text was transcribed
         if not result["text"].strip():
             return TranscriptionResponse(
                 text="No speech detected. Please check your audio or try speaking louder.",
@@ -133,7 +122,6 @@ async def transcribe_audio(file: UploadFile = File(...)):
         )
     
     except Exception as e:
-        # Ensure temp file is deleted in case of error
         if 'temp_path' in locals():
             try:
                 os.unlink(temp_path)

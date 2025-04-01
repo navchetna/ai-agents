@@ -26,4 +26,4 @@ ENV WHISPER_SERVICE_PORT=8765
 EXPOSE ${WHISPER_SERVICE_PORT}
 
 # Start the service
-CMD ["python", "service.py"] 
+CMD ["python", "main.py"] 
