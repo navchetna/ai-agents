@@ -26,7 +26,7 @@ spec:
       containers:
         - env:
             - name: GROQ_API_KEY
-              value: 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
+              value: 
             - name: HTTPS_PROXY
               value: http://proxy-dmz.intel.com:912
             - name: HTTP_PROXY
