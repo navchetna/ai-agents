@@ -7,7 +7,7 @@ This repository `https://github.com/navchetna/ai-agents` provides a comprehensiv
 | ----------------------------------- | ----------------------------------- |
 | ![1. Search for papers](./assets/img/ra-1.png) | ![2. View search results](./assets/img/ra-2.png) |
 | ![3. Chatbot interface](./assets/img/ra-3.png) | ![4. View sources for response](./assets/img/ra-4.png) |
-|   |   |
+
 
 
 ## How is RAG Implemented?
