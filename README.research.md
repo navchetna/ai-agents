@@ -76,7 +76,6 @@ export MONGO_HOST=mongodb
 export MEGA_SERVICE_PORT=5008
 export SERVER_HOST_URL="localhost:$MEGA_SERVICE_PORT"
 export NEXT_PUBLIC_SERVER_URL=$SERVER_HOST_URL
-
 export HUGGINGFACEHUB_API_TOKEN=${HUGGINGFACEHUB_API_TOKEN}
 export DATAPREP_OUT_DIR=</path/to/dataprep/out/dir>
 export HF_CACHE=</path/to/hf_cache/dir>
@@ -103,6 +102,7 @@ export LLM_SERVER_PORT=8000
 docker compose -f install/docker/research-assistant/docker-compose.yaml up
 ```
 
+The application will be available on `http://localhost:5009`
 
 ## References
 
