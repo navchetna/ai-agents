@@ -13,5 +13,5 @@ docker buildx build --build-arg https_proxy=$https_proxy --build-arg http_proxy=
 ### Run container
 
 ```
-docker run -p 8765:8765 -e no_proxy=$no_proxy -e http_proxy=$http_proxy -e https_proxy=$https_proxy -e WHISPER_SERVICE_PORT=8765 ai-agents/rag/backend:latest
+docker run -p 8765:8765 -e no_proxy=$no_proxy -e http_proxy=$http_proxy -e https_proxy=$https_proxy -e WHISPER_SERVICE_PORT=8765 ai-agents/whisper-service:latest
 ```
