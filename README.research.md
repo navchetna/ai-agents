@@ -2,19 +2,19 @@
 
 This repository `https://github.com/navchetna/ai-agents` provides a comprehensive framework for building a Retrieval-Augmented Generation (RAG) chatbot specifically designed for researchers. This framework combines various components to create a powerful system that can retrieve relevant information from documents and generate accurate, contextually appropriate responses.
 
----
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-  <img src="./assets/img/ra-1.png" alt="1. Paper search" />
-  <img src="./assets/img/ra-2.png" alt="2. View search results" />
-  <img src="./assets/img/ra-3.png" alt="3. Chatbot interface" />
-  <img src="./assets/img/ra-4.png" alt="4. View sources for response" />
-</div>
+
+|   |   |
+| ----------------------------------- | ----------------------------------- |
+| ![1. Search for papers](./assets/img/ra-1.png) | ![2. View search results](./assets/img/ra-2.png) |
+| ![3. Chatbot interface](./assets/img/ra-3.png) | ![4. View sources for response](./assets/img/ra-4.png) |
+|   |   |
+
 
 ## How is RAG Implemented?
 
 RAG combines retrieval systems with large language models to generate more accurate and relevant responses by incorporating external knowledge.
 
-![RAG Architecure](./assets/img/rag-architecture.png)
+![OPEA RAG Architecure](./assets/img/rag-architecture.png)
 ### Key Components:
 - **Dataprep Component**:  The framework includes a dataprep component that processes input documents, breaking them into manageable chunks that can be embedded and indexed.
 - **Embedding Service**: Documents are transformed into vector representations using embedding models like `BAAI/bge-base-en-v1.5` which captures the semantic meaning of text.
