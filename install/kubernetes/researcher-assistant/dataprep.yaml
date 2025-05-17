@@ -35,10 +35,10 @@ spec:
               value: http://proxy-dmz.intel.com:912
             - name: HUGGINGFACEHUB_API_TOKEN
               value: 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
-            - name: LLM_SERVER_HOST_IP
-              value: research-assistant-groq-deployment
+            - name: SERVER_HOST_IP
+              value: g2-r2-2.iind.intel.com
             - name: LLM_SERVER_PORT
-              value: "5020"
+              value: "31800"
             - name: LOGFLAG
               value: "true"
             - name: REDIS_URL
@@ -46,8 +46,8 @@ spec:
             - name: TEI_EMBEDDING_ENDPOINT
               value: http://research-assistant-tei-embedding-deployment:6020
             - name: no_proxy
-              value: 127.0.0.1,localhost,.intel.com,research-assistant-redis-deployment,research-assistant-groq-deployment
-          image: tanmayudupa124/easy-circulars-dataprep:latest
+              value: 127.0.0.1,localhost,.intel.com,g2-r2-2.iind.intel.com,research-assistant-redis-deployment
+          image: navchetna/research-dataprep:latest
           name: research-assistant-dataprep-container
           ports:
             - containerPort: 6009
@@ -73,8 +73,7 @@ metadata:
 spec:
   type: NodePort
   ports:
-    - name: "5099"
-      port: 5099
+    - port: 6009
       protocol: TCP
       targetPort: 6007
       nodePort: 30101

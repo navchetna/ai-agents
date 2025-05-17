@@ -71,7 +71,7 @@ metadata:
   name: student-companion-dataprep-deployment
   namespace: student-companion
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
     - name: "5099"
       port: 5099

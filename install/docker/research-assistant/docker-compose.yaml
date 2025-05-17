@@ -25,36 +25,12 @@ services:
     image: redis/redis-stack:7.2.0-v9
     container_name: redis-vector-db
     ports:
-      - "6379:6379"
-      - "8001:8001"
-  dataprep-redis:
-    image: ai-agents/dataprep:latest
-    container_name: dataprep-redis-server
-    depends_on:
-      - redis-vector-db
-      - tei-embedding-service
-    volumes:
-      - ${HF_CACHE}:/.cache/huggingface/hub
-      - ${DATAPREP_OUT_DIR}:/home/user/comps/dataprep/out
-    ports:
-      - "5006:6007"
-    ipc: host
-    environment:
-      no_proxy: ${no_proxy}
-      http_proxy: ${http_proxy}
-      https_proxy: ${https_proxy}
-      REDIS_URL: ${REDIS_URL}
-      LOGFLAG: ${LOGFLAG}
-      TEI_ENDPOINT: http://tei-embedding-service:80
-      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
-    restart: unless-stopped
-  whisper-service:
-    image: ai-agents/whisper-service:latest
-    container_name: whisper-service
-    ports:
-      - "8765:8765"
-    volumes:
-      - ${HF_CACHE}:/root/.cache/huggingface/hub
+      - "1379:6379"
+      - "1001:8001"
+  
+  mongodb:
+    image: mongo
+    restart: always
     environment:
       no_proxy: ${no_proxy}
       http_proxy: ${http_proxy}
@@ -66,32 +42,8 @@ services:
     image: vllm-cpu-env
     container_name: vllm-service
     ports:
-      - "9009:8000"
-    volumes:
-      - ${HF_CACHE}:/root/.cache/huggingface/hub
-    privileged: true
-    environment:
-      no_proxy: ${no_proxy}
-      http_proxy: ${http_proxy}
-      https_proxy: ${https_proxy}
-      VLLM_USE_V1: 0
-      VLLM_ALLOW_LONG_MAX_MODEL_LEN: 1
-      VLLM_ENGINE_ITERATION_TIMEOUT_S: 600
-      VLLM_CPU_KVCACHE_SPACE: 30
-      VLLM_CPU_OMP_THREADS_BIND: "0-31"
-      HF_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
-      VLLM_TORCH_PROFILER_DIR: "/mnt"
-    cpuset: "0-31"
-    command: --model $LLM_MODEL_ID --host 0.0.0.0 -tp 1 --dtype bfloat16 
-    healthcheck:
-      interval: 10s
-      retries: 50
-      start_period: 30s
-      test:
-      - CMD
-      - curl
-      - -f
-      - http://localhost:8000/v1/models
+      - "37017:27017"
+  
   tei-reranking-service:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
     container_name: tei-reranking-server
@@ -108,6 +60,7 @@ services:
       HF_HUB_DISABLE_PROGRESS_BARS: 1
       HF_HUB_ENABLE_HF_TRANSFER: 0
     command: --model-id ${RERANK_MODEL_ID} --auto-truncate
+  
   tei-embedding-service:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
     container_name: tei-embedding-server
@@ -121,14 +74,67 @@ services:
       http_proxy: ${http_proxy}
       https_proxy: ${https_proxy}
     command: --model-id ${EMBEDDING_MODEL_ID} --auto-truncate
-  mongodb:
-    image: mongo
-    restart: always
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: agents
-      MONGO_INITDB_ROOT_PASSWORD: agents
+  
+  dataprep-redis:
+    image: ai-agents/dataprep:latest
+    container_name: research-dataprep-redis-server
+    depends_on:
+      - redis-vector-db
+      - tei-embedding-service
+    volumes:
+      - /mnt/hf_cache:/.cache
     ports:
-      - "27017:27017"
+      - "1006:6007"
+    ipc: host
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      REDIS_URL: ${REDIS_URL}
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      LOGFLAG: ${LOGFLAG}
+      TEI_ENDPOINT: http://tei-embedding-service:80
+      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+      SERVER_HOST_IP: ${LLM_SERVER_HOST_IP}
+      SERVER_PORT: ${LLM_SERVER_PORT}
+    restart: unless-stopped
+
+  retriever:
+    image: ai-agents/retriever:latest
+    container_name: research-retriever-redis-server
+    ports:
+      - "1007:7000"
+    ipc: host
+    depends_on:
+      - redis-vector-db
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      REDIS_URL: ${REDIS_URL}
+      INDEX_NAME: ${INDEX_NAME}
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      TEI_EMBEDDING_ENDPOINT: http://tei-embedding-service:80
+      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+    restart: unless-stopped
+
+  # groq-service:
+  #   image: ai-agents-groq:latest
+  #   container_name: research-groq-service
+  #   ports:
+  #     - "1099:8000"
+  #   volumes:
+  #     - /mnt/hf_cache:/root/.cache
+  #   environment:
+  #     no_proxy: ${no_proxy}
+  #     http_proxy: ${http_proxy}
+  #     https_proxy: ${https_proxy}
+  #     GROQ_API_KEY: ${GROQ_API_KEY}
+  #     HTTP_PROXY: ${HTTP_PROXY}
+  #     HTTPS_PROXY: ${HTTPS_PROXY}
+  
   backend:
     image: ai-agents/rag/backend:latest
     depends_on:
@@ -160,6 +166,7 @@ services:
       - WHISPER_SERVICE_HOST_IP=${WHISPER_SERVICE_HOST_IP}
     ipc: host
     restart: always
+  
   ui:
     image: ai-agents/rag/ui:latest
     depends_on:

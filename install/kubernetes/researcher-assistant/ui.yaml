@@ -22,7 +22,7 @@ spec:
       nodeSelector:
         kubernetes.io/hostname: g2-r1-2
       containers:
-        - image: ervin0307/ui:latest
+        - image: navchetna/research-ui:gaudi-2
           name: research-assistant-ui-container
           ports:
             - containerPort: 3000
@@ -41,8 +41,7 @@ metadata:
 spec:
   type: NodePort
   ports:
-    - name: "5090"
-      port: 5090
+    - port: 3000
       protocol: TCP
       targetPort: 3000
       nodePort: 30108
