@@ -38,9 +38,9 @@ spec:
             - name: LLM_MODEL
               value: meta-llama/Meta-Llama-3.1-8B-Instruct
             - name: LLM_SERVER_HOST_IP
-              value: student-companion-groq-deployment
+              value: g2-r1-2.iind.intel.com
             - name: LLM_SERVER_PORT
-              value: "5020"
+              value: "31025"
             - name: LOGFLAG
               value: "true"
             - name: MEGA_SERVICE_HOST_IP
@@ -60,7 +60,7 @@ spec:
             - name: RETRIEVER_SERVICE_PORT
               value: "5021"
             - name: no_proxy
-              value: 127.0.0.1,localhost,.intel.com,student-companion-tei-embedding-deployment,student-companion-groq-deployment,student-companion-backend-deployment,student-companion-mongodb-deployment,student-companion-tei-reranking-deployment,student-companion-retriever-deployment
+              value: 127.0.0.1,localhost,.intel.com,student-companion-tei-embedding-deployment,student-companion-groq-deployment,student-companion-backend-deployment,student-companion-mongodb-deployment,student-companion-tei-reranking-deployment,student-companion-retriever-deployment,g2-r1-2.iind.intel
           image: ervin0307/backend:latest
           imagePullPolicy: Always
           name: student-companion-backend-container

@@ -43,9 +43,9 @@ spec:
             - name: LLM_MODEL_ID
               value: meta-llama/Meta-Llama-3.1-8B-Instruct
             - name: LLM_SERVER_HOST_IP
-              value: g2-r2-2.iind.intel.com
+              value: g2-r1-2.iind.intel.com
             - name: LLM_SERVER_PORT
-              value: "31800"
+              value: "31025"
             - name: LOGFLAG
               value: "true"
             - name: MEGA_SERVICE_HOST_IP
@@ -67,7 +67,7 @@ spec:
             - name: WHISPER_SERVICE_HOST_IP
               value: research-assistant-whisper-deployment
             - name: no_proxy
-              value: 127.0.0.1,localhost,.intel.com,g2-r2-2.iind.intel.com,research-assistant-tei-embedding-deployment,research-assistant-backend-deployment,research-assistant-mongodb-deployment,research-assistant-tei-reranking-deployment,research-assistant-retriever-deployment,research-assistant-whisper-deployment
+              value: 127.0.0.1,localhost,.intel.com,g2-r2-2.iind.intel.com,research-assistant-tei-embedding-deployment,research-assistant-backend-deployment,research-assistant-mongodb-deployment,research-assistant-tei-reranking-deployment,research-assistant-retriever-deployment,research-assistant-whisper-deployment,g2-r1-2.iind.intel.com
           image: navchetna/research-backend:latest
           imagePullPolicy: Always
           name: research-assistant-backend-container
