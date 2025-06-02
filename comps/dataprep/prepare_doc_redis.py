@@ -216,7 +216,7 @@ def get_table_description(item: Table):
         "stream": False
     }
 
-     if use_model_param and model_name:
+    if use_model_param and model_name:
         data["model"] = model_name
     else:
         data["file_name"] = ""
