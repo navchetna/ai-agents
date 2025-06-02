@@ -22,7 +22,7 @@ spec:
         io.kompose.service: student-companion-groq-deployment
     spec:
       nodeSelector:
-        kubernetes.io/hostname: g2-r1-2
+        kubernetes.io/hostname: g2-wyn02
       containers:
         - env:
             - name: GROQ_API_KEY

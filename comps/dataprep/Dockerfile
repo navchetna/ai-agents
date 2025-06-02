@@ -33,6 +33,7 @@ USER root
 
 RUN mkdir -p /home/user/comps/dataprep/uploaded_files && chown -R user /home/user/comps/dataprep/uploaded_files
 RUN mkdir -p /home/user/comps/dataprep/out && chown -R user /home/user/comps/dataprep/out
+RUN mkdir -p /home/user/comps/parsers/ncert_toc && chown -R user /home/user/comps/parsers/ncert_toc
 
 ENV PYTHONPATH=/home/user
 

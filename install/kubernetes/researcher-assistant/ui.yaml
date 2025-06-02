@@ -20,9 +20,9 @@ spec:
         io.kompose.service: research-assistant-ui-deployment
     spec:
       nodeSelector:
-        kubernetes.io/hostname: g2-r1-2
+        kubernetes.io/hostname: g2-wyn02
       containers:
-        - image: navchetna/research-ui:gaudi-2
+        - image: navchetna/research-agent-ui:gaudi2
           name: research-assistant-ui-container
           ports:
             - containerPort: 3000

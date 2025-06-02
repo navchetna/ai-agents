@@ -20,7 +20,7 @@ spec:
         io.kompose.service: student-companion-retriever-deployment
     spec:
       nodeSelector:
-        kubernetes.io/hostname: g2-r1-2
+        kubernetes.io/hostname: g2-wyn02
       containers:
         - env:
             - name: http_proxy
