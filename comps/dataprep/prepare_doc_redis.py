@@ -249,8 +249,9 @@ def create_chunks(node: Node, text_splitter: RecursiveCharacterTextSplitter):
 def ingest_data_to_redis(doc_path: DocPath):
     """Ingest document to Redis."""
     path = doc_path.path
+    extra = doc_path.extra_path
     if logflag:
-        logger.info(f"[ ingest data ] Parsing document {path}.")
+        logger.info(f"[ ingest data ] Parsing document {path}" + (f" and {extra}" if extra else "") + ".")
 
     text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=doc_path.chunk_size,
@@ -258,13 +259,19 @@ def ingest_data_to_redis(doc_path: DocPath):
             add_start_index=True,
             separators=get_separators(),
         )
-
-
+    
     ## TODO: call our custom pdf parser
-    ## content
     tree = Tree(path)
     tree_parser = TreeParser()
-    tree_parser.populate_tree(tree)
+    
+    if extra:
+        filename = tree_parser.get_filename(tree.file)
+        recentNodeDict = {}
+        recentNodeDict['0'] = tree.rootNode
+        tree_parser.parse_markdown(filename, tree.rootNode, recentNodeDict, tree.file, doc_path.extra_path)
+    else:
+        tree_parser.populate_tree(tree)
+        
     chunks = create_chunks(tree.rootNode, text_splitter)
 
 
@@ -284,6 +291,19 @@ def ingest_data_to_redis(doc_path: DocPath):
     # print(chunks)
     return ingest_chunks_to_redis(file_name, chunks)
 
+def check_base_name_conflict(r: redis.Redis, filename: str):
+    base_name = filename.rsplit(".", 1)[0]
+    encoded_base = encode_filename(base_name)
+    pattern = f"file:{encoded_base}.*"
+    existing = r.keys(pattern)
+    print(encoded_base)
+    print(pattern)
+    print(existing)
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"A file with base name '{base_name}' already exists: {[k.decode() for k in existing]}"
+        )
 
 @register_microservice(name="opea_service@prepare_doc_redis", endpoint="/v1/dataprep", host="0.0.0.0", port=6007)
 async def ingest_documents(
@@ -305,66 +325,122 @@ async def ingest_documents(
         if not isinstance(files, list):
             files = [files]
         uploaded_files = []
+        
+        
+        pdf_files = []
+        markdown_pairs = {} 
+        
+        markdown_filename = None
 
         for file in files:
-            encode_file = encode_filename(file.filename)
-            doc_id = "file:" + encode_file
-            if logflag:
-                logger.info(f"[ upload ] processing file {doc_id}")
-
-            # check whether the file already exists
-            key_ids = None
-            try:
-                key_ids = search_by_id(client, doc_id).key_ids
-                if logflag:
-                    logger.info(f"[ upload ] File {file.filename} already exists.")
-            except Exception as e:
-                logger.info(f"[ upload ] File {file.filename} does not exist.")
-            if key_ids:
+            filename = file.filename.lower()
+            name_root = filename.rsplit('.', 1)[0]
+            if filename.endswith('.pdf'):
+                pdf_files.append(file)
+            elif filename.endswith('.md') or file.content_type == 'text/markdown':
+                markdown_pairs.setdefault(name_root, {})['md'] = file
+                markdown_filename = name_root
+            elif filename.endswith('.txt'):
+                markdown_pairs.setdefault(markdown_filename, {})['txt'] = file
+                
+        file_groups = []
+        
+        file_groups.extend([[f] for f in pdf_files])
+        
+        print(markdown_pairs)
+        
+        for base_name, pair in markdown_pairs.items():
+            if 'md' in pair and 'txt' in pair:
+                file_groups.append([pair['md'], pair['txt']])
+            else:
                 raise HTTPException(
-                    status_code=400, detail=f"Uploaded file {file.filename} already exists. Please change file name."
+                    status_code=400,
+                    detail=f"Both .md and .txt files required for '{base_name}', but one is missing.",
+                )
+    
+        uploaded_files = []
+
+        for group in file_groups:
+            if len(group) == 1:
+                file = group[0]
+                check_base_name_conflict(r, file.filename)
+
+                encode_file = encode_filename(file.filename)
+                doc_id = "file:" + encode_file
+
+                if logflag:
+                    logger.info(f"[ upload ] processing file {doc_id}")
+
+                save_path = upload_folder + encode_file
+                await save_content_to_local_disk(save_path, file)
+
+                ingest_data_to_redis(
+                    DocPath(
+                        path=save_path,
+                        chunk_size=chunk_size,
+                        chunk_overlap=chunk_overlap,
+                        process_table=process_table,
+                        table_strategy=table_strategy,
+                    )
                 )
 
-            save_path = upload_folder + encode_file
-            await save_content_to_local_disk(save_path, file)
-            ingest_data_to_redis(
-                DocPath(
-                    path=save_path,
-                    chunk_size=chunk_size,
-                    chunk_overlap=chunk_overlap,
-                    process_table=process_table,
-                    table_strategy=table_strategy,
+                uploaded_files.append(save_path)
+                if logflag:
+                    logger.info(f"[ upload ] Successfully saved file {save_path}")
+                    
+                result = {"status": 200, "message": "Data preparation succeeded"}
+                if logflag:
+                    logger.info(result)
+                return result
+
+            elif len(group) == 2:
+                md_file = None
+                txt_file = None
+                for f in group:
+                    if f.filename.endswith(".md"):
+                        md_file = f
+                    elif f.filename.endswith(".txt"):
+                        txt_file = f
+
+                if not (md_file and txt_file):
+                    raise HTTPException(status_code=400, detail="Markdown group incomplete.")
+
+                check_base_name_conflict(r, md_file.filename)
+
+                encode_md = encode_filename(md_file.filename)
+                encode_txt = encode_filename(txt_file.filename)
+                save_path_md = upload_folder + encode_md
+                save_path_txt = upload_folder + encode_txt
+
+                try:
+                    key_ids = search_by_id(client, "file:" + encode_md).key_ids
+                    if key_ids:
+                        raise HTTPException(status_code=400, detail=f"{md_file.filename} already exists.")
+                except Exception:
+                    logger.info(f"[ upload ] Markdown file {md_file.filename} does not exist.")
+
+                await save_content_to_local_disk(save_path_md, md_file)
+                await save_content_to_local_disk(save_path_txt, txt_file)
+
+                ingest_data_to_redis(
+                    DocPath(
+                        path=save_path_md,
+                        extra_path=save_path_txt,
+                        chunk_size=chunk_size,
+                        chunk_overlap=chunk_overlap,
+                        process_table=process_table,
+                        table_strategy=table_strategy,
+                    )
                 )
-            )
-            uploaded_files.append(save_path)
-            if logflag:
-                logger.info(f"[ upload ] Successfully saved file {save_path}")
 
-        # def process_files_wrapper(files):
-        #     if not isinstance(files, list):
-        #         files = [files]
-        #     for file in files:
-        #         ingest_data_to_redis(DocPath(path=file, chunk_size=chunk_size, chunk_overlap=chunk_overlap))
+                uploaded_files.extend([save_path_md, save_path_txt])
+                if logflag:
+                    logger.info(f"[ upload ] Successfully saved markdown + txt files {save_path_md}, {save_path_txt}")
 
-        # try:
-        #     # Create a SparkContext
-        #     conf = SparkConf().setAppName("Parallel-dataprep").setMaster("local[*]")
-        #     sc = SparkContext(conf=conf)
-        #     # Create an RDD with parallel processing
-        #     parallel_num = min(len(uploaded_files), os.cpu_count())
-        #     rdd = sc.parallelize(uploaded_files, parallel_num)
-        #     # Perform a parallel operation
-        #     rdd_trans = rdd.map(process_files_wrapper)
-        #     rdd_trans.collect()
-        #     # Stop the SparkContext
-        #     sc.stop()
-        # except:
-        #     # Stop the SparkContext
-        #     sc.stop()
-        result = {"status": 200, "message": "Data preparation succeeded"}
-        if logflag:
-            logger.info(result)
-        return result
+                result = {"status": 200, "message": "Data preparation succeeded"}
+                if logflag:
+                    logger.info(result)
+                return result
 
     # if link_list:
     #     link_list = json.loads(link_list)  # Parse JSON string to list

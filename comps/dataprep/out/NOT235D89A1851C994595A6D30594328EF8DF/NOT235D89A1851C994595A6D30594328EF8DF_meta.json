@@ -1,0 +1,165 @@
+{
+  "table_of_contents": [
+    {
+      "title": "RBI/2022-23/23\nDOR.RET.REC.15/12.01.001/2022-23 April 08, 2022",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          62.552693367004395,
+          158.8254543542862
+        ],
+        [
+          552.8324584960938,
+          158.8254543542862
+        ],
+        [
+          552.8324584960938,
+          185.11789190769196
+        ],
+        [
+          62.552693367004395,
+          185.11789190769196
+        ]
+      ]
+    },
+    {
+      "title": "Section 24 and Section 56 of the Banking Regulation Act, 1949 \u2013\nMaintenance of Statutory Liquidity Ratio (SLR)",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          140.43539357185364,
+          288.3625102043152
+        ],
+        [
+          479.8133132457733,
+          288.3625102043152
+        ],
+        [
+          478.6180007457733,
+          317.6386113166809
+        ],
+        [
+          139.24008107185364,
+          317.6386113166809
+        ]
+      ]
+    },
+    {
+      "title": "DOR.RET.REC.16/12.01.001/2022-23 April 08, 2022",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          61.71734619140625,
+          108.9352068901062
+        ],
+        [
+          535.864990234375,
+          108.9352068901062
+        ],
+        [
+          535.864990234375,
+          122.854248046875
+        ],
+        [
+          61.71734619140625,
+          122.854248046875
+        ]
+      ]
+    },
+    {
+      "title": "NOTIFICATION",
+      "heading_level": null,
+      "page_id": 1,
+      "polygon": [
+        [
+          249.77506148815155,
+          147.4655202627182
+        ],
+        [
+          333.0284056663513,
+          147.4655202627182
+        ],
+        [
+          333.0284056663513,
+          161.37382328510284
+        ],
+        [
+          249.77506148815155,
+          161.37382328510284
+        ]
+      ]
+    }
+  ],
+  "page_stats": [
+    {
+      "page_id": 0,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          126
+        ],
+        [
+          "Line",
+          32
+        ],
+        [
+          "Text",
+          11
+        ],
+        [
+          "Picture",
+          3
+        ],
+        [
+          "SectionHeader",
+          2
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 1,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          45
+        ],
+        [
+          "Line",
+          10
+        ],
+        [
+          "Text",
+          4
+        ],
+        [
+          "SectionHeader",
+          2
+        ],
+        [
+          "Picture",
+          1
+        ],
+        [
+          "Reference",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    }
+  ],
+  "debug_data_path": "debug_data/NOT235D89A1851C994595A6D30594328EF8DF"
+}

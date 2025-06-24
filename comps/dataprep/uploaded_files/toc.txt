@@ -1,0 +1,5 @@
+2;1. Applicability
+2;2. Concept of the ODR system
+2;3. Structure of the ODR system
+2;4. Types of transactions covered under the scope of the ODR system
+2;5. Lodging and tracking of disputes and grievances

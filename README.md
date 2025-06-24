@@ -50,4 +50,28 @@ docker compose -f install/docker/docker-compose.yaml up
 
 > Note: host would be localhost for local dev or server hostname for remote server
 
+## Data ingestion:
 
+### Ingesting PDF directly
+
+```bash
+curl -X POST "http://localhost:5006/v1/dataprep" \
+  -H "Content-Type: multipart/form-data" \
+  -F "files=@<path_to_pdf_file>"
+```
+
+### Generating Markdown + Table of Contents (TOC) from a PDF
+
+```bash
+cd comps/dataprep
+python3 generate_markdown_toc.py <path_to_pdf> --output <path_to_output_location>
+```
+
+### Ingesting Markdown + TOC files
+
+```bash
+curl -X POST "http://localhost:5006/v1/dataprep" \
+  -H "Content-Type: multipart/form-data" \
+  -F "files=@<path_to_md_file>" \
+  -F "files=@<path_to_toc_file>"
+```

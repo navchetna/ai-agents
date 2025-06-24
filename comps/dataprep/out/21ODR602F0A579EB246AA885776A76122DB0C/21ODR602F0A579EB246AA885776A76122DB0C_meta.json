@@ -1,0 +1,346 @@
+{
+  "table_of_contents": [
+    {
+      "title": "Online Dispute Resolution (ODR) System for Digital Payments",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          72.0109634399414,
+          281.8849947452545
+        ],
+        [
+          398.20952439308167,
+          281.8849947452545
+        ],
+        [
+          397.01421189308167,
+          296.2248229980469
+        ],
+        [
+          71.02453637123108,
+          296.2248229980469
+        ]
+      ]
+    },
+    {
+      "title": "Annex",
+      "heading_level": null,
+      "page_id": 2,
+      "polygon": [
+        [
+          505.4434790611267,
+          56.800567388534546
+        ],
+        [
+          541.3000817298889,
+          56.800567388534546
+        ],
+        [
+          541.3000817298889,
+          69.843017578125
+        ],
+        [
+          505.4434790611267,
+          69.843017578125
+        ]
+      ]
+    },
+    {
+      "title": "DPSS.CO.PD No. 116 / 02.12.004 / 2020-21 dated August 6, 2020",
+      "heading_level": null,
+      "page_id": 2,
+      "polygon": [
+        [
+          140.2782826423645,
+          81.46714693307877
+        ],
+        [
+          475.34420585632324,
+          81.46714693307877
+        ],
+        [
+          475.34420585632324,
+          95.16290283203125
+        ],
+        [
+          140.2782826423645,
+          95.16290283203125
+        ]
+      ]
+    },
+    {
+      "title": "Minimum Requirements of the ODR System",
+      "heading_level": null,
+      "page_id": 2,
+      "polygon": [
+        [
+          192.3000030517578,
+          119.82316660881042
+        ],
+        [
+          422.29094195365906,
+          119.82316660881042
+        ],
+        [
+          422.29094195365906,
+          133.25760698318481
+        ],
+        [
+          192.3000030517578,
+          133.25760698318481
+        ]
+      ]
+    },
+    {
+      "title": "1. Applicability",
+      "heading_level": null,
+      "page_id": 2,
+      "polygon": [
+        [
+          72.0,
+          144.04755342006683
+        ],
+        [
+          151.52875846624374,
+          144.04755342006683
+        ],
+        [
+          150.33344596624374,
+          157.47430419921875
+        ],
+        [
+          71.4651820063591,
+          157.47430419921875
+        ]
+      ]
+    },
+    {
+      "title": "2. Concept of the ODR system",
+      "heading_level": null,
+      "page_id": 2,
+      "polygon": [
+        [
+          72.0,
+          220.05479407310486
+        ],
+        [
+          230.05672788619995,
+          220.05479407310486
+        ],
+        [
+          228.86141538619995,
+          233.505544424057
+        ],
+        [
+          71.49319714307785,
+          233.505544424057
+        ]
+      ]
+    },
+    {
+      "title": "3. Structure of the ODR system",
+      "heading_level": null,
+      "page_id": 2,
+      "polygon": [
+        [
+          72.0,
+          314.84847235679626
+        ],
+        [
+          233.64872074127197,
+          314.84847235679626
+        ],
+        [
+          232.45340824127197,
+          328.58236956596375
+        ],
+        [
+          71.33973401784897,
+          328.58236956596375
+        ]
+      ]
+    },
+    {
+      "title": "4. Types of transactions covered under the scope of the ODR system",
+      "heading_level": null,
+      "page_id": 2,
+      "polygon": [
+        [
+          71.30831730365753,
+          467.18835067749023
+        ],
+        [
+          417.58275747299194,
+          467.18835067749023
+        ],
+        [
+          417.58275747299194,
+          481.0458354949951
+        ],
+        [
+          71.30831730365753,
+          481.0458354949951
+        ]
+      ]
+    },
+    {
+      "title": "5. Lodging and tracking of disputes and grievances",
+      "heading_level": null,
+      "page_id": 2,
+      "polygon": [
+        [
+          72.0,
+          657.6791996955872
+        ],
+        [
+          328.4082062244415,
+          656.1323246955872
+        ],
+        [
+          327.2128937244415,
+          669.959502696991
+        ],
+        [
+          71.6325523853302,
+          671.506377696991
+        ]
+      ]
+    }
+  ],
+  "page_stats": [
+    {
+      "page_id": 0,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          158
+        ],
+        [
+          "Line",
+          30
+        ],
+        [
+          "Text",
+          9
+        ],
+        [
+          "Picture",
+          1
+        ],
+        [
+          "SectionHeader",
+          1
+        ],
+        [
+          "PageFooter",
+          1
+        ],
+        [
+          "TextInlineMath",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 1,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          30
+        ],
+        [
+          "Line",
+          10
+        ],
+        [
+          "Text",
+          5
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 2,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          138
+        ],
+        [
+          "Line",
+          30
+        ],
+        [
+          "SectionHeader",
+          8
+        ],
+        [
+          "ListItem",
+          7
+        ],
+        [
+          "Text",
+          3
+        ],
+        [
+          "ListGroup",
+          2
+        ],
+        [
+          "Reference",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    },
+    {
+      "page_id": 3,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          61
+        ],
+        [
+          "Line",
+          15
+        ],
+        [
+          "ListItem",
+          3
+        ],
+        [
+          "Text",
+          2
+        ],
+        [
+          "ListGroup",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0
+      }
+    }
+  ],
+  "debug_data_path": "debug_data/21ODR602F0A579EB246AA885776A76122DB0C"
+}

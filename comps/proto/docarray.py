@@ -20,6 +20,7 @@ class TextDoc(BaseDoc, TopologyInfo):
 
 class DocPath(BaseDoc):
     path: str
+    extra_path: Optional[str] = None
     chunk_size: int = 1500
     chunk_overlap: int = 100
     process_table: bool = False

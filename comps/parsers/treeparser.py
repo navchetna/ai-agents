@@ -8,6 +8,7 @@ from difflib import SequenceMatcher
 import re
 import json 
 import os
+from typing import Optional
 from comps import CustomLogger
 from comps.parsers.node import Node
 from comps.parsers.text import Text
@@ -26,8 +27,9 @@ class TreeParser:
     def get_filename(self, file):
         return os.path.splitext(os.path.basename(file))[0]
 
-    def generate_markdown(self, file, filename):
-        if not output_exists(os.path.join(OUTPUT_DIR, filename), filename):
+    def generate_markdown(self, file, filename, output_path=None):
+        out_dir = output_path if output_path else OUTPUT_DIR
+        if not output_exists(os.path.join(out_dir, filename), filename):
             config = {
                 "output_format": "markdown",
                 "use_llm": False,
@@ -37,8 +39,8 @@ class TreeParser:
                 config=config
             )
             rendered = converter(file)
-            os.mkdir(os.path.join(OUTPUT_DIR, filename))
-            save_output(rendered, os.path.join(OUTPUT_DIR, filename), filename)
+            os.mkdir(os.path.join(out_dir, filename))
+            save_output(rendered, os.path.join(out_dir, filename), filename)
             logger.info("Output generated")
 
     def detect_level(self, headings):
@@ -48,9 +50,9 @@ class TreeParser:
                 return True
         return False
     
-    def generate_toc_using_level(self, filename, headings):
+    def generate_toc_using_level(self, filename, headings, out_dir):
 
-        with open(os.path.join(OUTPUT_DIR, filename, 'toc.txt'), 'w') as file_toc:
+        with open(os.path.join(out_dir, filename, 'toc.txt'), 'w') as file_toc:
 
             level_pattern = re.compile(r'^\d+(\.\d+)*\.?\s')
 
@@ -61,9 +63,9 @@ class TreeParser:
                     level = heading_number.count(".") + 1
                     file_toc.write(f"{level};{heading['title']}\n")
 
-    def generate_toc_using_size(self, filename, headings):
+    def generate_toc_using_size(self, filename, headings, out_dir):
 
-        with open(os.path.join(OUTPUT_DIR, filename, 'toc.txt'), 'w') as file:
+        with open(os.path.join(out_dir, filename, 'toc.txt'), 'w') as file:
 
             dictLevel = SortedDict()
             list_headings = []
@@ -99,20 +101,21 @@ class TreeParser:
             for i in list_headings:
                 file.write(f"{i[1]};{i[2]};;;\n")
 
-    def generate_toc_no_outline(self, filename):
-        with open(os.path.join(OUTPUT_DIR, filename, filename + "_meta.json"), 'r') as file_meta:
+    def generate_toc_no_outline(self, filename, out_dir):
+        with open(os.path.join(out_dir, filename, filename + "_meta.json"), 'r') as file_meta:
             data = json.load(file_meta)
 
         headings = data['table_of_contents']
         if self.detect_level(headings):
-            self.generate_toc_using_level(filename, headings)
+            self.generate_toc_using_level(filename, headings, out_dir)
         else:
-            self.generate_toc_using_size(filename, headings)        
+            self.generate_toc_using_size(filename, headings, out_dir)        
     
-    def generate_toc(self, file, filename):
+    def generate_toc(self, file, filename, output_path=None):
         if "grade" in filename:
             return
-        with open(os.path.join(OUTPUT_DIR, filename, 'toc.txt'), 'w') as file_toc:
+        out_dir = output_path if output_path else OUTPUT_DIR
+        with open(os.path.join(out_dir, filename, 'toc.txt'), 'w') as file_toc:
             with open(file, "rb") as fp:
                 try:
                     parser = PDFParser(fp)
@@ -121,7 +124,7 @@ class TreeParser:
                     for (level, title, dest, a, se) in outlines:
                         file_toc.write(f"{level};{title}\n")
                 except PDFNoOutlines:
-                    self.generate_toc_no_outline(filename)
+                    self.generate_toc_no_outline(filename, out_dir)
                 except PDFSyntaxError:
                     logger.info("Corrupted PDF or non-PDF file.")
                 finally:
@@ -134,13 +137,17 @@ class TreeParser:
         f.seek(pos)
         return line, line_2
 
-    def parse_markdown(self, filename, rootNode, recentNodeDict):
+    def parse_markdown(self, filename: str, rootNode, recentNodeDict, md_path: Optional[str] = None, toc_path: Optional[str] = None):
         toc_file = None
 
-        if "grade" in filename:
-            toc_file = open(os.path.join(NCERT_TOC_DIR, f"{filename}.txt"), "r")
+        if toc_path:
+            toc_file = open(toc_path, "r", encoding="utf-8")
         else:
-            toc_file = open(os.path.join(OUTPUT_DIR, filename, "toc.txt"), "r")
+            if "grade" in filename:
+                toc_file = open(os.path.join(NCERT_TOC_DIR, f"{filename}.txt"), "r", encoding="utf-8")
+            else:
+                toc_file = open(os.path.join(OUTPUT_DIR, filename, "toc.txt"), "r", encoding="utf-8")
+                
         toc_line = toc_file.readline()
                 
         currNode = rootNode
@@ -150,6 +157,11 @@ class TreeParser:
         content = ""
 
         previous_line = ""
+        
+        if md_path:
+            markdown_file = open(md_path, "r", encoding="utf-8")
+        else:
+            markdown_file = open(os.path.join(OUTPUT_DIR, filename, filename + ".md"), 'r', encoding="utf-8")
 
         with open(os.path.join(OUTPUT_DIR, filename, filename + ".md"), 'r') as markdown_file:
             line = markdown_file.readline()
