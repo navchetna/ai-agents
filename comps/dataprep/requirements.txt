@@ -33,3 +33,4 @@ marker-pdf
 pdfminer
 sortedcontainers
 groq
+weasyprint
