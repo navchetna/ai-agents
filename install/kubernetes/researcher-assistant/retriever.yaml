@@ -20,7 +20,7 @@ spec:
         io.kompose.service: research-assistant-retriever-deployment
     spec:
       nodeSelector:
-        kubernetes.io/hostname: g2-r1-2
+        kubernetes.io/hostname: g2-wyn02
       containers:
         - env:
             - name: http_proxy
@@ -40,8 +40,8 @@ spec:
             - name: TEI_EMBEDDING_ENDPOINT
               value: http://research-assistant-tei-embedding-deployment:6010
             - name: no_proxy
-              value: 127.0.0.1,localhost,.intel.com,research-assistant-redis-deployment,research-assistant-tei-embedding-deployment
-          image: ervin0307/retriever:latest
+              value: 127.0.0.1,localhost,.intel.com,g2-wyn02.iind.intel.com,research-assistant-redis-deployment,research-assistant-tei-embedding-deployment
+          image: navchetna/retriever:latest
           name: research-assistant-retriever-container
           ports:
             - containerPort: 7000
@@ -60,8 +60,7 @@ metadata:
 spec:
   type: NodePort
   ports:
-    - name: "5021"
-      port: 5021
+    - port: 7000
       protocol: TCP
       targetPort: 7000
       nodePort: 30105

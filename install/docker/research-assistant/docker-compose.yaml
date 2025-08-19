@@ -1,12 +1,80 @@
+# Copyright (C) 2024 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 version: "3.8"
 
 services:
+  retriever:
+    image: ai-agents/retriever:latest
+    container_name: retriever-redis-server
+    ports:
+      - "5007:7000"
+    ipc: host
+    depends_on:
+      - redis-vector-db
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      REDIS_URL: ${REDIS_URL}
+      INDEX_NAME: ${INDEX_NAME}
+      TEI_EMBEDDING_ENDPOINT: http://tei-embedding-service:80
+      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+    restart: unless-stopped
   redis-vector-db:
     image: redis/redis-stack:7.2.0-v9
-    container_name: research-redis-vector-db
+    container_name: redis-vector-db
     ports:
       - "1379:6379"
       - "1001:8001"
+  
+  mongodb:
+    image: mongo
+    restart: always
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      WHISPER_MODEL_SIZE: ${WHISPER_MODEL_SIZE:-base}
+      WHISPER_SERVICE_PORT: ${WHISPER_SERVICE_PORT:-8765}
+    restart: unless-stopped
+  vllm-service:
+    image: vllm-cpu-env
+    container_name: vllm-service
+    ports:
+      - "37017:27017"
+  
+  tei-reranking-service:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+    container_name: tei-reranking-server
+    ports:
+      - "8808:80"
+    volumes:
+      - ${HF_CACHE}:/data
+    shm_size: 1g
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+      HF_HUB_DISABLE_PROGRESS_BARS: 1
+      HF_HUB_ENABLE_HF_TRANSFER: 0
+    command: --model-id ${RERANK_MODEL_ID} --auto-truncate
+  
+  tei-embedding-service:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+    container_name: tei-embedding-server
+    ports:
+      - "6006:80"
+    volumes:
+      - ${HF_CACHE}:/data
+    shm_size: 1g
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+    command: --model-id ${EMBEDDING_MODEL_ID} --auto-truncate
+  
   dataprep-redis:
     image: ai-agents/dataprep:latest
     container_name: research-dataprep-redis-server
@@ -31,61 +99,7 @@ services:
       SERVER_HOST_IP: ${LLM_SERVER_HOST_IP}
       SERVER_PORT: ${LLM_SERVER_PORT}
     restart: unless-stopped
-  mongodb:
-    image: mongo
-    restart: always
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: agents
-      MONGO_INITDB_ROOT_PASSWORD: agents
-    ports:
-      - "37017:27017"
-  groq-service:
-    image: ai-agents-groq:latest
-    container_name: research-groq-service
-    ports:
-      - "1099:8000"
-    volumes:
-      - /mnt/hf_cache:/root/.cache
-    environment:
-      no_proxy: ${no_proxy}
-      http_proxy: ${http_proxy}
-      https_proxy: ${https_proxy}
-      GROQ_API_KEY: ${GROQ_API_KEY}
-      HTTP_PROXY: ${HTTP_PROXY}
-      HTTPS_PROXY: ${HTTPS_PROXY}
-  tei-reranking-service:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
-    container_name: research-tei-reranking-server
-    ports:
-      - "1808:80"
-    volumes:
-      - /mnt/hf_cache:/data
-    shm_size: 1g
-    environment:
-      no_proxy: ${no_proxy}
-      http_proxy: ${http_proxy}
-      https_proxy: ${https_proxy}
-      HTTP_PROXY: ${HTTP_PROXY}
-      HTTPS_PROXY: ${HTTPS_PROXY}
-      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
-      HF_HUB_DISABLE_PROGRESS_BARS: 1
-      HF_HUB_ENABLE_HF_TRANSFER: 0
-    command: --model-id ${RERANK_MODEL_ID} --auto-truncate
-  tei-embedding-service:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
-    container_name: research-tei-embedding-server
-    ports:
-      - "2006:80"
-    volumes:
-      - /mnt/hf_cache:/data
-    shm_size: 1g
-    environment:
-      no_proxy: ${no_proxy}
-      http_proxy: ${http_proxy}
-      https_proxy: ${https_proxy}
-      HTTP_PROXY: ${HTTP_PROXY}
-      HTTPS_PROXY: ${HTTPS_PROXY}
-    command: --model-id ${EMBEDDING_MODEL_ID} --auto-truncate
+
   retriever:
     image: ai-agents/retriever:latest
     container_name: research-retriever-redis-server
@@ -105,23 +119,37 @@ services:
       TEI_EMBEDDING_ENDPOINT: http://tei-embedding-service:80
       HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
     restart: unless-stopped
+
+  # groq-service:
+  #   image: ai-agents-groq:latest
+  #   container_name: research-groq-service
+  #   ports:
+  #     - "1099:8000"
+  #   volumes:
+  #     - /mnt/hf_cache:/root/.cache
+  #   environment:
+  #     no_proxy: ${no_proxy}
+  #     http_proxy: ${http_proxy}
+  #     https_proxy: ${https_proxy}
+  #     GROQ_API_KEY: ${GROQ_API_KEY}
+  #     HTTP_PROXY: ${HTTP_PROXY}
+  #     HTTPS_PROXY: ${HTTPS_PROXY}
+  
   backend:
-    image: ai-agents-rag-backend:latest
+    image: ai-agents/rag/backend:latest
     depends_on:
       - redis-vector-db
       - tei-embedding-service
       - retriever
       - tei-reranking-service
+      - vllm-service
     ports:
-      - "1008:5008"
+      - "5008:9000"
     environment:
       - no_proxy=${no_proxy}
       - https_proxy=${https_proxy}
       - http_proxy=${http_proxy}
-      - HTTP_PROXY=${HTTP_PROXY}
-      - HTTPS_PROXY=${HTTPS_PROXY}
-      - MEGA_SERVICE_HOST_IP=127.0.0.1
-      - MEGA_SERVICE_PORT=${MEGA_SERVICE_PORT}
+      - MEGA_SERVICE_HOST_IP=${SERVER_HOST_URL}
       - EMBEDDING_SERVER_HOST_IP=${EMBEDDING_SERVER_HOST_IP}
       - EMBEDDING_SERVER_PORT=${EMBEDDING_SERVER_PORT:-80}
       - RETRIEVER_SERVICE_HOST_IP=${RETRIEVER_SERVICE_HOST_IP}
@@ -135,16 +163,22 @@ services:
       - MONGO_HOST=${MONGO_HOST}
       - MONGO_USERNAME=agents
       - MONGO_PASSWORD=agents
+      - WHISPER_SERVICE_HOST_IP=${WHISPER_SERVICE_HOST_IP}
     ipc: host
     restart: always
+  
   ui:
-    image: ai-agents/rag/ui:research
+    image: ai-agents/rag/ui:latest
     depends_on:
       - backend
     ports:
-      - "1009:3000"
+      - "5009:3000"
+    environment:
+      - no_proxy=${no_proxy}
+      - https_proxy=${https_proxy}
+      - http_proxy=${http_proxy}
     restart: always
-    
+
 networks:
   default:
     driver: bridge

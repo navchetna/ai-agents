@@ -22,7 +22,7 @@ spec:
         io.kompose.service: student-companion-dataprep-deployment
     spec:
       nodeSelector:
-        kubernetes.io/hostname: g2-r1-2
+        kubernetes.io/hostname: g2-wyn02
       containers:
         - env:
             - name: http_proxy
@@ -36,9 +36,15 @@ spec:
             - name: HUGGINGFACEHUB_API_TOKEN
               value: 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
             - name: LLM_SERVER_HOST_IP
-              value: student-companion-groq-deployment
+              value: g2-wyn02.iind.intel.com
             - name: LLM_SERVER_PORT
-              value: "5020"
+              value: "31025"
+            - name: LLM_SERVER_PORT
+              value: "31025"
+            - name: LLM_MODEL_ID
+              value: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+            - name: LLM_USE_MODEL_PARAM
+              value: "true"
             - name: LOGFLAG
               value: "true"
             - name: REDIS_URL
@@ -47,7 +53,7 @@ spec:
               value: http://student-companion-tei-embedding-deployment:6020
             - name: no_proxy
               value: 127.0.0.1,localhost,.intel.com,student-companion-redis-deployment,student-companion-groq-deployment
-          image: tanmayudupa124/easy-circulars-dataprep:latest
+          image: navchetna/dataprep:latest
           name: student-companion-dataprep-container
           ports:
             - containerPort: 6009
@@ -71,7 +77,7 @@ metadata:
   name: student-companion-dataprep-deployment
   namespace: student-companion
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
     - name: "5099"
       port: 5099

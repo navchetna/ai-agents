@@ -25,7 +25,7 @@ spec:
         io.kompose.service: research-assistant-backend-deployment
     spec:
       nodeSelector:
-        kubernetes.io/hostname: g2-r1-2
+        kubernetes.io/hostname: g2-wyn02
       containers:
         - env:
             - name: EMBEDDING_SERVER_HOST_IP
@@ -40,12 +40,12 @@ spec:
               value: http://proxy-dmz.intel.com:912
             - name: HTTP_PROXY
               value: http://proxy-dmz.intel.com:912
-            - name: LLM_MODEL
+            - name: LLM_MODEL_ID
               value: meta-llama/Meta-Llama-3.1-8B-Instruct
             - name: LLM_SERVER_HOST_IP
-              value: research-assistant-groq-deployment
+              value: g2-wyn02.iind.intel.com
             - name: LLM_SERVER_PORT
-              value: "5020"
+              value: "31025"
             - name: LOGFLAG
               value: "true"
             - name: MEGA_SERVICE_HOST_IP
@@ -63,10 +63,12 @@ spec:
             - name: RETRIEVER_SERVICE_HOST_IP
               value: research-assistant-retriever-deployment
             - name: RETRIEVER_SERVICE_PORT
-              value: "5021"
+              value: "7000"
+            - name: WHISPER_SERVICE_HOST_IP
+              value: research-assistant-whisper-deployment
             - name: no_proxy
-              value: 127.0.0.1,localhost,.intel.com,research-assistant-tei-embedding-deployment,research-assistant-groq-deployment,research-assistant-backend-deployment,research-assistant-mongodb-deployment,research-assistant-tei-reranking-deployment,research-assistant-retriever-deployment
-          image: ervin0307/backend:latest
+              value: 127.0.0.1,localhost,.intel.com,g2-wyn02.iind.intel.com,research-assistant-tei-embedding-deployment,research-assistant-backend-deployment,research-assistant-mongodb-deployment,research-assistant-tei-reranking-deployment,research-assistant-retriever-deployment,research-assistant-whisper-deployment,g2-wyn02.iind.intel.com
+          image: navchetna/research-backend:latest
           imagePullPolicy: Always
           name: research-assistant-backend-container
           ports:
@@ -86,8 +88,7 @@ metadata:
 spec:
   type: NodePort
   ports:
-    - name: "5022"
-      port: 5022
+    - port: 9001
       protocol: TCP
       targetPort: 9001
       nodePort: 30100

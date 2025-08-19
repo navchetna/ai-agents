@@ -20,7 +20,7 @@ spec:
         io.kompose.service: student-companion-redis-deployment
     spec:
       nodeSelector:
-        kubernetes.io/hostname: g2-r1-2
+        kubernetes.io/hostname: g2-wyn02
       containers:
         - image: redis/redis-stack:7.2.0-v9
           name: student-companion-redis-container

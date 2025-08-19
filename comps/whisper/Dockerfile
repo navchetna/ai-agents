@@ -10,13 +10,13 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Copy requirements file
-COPY requirements.txt .
+COPY comps/whisper/requirements.txt .
 
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the service code
-COPY service.py .
+COPY comps/whisper/main.py .
 
 # Environment variables with defaults
 ENV WHISPER_MODEL_SIZE=base

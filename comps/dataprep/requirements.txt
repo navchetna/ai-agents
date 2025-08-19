@@ -24,7 +24,7 @@ pytesseract
 python-bidi
 python-docx
 python-pptx
-redis
+redis==5.2.1
 sentence_transformers
 shortuuid
 unstructured[all-docs]

@@ -31,3 +31,8 @@ next-env.d.ts
 **__pycache__
 **venv
 **.pyc
+
+# *.pdf
+admin
+dump
+rag_db

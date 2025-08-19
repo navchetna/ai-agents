@@ -21,7 +21,7 @@ from comps.proto.api_protocol import (
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from comps.proto.docarray import LLMParams, RerankerParms, RetrieverParms
-from comps.circulars.metadata_operations import handle_circular_update, handle_circular_get
+# from comps.circulars.metadata_operations import handle_circular_update, handle_circular_get
 from fastapi import Request, HTTPException, File, UploadFile
 from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
 from mongo_client import mongo_client
@@ -49,7 +49,7 @@ RERANK_SERVER_HOST_IP = os.getenv("RERANK_SERVER_HOST_IP", "0.0.0.0")
 RERANK_SERVER_PORT = int(os.getenv("RERANK_SERVER_PORT", 80))
 LLM_SERVER_HOST_IP = os.getenv("LLM_SERVER_HOST_IP", "0.0.0.0")
 LLM_SERVER_PORT = int(os.getenv("LLM_SERVER_PORT", 80))
-LLM_MODEL = os.getenv("LLM_MODEL_ID", "meta-llama/Llama-3.1-8B-Instruct")
+LLM_MODEL = os.getenv("LLM_MODEL_ID", "meta-llama/Meta-Llama-3.1-8B-Instruct")
 REDIS_URL = os.getenv("REDIS_URL")
 
 # Add Whisper service constants
@@ -1326,8 +1326,8 @@ class ConversationRAGService(ChatQnAService):
         self.service.add_route("/api/search_papers", self.handle_search_papers, methods=["POST"])
         self.service.add_route("/api/suggest", self.handle_suggest, methods=["GET"])
         self.service.add_route("/api/download_references", self.handle_download_references, methods=["POST"])
-        self.service.add_route("/api/circulars", handle_circular_update, methods=["PATCH"])
-        self.service.add_route("/api/circulars", handle_circular_get, methods=["GET"])
+        # self.service.add_route("/api/circulars", handle_circular_update, methods=["PATCH"])
+        # self.service.add_route("/api/circulars", handle_circular_get, methods=["GET"])
         self.service.add_route("/api/transcribe", self.handle_transcribe, methods=["POST"])
         self.service.add_route("/api/whisper_healthcheck", self.handle_whisper_healthcheck, methods=["GET"])
         self.service.start()

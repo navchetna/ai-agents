@@ -39,20 +39,20 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: agents
     ports:
       - "17017:27017"
-  groq-service:
-    image: thebeginner86intel/ai-agents-groq:latest
-    container_name: groq-service
-    ports:
-      - "4099:8000"
-    volumes:
-      - /mnt/hf_cache:/root/.cache
-    environment:
-      no_proxy: ${no_proxy}
-      http_proxy: ${http_proxy}
-      https_proxy: ${https_proxy}
-      GROQ_API_KEY: ${GROQ_API_KEY}
-      HTTP_PROXY: ${HTTP_PROXY}
-      HTTPS_PROXY: ${HTTPS_PROXY}
+  # groq-service:
+  #   image: thebeginner86intel/ai-agents-groq:latest
+  #   container_name: groq-service
+  #   ports:
+  #     - "4099:8000"
+  #   volumes:
+  #     - /mnt/hf_cache:/root/.cache
+  #   environment:
+  #     no_proxy: ${no_proxy}
+  #     http_proxy: ${http_proxy}
+  #     https_proxy: ${https_proxy}
+  #     GROQ_API_KEY: ${GROQ_API_KEY}
+  #     HTTP_PROXY: ${HTTP_PROXY}
+  #     HTTPS_PROXY: ${HTTPS_PROXY}
   tei-reranking-service:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
     container_name: tei-reranking-server
