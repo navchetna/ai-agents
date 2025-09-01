@@ -37,15 +37,64 @@ services:
       https_proxy: ${https_proxy}
       WHISPER_MODEL_SIZE: ${WHISPER_MODEL_SIZE:-base}
       WHISPER_SERVICE_PORT: ${WHISPER_SERVICE_PORT:-8765}
-    restart: unless-stopped
-  vllm-service:
-    image: vllm-cpu-env
-    container_name: vllm-service
+      MONGO_INITDB_ROOT_USERNAME: agents
+      MONGO_INITDB_ROOT_PASSWORD: agents
     ports:
-      - "37017:27017"
+      - "27019:27017"
+      
+  vllm-service:
+    image: ${REGISTRY:-opea}/vllm-gaudi:${TAG:-latest}
+    container_name: parliament-rag-vllm-gaudi-server-H4
+    ports:
+      - "8007:80"
+    volumes:
+      - ${HF_CACHE}:/.cache/huggingface/hub
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      HF_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+      HABANA_VISIBLE_DEVICES: 4
+      OMPI_MCA_btl_vader_single_copy_mechanism: none
+      VLLM_SKIP_WARMUP: true
+      LLM_MODEL_ID: ${LLM_MODEL_ID}
+      NUM_CARDS: 1
+      VLLM_TORCH_PROFILER_DIR: "/mnt"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:80/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 100
+    runtime: habana
+    cap_add:
+      - SYS_NICE
+    ipc: host
+    command: --model ${LLM_MODEL_ID} --tensor-parallel-size 1 --host 0.0.0.0 --port 80 --block-size 128 --max-num-seqs 256 --max-seq-len-to-capture 2048
+
+    # vllm-service:
+    #   image: vllm-cpu-env
+    #   container_name: vllm-service
+    #   ports:
+    #     - "9009:8000"
+    #   volumes:
+    #     - ${HF_CACHE}:/root/.cache/huggingface/hub
+    #   privileged: true
+    #   environment:
+    #     no_proxy: ${no_proxy}
+    #     http_proxy: ${http_proxy}
+    #     https_proxy: ${https_proxy}
+    #     VLLM_USE_V1: 1
+    #     VLLM_ALLOW_LONG_MAX_MODEL_LEN: 1
+    #     VLLM_ENGINE_ITERATION_TIMEOUT_S: 600
+    #     VLLM_CPU_KVCACHE_SPACE: 20
+    #     VLLM_CPU_OMP_THREADS_BIND: "0-23"
+    #     HF_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
+    #     VLLM_TORCH_PROFILER_DIR: "/mnt"
+    #   cpuset: "0-23"
+    #   command: --model $LLM_MODEL_ID --host 0.0.0.0 -tp 1 --dtype bfloat16
   
   tei-reranking-service:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.7
     container_name: tei-reranking-server
     ports:
       - "8808:80"
@@ -62,7 +111,7 @@ services:
     command: --model-id ${RERANK_MODEL_ID} --auto-truncate
   
   tei-embedding-service:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.7
     container_name: tei-embedding-server
     ports:
       - "6006:80"
