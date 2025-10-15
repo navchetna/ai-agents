@@ -41,12 +41,12 @@ services:
     restart: unless-stopped
   
   groq-service:
-    image: thebeginner86intel/ai-agents-groq:latest
+    image: ai-agents/groq:latest
     container_name: groq-service
     ports:
       - "5099:8000"
     volumes:
-      - "./cache:/root/.cache"
+      - "${HF_CACHE}:/root/.cache"
     environment:
       no_proxy: ${no_proxy}
       http_proxy: ${http_proxy}
@@ -67,6 +67,7 @@ services:
       no_proxy: ${no_proxy}
       http_proxy: ${http_proxy}
       https_proxy: ${https_proxy}
+      RERANK_MODEL_ID: ${RERANK_MODEL_ID}
       HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
     command: --model-id ${RERANK_MODEL_ID} --auto-truncate
   
@@ -82,10 +83,11 @@ services:
       no_proxy: ${no_proxy}
       http_proxy: ${http_proxy}
       https_proxy: ${https_proxy}
+      EMBEDDING_MODEL_ID: ${EMBEDDING_MODEL_ID}
+      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
     command: --model-id ${EMBEDDING_MODEL_ID} --auto-truncate
 
 
-  
   dataprep-redis:
     image: ai-agents/dataprep:latest
     container_name: research-dataprep-redis-server
@@ -93,7 +95,7 @@ services:
       - redis-vector-db
       - tei-embedding-service
     volumes:
-      - /mnt/hf_cache:/.cache
+      - ${HF_CACHE}:/home/user/.cache
     ports:
       - "1006:6007"
     ipc: host
@@ -147,8 +149,7 @@ services:
     restart: always
   
   ui:
-    # image: ai-agents/rag/ui:latest
-    image: ai-agents/rag/ui:localhost
+    image: ai-agents/rag/ui:latest
     depends_on:
       - backend
     ports:
