@@ -50,10 +50,13 @@ The vLLM option is more suitable for server deployments with dedicated GPU resou
 1. [Build dataprep component](./comps/dataprep/README.md)
 2. [Build retriever component](./comps/retriever/README.md)
 3. [Build backend component](./comps/README.md)
-4. [Build Whisper component](./comps/whisper/README.md)
+4. [Build Groq component](./comps/groq/README.md)
 5. [Build UI component](./design-patterns/rag/README.md)
+
+Optional components: 
+
 6. [Build vLLM image](./comps/README.vllm.md)
-7. [Build Groq component](./comps/groq/README.md)
+7. [Build Whisper component](./comps/whisper/README.md)
 
 ```
 export no_proxy="127.0.0.1,localhost,dataprep-redis,tei-embedding-service,retriever,tei-reranking-service,backend,mongodb,vllm-service,whisper-service,groq-service"
@@ -70,7 +73,7 @@ export RERANK_SERVER_HOST_IP=tei-reranking-service
 export RERANK_SERVER_PORT=80
 export WHISPER_SERVICE_HOST_IP=whisper-service
 export WHISPER_SERVICE_PORT=8765
-export LLM_SERVER_HOST_IP=vllm-service
+export LLM_SERVER_HOST_IP=groq-service
 export LLM_SERVER_PORT=8000
 export MONGO_HOST=mongodb
 export MEGA_SERVICE_PORT=5008
