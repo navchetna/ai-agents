@@ -4,11 +4,11 @@
 ## Setup
 
 1. Clone repo
-```
+```bash
 https://github.com/navchetna/ai-agents
 ```
 2. Move to project repo
-```
+```bash
 cd ai-agents/design-patterns/rag;
 ```
 
@@ -16,7 +16,7 @@ cd ai-agents/design-patterns/rag;
 
 #### Build image
 
-```
+```bash
 export SERVER_HOST_URL=<host>:<port> # localhost:5008
 docker buildx build --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy --build-arg SERVER_URL=${SERVER_HOST_URL} -t ai-agents/rag/ui:latest -f install/docker/Dockerfile .;
 ```
