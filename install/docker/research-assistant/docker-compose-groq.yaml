@@ -95,7 +95,7 @@ services:
       - redis-vector-db
       - tei-embedding-service
     volumes:
-      - ${HF_CACHE}:/home/user/.cache
+      - ${DATAPREP_CACHE}:/home/user/.cache
     ports:
       - "1006:6007"
     ipc: host
