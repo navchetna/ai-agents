@@ -21,6 +21,7 @@ services:
       TEI_EMBEDDING_ENDPOINT: http://tei-embedding-service:80
       HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
     restart: unless-stopped
+
   redis-vector-db:
     image: redis/redis-stack:7.2.0-v9
     container_name: redis-vector-db
@@ -87,7 +88,6 @@ services:
       HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN}
     command: --model-id ${EMBEDDING_MODEL_ID} --auto-truncate
 
-
   dataprep-redis:
     image: ai-agents/dataprep:latest
     container_name: research-dataprep-redis-server
@@ -112,7 +112,6 @@ services:
       SERVER_HOST_IP: ${LLM_SERVER_HOST_IP}
       SERVER_PORT: ${LLM_SERVER_PORT}
     restart: unless-stopped
-
   
   backend:
     image: ai-agents/rag/backend:latest
