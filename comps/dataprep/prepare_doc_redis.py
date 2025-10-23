@@ -11,11 +11,10 @@ import requests
 import redis
 from config import EMBED_MODEL, INDEX_NAME, KEY_INDEX_NAME, REDIS_URL, SEARCH_BATCH_SIZE
 from fastapi import Body, File, Form, HTTPException, UploadFile
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceBgeEmbeddings
 from langchain_community.vectorstores import Redis
 from langchain_huggingface import HuggingFaceEndpointEmbeddings
-from langchain_text_splitters import HTMLHeaderTextSplitter
+from langchain_text_splitters import HTMLHeaderTextSplitter, RecursiveCharacterTextSplitter
 from redis.commands.search.field import TextField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 
@@ -182,9 +181,9 @@ def ingest_chunks_to_redis(file_name: str, chunks: List):
     return True
 
 def get_table_description(item: Table):
-    server_host_ip = os.getenv("SERVER_HOST_IP", "vllm-service")
+    server_host_ip = os.getenv("LLM_SERVER_HOST_IP", "vllm-service")
     server_port = os.getenv("LLM_SERVER_PORT", 8000)
-    model_name = os.getenv("LLM_MODEL_ID")
+    model_name = os.getenv("LLM_MODEL_ID", "meta-llama/Meta-Llama-3.1-8B-Instruct")
     use_model_param = os.getenv("LLM_USE_MODEL_PARAM", "false").lower() == "true"
     url = f"http://{server_host_ip}:{server_port}/v1/chat/completions"
     headers = {
@@ -213,6 +212,7 @@ def get_table_description(item: Table):
                 "content": f"{item.heading}\n{item.markdown_content}",
             }
         ],
+        "model": model_name,
         "stream": False
     }
 
@@ -221,9 +221,60 @@ def get_table_description(item: Table):
     else:
         data["file_name"] = ""
 
-    response = requests.post(url, headers=headers, json=data)
-    response_data = json.loads(response.text)
-    return response_data['choices'][0]['message']['content']
+    try:
+        response = requests.post(url, headers=headers, json=data, timeout=120)
+
+        if response.status_code != 200:
+            if logflag:
+                logger.error(f"[get_table_description] Status {response.status_code}: {response.text}")
+            return f"Table: {item.heading}\n{item.markdown_content}"
+
+        if not response.text or response.text.strip() == "":
+            if logflag:
+                logger.error("[get_table_description] Empty response")
+            return f"Table: {item.heading}\n{item.markdown_content}"
+
+        try:
+            response_data = json.loads(response.text)
+        except json.JSONDecodeError as e:
+            if logflag:
+                logger.error(f"[get_table_description] JSON parse error: {e}")
+            return f"Table: {item.heading}\n{item.markdown_content}"
+
+        if "choices" not in response_data or not response_data["choices"]:
+            if logflag:
+                logger.error("[get_table_description] Missing 'choices' in response")
+            return f"Table: {item.heading}\n{item.markdown_content}"
+
+        if "message" not in response_data["choices"][0]:
+            if logflag:
+                logger.error("[get_table_description] Missing 'message' in response")
+            return f"Table: {item.heading}\n{item.markdown_content}"
+
+        if "content" not in response_data["choices"][0]["message"]:
+            if logflag:
+                logger.error("[get_table_description] Missing 'content' in response")
+            return f"Table: {item.heading}\n{item.markdown_content}"
+        
+        content = response_data['choices'][0]['message']['content']
+        
+        if logflag:
+            logger.info("[get_table_description] Successfully generated description")
+        
+        return content
+        
+    except requests.exceptions.Timeout:
+        if logflag:
+            logger.error(f"[get_table_description] Request timeout for {url}")
+        return f"Table: {item.heading}\n{item.markdown_content}"
+    except requests.exceptions.ConnectionError as e:
+        if logflag:
+            logger.error(f"[get_table_description] Connection error: {e}")
+        return f"Table: {item.heading}\n{item.markdown_content}"
+    except Exception as e:
+        if logflag:
+            logger.error(f"[get_table_description] Unexpected error: {e}")
+        return f"Table: {item.heading}\n{item.markdown_content}"
 
 
 def chunk_node_content(node: Node, text_splitter: RecursiveCharacterTextSplitter):
@@ -340,27 +391,6 @@ async def ingest_documents(
             if logflag:
                 logger.info(f"[ upload ] Successfully saved file {save_path}")
 
-        # def process_files_wrapper(files):
-        #     if not isinstance(files, list):
-        #         files = [files]
-        #     for file in files:
-        #         ingest_data_to_redis(DocPath(path=file, chunk_size=chunk_size, chunk_overlap=chunk_overlap))
-
-        # try:
-        #     # Create a SparkContext
-        #     conf = SparkConf().setAppName("Parallel-dataprep").setMaster("local[*]")
-        #     sc = SparkContext(conf=conf)
-        #     # Create an RDD with parallel processing
-        #     parallel_num = min(len(uploaded_files), os.cpu_count())
-        #     rdd = sc.parallelize(uploaded_files, parallel_num)
-        #     # Perform a parallel operation
-        #     rdd_trans = rdd.map(process_files_wrapper)
-        #     rdd_trans.collect()
-        #     # Stop the SparkContext
-        #     sc.stop()
-        # except:
-        #     # Stop the SparkContext
-        #     sc.stop()
         result = {"status": 200, "message": "Data preparation succeeded"}
         if logflag:
             logger.info(result)

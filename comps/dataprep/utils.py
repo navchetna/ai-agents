@@ -29,7 +29,8 @@ import pytesseract
 import requests
 import yaml
 from bs4 import BeautifulSoup
-from langchain import LLMChain, PromptTemplate
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 from langchain_community.document_loaders import (
     UnstructuredHTMLLoader,
     UnstructuredImageLoader,
@@ -717,10 +718,9 @@ def llm_generate(content):
 
     prompt = PromptTemplate(template=table_summary_template, input_variables=["table_content"])
 
-    llm_chain = LLMChain(prompt=prompt, llm=llm)
+    chain = prompt | llm | StrOutputParser()
 
-    response = llm_chain.invoke(content)
-    response = response["text"]
+    response = chain.invoke({"table_content": content})
     print("response", response)
     return response
 
