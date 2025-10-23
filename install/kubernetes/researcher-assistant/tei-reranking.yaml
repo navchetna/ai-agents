@@ -45,7 +45,7 @@ spec:
               value: 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
             - name: no_proxy
               value: 127.0.0.1,localhost,.intel.com
-          image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+          image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.7
           name: research-assistant-tei-reranking-container
           ports:
             - containerPort: 80
