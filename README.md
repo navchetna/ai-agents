@@ -67,7 +67,7 @@ Before building the application images, you need to have Docker installed on you
 
 1. Visit the official Docker installation guide here -> [Install docker](https://docs.docker.com/engine/install/)
 
-2. **Choose your operating system:**
+2. Choose your operating system:
    - Windows users with WSL: Select **Ubuntu** from the installation options
    - Mac users: Select **Docker Desktop for Mac**
    - Linux users: Select your specific distribution (Ubuntu, Debian, Fedora, etc.)
