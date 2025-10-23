@@ -721,7 +721,6 @@ def llm_generate(content):
     chain = prompt | llm | StrOutputParser()
 
     response = chain.invoke({"table_content": content})
-    print("response", response)
     return response
 
 
